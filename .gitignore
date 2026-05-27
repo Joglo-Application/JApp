@@ -33,6 +33,13 @@ migrate_working_dir/
 /build/
 /coverage/
 
+
+.flutter-plugins
+.packages
+pubspec.lock
+ios/Pods/
+ios/.symlinks/
+
 # Symbolication related
 app.*.symbols
 
