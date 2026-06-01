@@ -1,4 +1,4 @@
-package com.jazzdev.resto_pos
+package com.jazzdev.japp
 
 import io.flutter.embedding.android.FlutterActivity
 
