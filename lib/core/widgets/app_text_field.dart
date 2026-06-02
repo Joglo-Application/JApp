@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 
-/// A reusable text field with consistent styling for the POS app.
+/// A form text field with consistent design-system styling.
+///
+/// For search-specific inputs use [AppSearchField] instead.
 class AppTextField extends StatelessWidget {
   const AppTextField({
     super.key,
@@ -15,6 +21,7 @@ class AppTextField extends StatelessWidget {
     this.onChanged,
     this.enabled = true,
     this.autofocus = false,
+    this.obscureText = false,
     this.textInputAction,
     this.onFieldSubmitted,
   });
@@ -30,6 +37,7 @@ class AppTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final bool enabled;
   final bool autofocus;
+  final bool obscureText;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onFieldSubmitted;
 
@@ -43,50 +51,42 @@ class AppTextField extends StatelessWidget {
       onChanged: onChanged,
       enabled: enabled,
       autofocus: autofocus,
+      obscureText: obscureText,
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
+      style: AppTypography.textTheme.bodyMedium?.copyWith(
+        color: AppColors.onSurface,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: AppRadius.xs,
+          borderSide: const BorderSide(color: AppColors.outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 1,
-          ),
+          borderRadius: AppRadius.xs,
+          borderSide: const BorderSide(color: AppColors.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 2,
-          ),
+          borderRadius: AppRadius.xs,
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.error,
-            width: 1.5,
-          ),
+          borderRadius: AppRadius.xs,
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.error,
-            width: 2,
-          ),
+          borderRadius: AppRadius.xs,
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
         ),
       ),
     );
