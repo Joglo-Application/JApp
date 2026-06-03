@@ -7,6 +7,8 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/pos/presentation/providers/menu_provider.dart';
+import 'features/pos/presentation/providers/order_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +18,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => MenuProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: const RestoPosApp(),
     ),

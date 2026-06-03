@@ -51,35 +51,38 @@ class _SplashPageState extends State<SplashPage>
     return Scaffold(
       backgroundColor: AppColors.shellBackground,
       body: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(flex: 3),
-            FadeTransition(
-              opacity: _fade,
-              child: ScaleTransition(
-                scale: _scale,
+        child: SizedBox.expand(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Spacer(flex: 3),
+              FadeTransition(
+                opacity: _fade,
+                child: ScaleTransition(
+                  scale: _scale,
+                  child: const Column(
+                    children: [
+                      _Logo(),
+                      SizedBox(height: AppSpacing.x6),
+                      _AppName(),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(flex: 3),
+              FadeTransition(
+                opacity: _fade,
                 child: const Column(
                   children: [
-                    _Logo(),
+                    _LoadingDots(),
                     SizedBox(height: AppSpacing.x6),
-                    _AppName(),
+                    _VersionLabel(),
+                    SizedBox(height: AppSpacing.x6),
                   ],
                 ),
               ),
-            ),
-            const Spacer(flex: 3),
-            FadeTransition(
-              opacity: _fade,
-              child: const Column(
-                children: [
-                  _LoadingDots(),
-                  SizedBox(height: AppSpacing.x6),
-                  _VersionLabel(),
-                  SizedBox(height: AppSpacing.x6),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -123,7 +126,7 @@ class _AppName extends StatelessWidget {
     return Column(
       children: [
         Text(
-          'RESTO POS',
+          'JApp',
           style: AppTypography.textTheme.headlineMedium?.copyWith(
             color: AppColors.primary,
             letterSpacing: 4,

@@ -14,7 +14,7 @@ class AuthProvider extends ChangeNotifier {
 
     await Future.delayed(const Duration(milliseconds: 800));
 
-    final valid = username.trim() == 'admin' && password == 'admin123';
+    final valid = username.trim() == 'pos' && password == 'pos123';
 
     if (!valid) {
       _error = 'Invalid username or password';

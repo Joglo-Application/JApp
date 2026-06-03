@@ -107,7 +107,7 @@ class _LogoHeader extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.x4),
         Text(
-          'RESTO POS',
+          'JApp',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             color: AppColors.primary,
             letterSpacing: 3,
@@ -279,7 +279,7 @@ class _HintText extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.x2),
           Text(
-            'Default: admin / admin123',
+            'Default: pos / pos123',
             style: AppTypography.textTheme.bodySmall?.copyWith(
               color: AppColors.onSurfaceVariant,
             ),

@@ -2,7 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
-import '../../main.dart';
+import '../../features/pos/presentation/pages/pos_page.dart';
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
@@ -18,7 +18,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.home,
-      builder: (context, state) => const MainShell(),
+      builder: (context, state) => const PosPage(),
     ),
   ],
 );
