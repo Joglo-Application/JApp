@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/order_panel/order_panel.dart';
+import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/product_panel/product_panel.dart';
 
 const double _kExpandedBreakpoint = 800;
@@ -11,6 +12,7 @@ class PosPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const PosDrawer(),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= _kExpandedBreakpoint) {

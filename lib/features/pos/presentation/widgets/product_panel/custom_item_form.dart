@@ -6,13 +6,16 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
-import '../../../../../core/utils/id_generator.dart';
 import '../../../../../core/widgets/app_button.dart';
-import '../../../domain/entities/order_item.dart';
-import '../../providers/order_provider.dart';
+import '../../../domain/entities/category.dart';
+import '../../providers/menu_provider.dart';
 
 class CustomItemForm extends StatefulWidget {
-  const CustomItemForm({super.key});
+  const CustomItemForm({super.key, this.onCreated});
+
+  /// Called after a menu is successfully created (e.g. to switch back to the
+  /// Produk grid so the new item is visible).
+  final VoidCallback? onCreated;
 
   @override
   State<CustomItemForm> createState() => _CustomItemFormState();
@@ -21,7 +24,7 @@ class CustomItemForm extends StatefulWidget {
 class _CustomItemFormState extends State<CustomItemForm> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
-  int _quantity = 1;
+  String? _categoryId;
 
   @override
   void dispose() {
@@ -35,33 +38,45 @@ class _CustomItemFormState extends State<CustomItemForm> {
     return text.isEmpty ? 'A' : text[0].toUpperCase();
   }
 
-  void _increment() => setState(() => _quantity++);
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final harga = int.tryParse(_priceController.text.replaceAll(RegExp(r'\D'), ''));
+    final kategori = _categoryId;
 
-  void _decrement() {
-    if (_quantity > 1) setState(() => _quantity--);
+    if (name.isEmpty || harga == null || harga <= 0 || kategori == null) {
+      _toast('Lengkapi nama, kategori, dan harga terlebih dahulu.');
+      return;
+    }
+
+    final menu = context.read<MenuProvider>();
+    final ok = await menu.createMenu(
+      namaMenu: name,
+      kategori: kategori,
+      harga: harga,
+    );
+    if (!mounted) return;
+
+    if (ok) {
+      _toast('Menu "$name" berhasil ditambahkan.');
+      _nameController.clear();
+      _priceController.clear();
+      setState(() => _categoryId = null);
+      widget.onCreated?.call();
+    } else {
+      _toast(menu.submitError ?? 'Gagal menambah menu.');
+    }
   }
 
-  void _submit() {
-    final name = _nameController.text.trim();
-    final price = double.tryParse(_priceController.text.replaceAll(',', ''));
-    if (name.isEmpty || price == null || price <= 0) return;
-
-    context.read<OrderProvider>().addOrIncrement(
-          OrderItem(
-            productId: IdGenerator.generate(),
-            name: name,
-            unitPrice: price,
-            quantity: _quantity,
-          ),
-        );
-
-    _nameController.clear();
-    _priceController.clear();
-    setState(() => _quantity = 1);
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final menu = context.watch<MenuProvider>();
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.x6),
@@ -81,17 +96,18 @@ class _CustomItemFormState extends State<CustomItemForm> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: AppSpacing.x6),
-              _PriceField(controller: _priceController),
-              const SizedBox(height: AppSpacing.x6),
-              _QuantityRow(
-                quantity: _quantity,
-                onDecrement: _decrement,
-                onIncrement: _increment,
+              _CategoryField(
+                categories: menu.categories,
+                value: _categoryId,
+                onChanged: (id) => setState(() => _categoryId = id),
               ),
               const SizedBox(height: AppSpacing.x6),
+              _PriceField(controller: _priceController),
+              const SizedBox(height: AppSpacing.x6),
               AppButton(
-                label: 'Tambahkan Item Custom',
+                label: 'Tambahkan Menu',
                 onPressed: _submit,
+                isLoading: menu.isSubmitting,
                 width: double.infinity,
               ),
             ],
@@ -128,7 +144,7 @@ class _NameField extends StatelessWidget {
               color: AppColors.onSurface,
             ),
             decoration: InputDecoration(
-              hintText: 'Nama item',
+              hintText: 'Nama menu',
               hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
@@ -145,8 +161,74 @@ class _NameField extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _CategoryField extends StatelessWidget {
+  const _CategoryField({
+    required this.categories,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<Category> categories;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: const BoxDecoration(
+            color: AppColors.primary,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.sell_outlined,
+            color: AppColors.onPrimary,
+            size: 18,
+          ),
+        ),
         const SizedBox(width: AppSpacing.x3),
-        _DropdownButton(),
+        Expanded(
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.outline),
+              ),
+            ),
+            child: DropdownButton<String>(
+              value: value,
+              isDense: true,
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              hint: Text(
+                categories.isEmpty ? 'Tidak ada kategori' : 'Pilih kategori',
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurface,
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primary,
+              ),
+              items: [
+                for (final c in categories)
+                  DropdownMenuItem<String>(value: c.id, child: Text(c.name)),
+              ],
+              onChanged: categories.isEmpty ? null : onChanged,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -173,25 +255,6 @@ class _AvatarBadge extends StatelessWidget {
           color: AppColors.onPrimary,
           fontWeight: FontWeight.w700,
         ),
-      ),
-    );
-  }
-}
-
-class _DropdownButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.sm,
-      ),
-      child: const Icon(
-        Icons.keyboard_arrow_down_rounded,
-        color: AppColors.onPrimary,
-        size: 20,
       ),
     );
   }
@@ -260,70 +323,3 @@ class _CurrencyIcon extends StatelessWidget {
   }
 }
 
-class _QuantityRow extends StatelessWidget {
-  const _QuantityRow({
-    required this.quantity,
-    required this.onDecrement,
-    required this.onIncrement,
-  });
-
-  final int quantity;
-  final VoidCallback onDecrement;
-  final VoidCallback onIncrement;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: TextField(
-            readOnly: true,
-            controller: TextEditingController(text: '$quantity'),
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: AppSpacing.x2),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.outline),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.x3),
-        _StepperButton(icon: Icons.remove, onTap: onDecrement),
-        const SizedBox(width: AppSpacing.x2),
-        _StepperButton(icon: Icons.add, onTap: onIncrement),
-      ],
-    );
-  }
-}
-
-class _StepperButton extends StatelessWidget {
-  const _StepperButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.primary, width: 1.5),
-          borderRadius: AppRadius.sm,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: AppColors.primary, size: 18),
-      ),
-    );
-  }
-}
