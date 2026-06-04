@@ -50,6 +50,12 @@ dependencies:
   uuid: ^4.5.1
   intl: ^0.20.2
 
+  # NETWORKING
+  dio: ^5.7.0
+
+  # SECURE STORAGE (JWT token)
+  flutter_secure_storage: ^9.2.2
+
   # LAUNCHER ICONS
   flutter_launcher_icons: ^0.14.4
 
