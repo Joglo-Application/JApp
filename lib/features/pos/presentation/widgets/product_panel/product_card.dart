@@ -127,13 +127,18 @@ class _ProductInfo extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            product.name,
-            style: AppTypography.textTheme.labelMedium?.copyWith(
-              color: AppColors.onSurface,
+          // Fixed 2-line slot (12px * 1.33 line-height * 2) so cards with
+          // 1- vs 2-line names keep an identical info block height.
+          SizedBox(
+            height: 32,
+            child: Text(
+              product.name,
+              style: AppTypography.textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurface,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.x1),
           Row(

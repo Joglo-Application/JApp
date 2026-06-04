@@ -15,8 +15,19 @@ class ProductGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final products = context.watch<MenuProvider>().filteredProducts;
+    final menu = context.watch<MenuProvider>();
 
+    if (menu.isLoading && !menu.hasLoaded) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.onPrimary),
+      );
+    }
+
+    if (menu.error != null && !menu.hasLoaded) {
+      return _ErrorState(message: menu.error!, onRetry: menu.refresh);
+    }
+
+    final products = menu.filteredProducts;
     if (products.isEmpty) {
       return const _EmptyState();
     }
@@ -67,6 +78,53 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.x6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: AppColors.onPrimary.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: AppSpacing.x3),
+            Text(
+              'Gagal memuat menu',
+              style: AppTypography.textTheme.titleSmall?.copyWith(
+                color: AppColors.onPrimary.withValues(alpha: 0.75),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x1),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.textTheme.bodySmall?.copyWith(
+                color: AppColors.onPrimary.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x4),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/order_panel/order_panel.dart';
+import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/product_panel/product_panel.dart';
 import 'payment_page.dart';
 
@@ -12,6 +13,7 @@ class PosPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const PosDrawer(),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

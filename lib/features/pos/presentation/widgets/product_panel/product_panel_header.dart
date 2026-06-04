@@ -44,10 +44,10 @@ class _ProductPanelHeaderState extends State<ProductPanelHeader> {
         ),
         child: IntrinsicHeight(
           child: Row(
+            // Stretch so the category button matches the search field height.
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                flex: 3,
                 child: AppSearchField(
                   controller: _searchCtrl,
                   hint: 'Cari produk…',
@@ -55,10 +55,7 @@ class _ProductPanelHeaderState extends State<ProductPanelHeader> {
                 ),
               ),
               const SizedBox(width: AppSpacing.x2),
-              Expanded(
-                flex: 1,
-                child: const _CategoryFilterButton(),
-              ),
+              const _CategoryFilterButton(),
             ],
           ),
         ),
