@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../providers/auth_provider.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -35,9 +37,21 @@ class _SplashPageState extends State<SplashPage>
 
     _ctrl.forward();
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) context.go(AppRoutes.login);
-    });
+    _bootstrap();
+  }
+
+  /// Restore a saved session (if any) while showing the splash, then route
+  /// to home when still authenticated, or to login otherwise.
+  Future<void> _bootstrap() async {
+    final auth = context.read<AuthProvider>();
+    final results = await Future.wait([
+      auth.tryAutoLogin(),
+      Future.delayed(const Duration(milliseconds: 2000), () => false),
+    ]);
+
+    if (!mounted) return;
+    final loggedIn = results.first;
+    context.go(loggedIn ? AppRoutes.home : AppRoutes.login);
   }
 
   @override

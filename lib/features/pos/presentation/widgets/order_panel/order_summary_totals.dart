@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/utils/currency_formatter.dart';
+import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
 
 class OrderSummaryTotals extends StatelessWidget {
@@ -15,6 +16,10 @@ class OrderSummaryTotals extends StatelessWidget {
     final order = context.watch<OrderProvider>();
     final serviceRate = order.taxRate / 2;
     final taxRate = order.taxRate / 2;
+
+    final namaKasir = context.select<AuthProvider, String>(
+      (auth) => auth.user?.namaUser ?? '-',
+    );
 
     return Column(
       children: [
@@ -39,7 +44,7 @@ class OrderSummaryTotals extends StatelessWidget {
           shaded: true,
         ),
         _SummaryRow(
-          label: 'Dilayani Oleh : Kasir01',
+          label: 'Dilayani Oleh : $namaKasir',
           value: '',
           shaded: false,
         ),

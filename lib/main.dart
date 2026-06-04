@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
+import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
+import 'core/router/app_routes.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
@@ -13,6 +15,9 @@ import 'features/pos/presentation/providers/order_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+
+  // On any 401 the token is cleared; send the user back to login.
+  ApiClient.instance.onUnauthorized = () => appRouter.go(AppRoutes.login);
 
   runApp(
     MultiProvider(

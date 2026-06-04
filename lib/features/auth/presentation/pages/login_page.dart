@@ -279,7 +279,7 @@ class _HintText extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.x2),
           Text(
-            'Default: pos / pos123',
+            'Default: admin / admin123',
             style: AppTypography.textTheme.bodySmall?.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
