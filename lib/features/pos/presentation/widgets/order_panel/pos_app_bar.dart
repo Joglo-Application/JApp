@@ -62,7 +62,7 @@ class _MenuButton extends StatelessWidget {
       color: AppColors.primary,
       borderRadius: AppRadius.md,
       child: InkWell(
-        onTap: () {},
+        onTap: () => Scaffold.of(context).openDrawer(),
         borderRadius: AppRadius.md,
         child: const SizedBox(
           width: 60,
@@ -81,13 +81,13 @@ class _ActionBar extends StatelessWidget {
 
   static const _actions = <_Action>[
     _Action(icon: Icons.print_rounded, label: 'Cetak'),
-    _Action(icon: Icons.percent_rounded, label: 'Diskon\nPesanan'),
-    _Action(icon: Icons.chat_bubble_rounded, label: 'Catatan\nPesanan'),
-    _Action(icon: Icons.send_rounded, label: 'Kirim\nDapur'),
+    _Action(icon: Icons.percent_rounded, label: 'Diskon Pesanan'),
+    _Action(icon: Icons.chat_bubble_rounded, label: 'Catatan Pesanan'),
+    _Action(icon: Icons.send_rounded, label: 'Kirim Dapur'),
     _Action(icon: Icons.swap_horiz_rounded, label: 'In/Away'),
-    _Action(icon: Icons.chair_alt_rounded, label: 'Pilih\nMeja'),
+    _Action(icon: Icons.chair_alt_rounded, label: 'Pilih Meja'),
     _Action(icon: Icons.content_cut_rounded, label: 'Split Bill'),
-    _Action(icon: Icons.star_rounded, label: 'Loyalty\nPoint'),
+    _Action(icon: Icons.star_rounded, label: 'Loyalty Point'),
     _Action(icon: Icons.hourglass_empty_rounded, label: 'Pending'),
   ];
 
@@ -96,6 +96,7 @@ class _ActionBar extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: _actions
             .map(
               (a) => Padding(
@@ -119,42 +120,57 @@ class _Action {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({required this.action});
 
-  static const double _size = 56;
+  static const double _box = 56; // square icon button (width == height)
+  // Two lines of labelSmall (11px × 1.45 ≈ 16px/line) plus a small margin, so
+  // every button is the same height whether its label wraps to one or two
+  // lines — which keeps the squares tightly and evenly spaced.
+  static const double _labelHeight = 34;
 
   final _Action action;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          color: AppColors.primary,
-          borderRadius: AppRadius.md,
-          child: InkWell(
-            onTap: () {},
+    // Cell width == the square, so squares sit close together (the gap is the
+    // _ActionBar's 8px padding). Labels wrap to two lines within that width.
+    return SizedBox(
+      width: _box,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: AppColors.primary,
             borderRadius: AppRadius.md,
-            child: SizedBox(
-              width: _size,
-              height: _size,
-              child: Icon(action.icon, size: 24, color: AppColors.onPrimary),
+            child: InkWell(
+              onTap: () {},
+              borderRadius: AppRadius.md,
+              child: SizedBox(
+                width: _box,
+                height: _box,
+                child: Center(
+                  child: Icon(
+                    action.icon,
+                    size: 24,
+                    color: AppColors.onPrimary,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.x1),
-        SizedBox(
-          width: _size,
-          child: Text(
-            action.label,
-            style: AppTypography.textTheme.labelSmall?.copyWith(
-              color: AppColors.onSecondary,
+          const SizedBox(height: AppSpacing.x1),
+          SizedBox(
+            height: _labelHeight,
+            child: Text(
+              action.label,
+              style: AppTypography.textTheme.labelSmall?.copyWith(
+                color: AppColors.onSecondary,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

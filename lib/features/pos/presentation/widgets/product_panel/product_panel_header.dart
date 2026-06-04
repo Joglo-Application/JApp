@@ -42,18 +42,22 @@ class _ProductPanelHeaderState extends State<ProductPanelHeader> {
           horizontal: AppSpacing.x3,
           vertical: AppSpacing.x2,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchCtrl,
-                hint: 'Cari produk…',
-                onChanged: context.read<MenuProvider>().search,
+        child: IntrinsicHeight(
+          child: Row(
+            // Stretch so the category button matches the search field height.
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: AppSearchField(
+                  controller: _searchCtrl,
+                  hint: 'Cari produk…',
+                  onChanged: context.read<MenuProvider>().search,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            const _CategoryDropdown(),
-          ],
+              const SizedBox(width: AppSpacing.x2),
+              const _CategoryDropdown(),
+            ],
+          ),
         ),
       ),
     );
