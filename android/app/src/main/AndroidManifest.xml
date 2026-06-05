@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- Required for the app to reach the backend API in release builds.
+         (debug/profile manifests declare this separately and are NOT merged
+         into release, so it must live h    ere too.) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="JApp"
         android:name="${applicationName}"
