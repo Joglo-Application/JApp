@@ -7,9 +7,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/app_text_field.dart';
 import '../providers/auth_provider.dart';
+
+enum _LoginMode { email, staff }
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,15 +20,26 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameCtrl = TextEditingController();
+  final _primaryCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _showPassword = false;
+  _LoginMode _mode = _LoginMode.email;
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
+    _primaryCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  void _switchMode(_LoginMode mode) {
+    if (_mode == mode) return;
+    setState(() {
+      _mode = mode;
+      _primaryCtrl.clear();
+      _passwordCtrl.clear();
+    });
+    context.read<AuthProvider>().clearError();
   }
 
   Future<void> _submit() async {
@@ -36,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final auth = context.read<AuthProvider>();
     final success = await auth.login(
-      _usernameCtrl.text,
+      _primaryCtrl.text,
       _passwordCtrl.text,
     );
 
@@ -46,29 +57,38 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.shellBackground,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x5,
-              vertical: AppSpacing.x8,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const _LogoHeader(),
-                const SizedBox(height: AppSpacing.x8),
-                _LoginCard(
-                  formKey: _formKey,
-                  usernameCtrl: _usernameCtrl,
-                  passwordCtrl: _passwordCtrl,
-                  showPassword: _showPassword,
-                  onTogglePassword: () =>
-                      setState(() => _showPassword = !_showPassword),
-                  onSubmit: _submit,
-                ),
-              ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.x5,
+                vertical: AppSpacing.x8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const _LogoHeader(),
+                  const SizedBox(height: AppSpacing.x8),
+                  _LoginCard(
+                    formKey: _formKey,
+                    primaryCtrl: _primaryCtrl,
+                    passwordCtrl: _passwordCtrl,
+                    showPassword: _showPassword,
+                    mode: _mode,
+                    onSwitchMode: _switchMode,
+                    onTogglePassword: () =>
+                        setState(() => _showPassword = !_showPassword),
+                    onSubmit: _submit,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -121,17 +141,21 @@ class _LogoHeader extends StatelessWidget {
 class _LoginCard extends StatelessWidget {
   const _LoginCard({
     required this.formKey,
-    required this.usernameCtrl,
+    required this.primaryCtrl,
     required this.passwordCtrl,
     required this.showPassword,
+    required this.mode,
+    required this.onSwitchMode,
     required this.onTogglePassword,
     required this.onSubmit,
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController usernameCtrl;
+  final TextEditingController primaryCtrl;
   final TextEditingController passwordCtrl;
   final bool showPassword;
+  final _LoginMode mode;
+  final ValueChanged<_LoginMode> onSwitchMode;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
 
@@ -151,62 +175,209 @@ class _LoginCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(AppSpacing.x8),
-      child: Form(
-        key: formKey,
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Welcome Back',
-              style: AppTypography.textTheme.headlineSmall?.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.x1),
-            Text(
-              'Sign in to your account',
-              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.x8),
-            AppTextField(
-              controller: usernameCtrl,
-              label: 'Username',
-              prefixIcon: Icons.person_outline,
-              textInputAction: TextInputAction.next,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Enter your username' : null,
-            ),
-            const SizedBox(height: AppSpacing.x4),
-            AppTextField(
-              controller: passwordCtrl,
-              label: 'Password',
-              prefixIcon: Icons.lock_outline,
-              obscureText: !showPassword,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => onSubmit(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  showPassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  color: AppColors.onSurfaceVariant,
+            _ModeTabBar(mode: mode, onSwitchMode: onSwitchMode),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.x6),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _LoginField(
+                      label: mode == _LoginMode.email ? 'Email' : 'Kode Staff',
+                      hint: mode == _LoginMode.email
+                          ? 'Masukkan Email'
+                          : 'Masukkan Kode Staff',
+                      controller: primaryCtrl,
+                      keyboardType: mode == _LoginMode.email
+                          ? TextInputType.emailAddress
+                          : TextInputType.text,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? mode == _LoginMode.email
+                              ? 'Masukkan email Anda'
+                              : 'Masukkan kode staff Anda'
+                          : null,
+                    ),
+                    const SizedBox(height: AppSpacing.x4),
+                    _LoginField(
+                      label: 'Kata Sandi',
+                      hint: 'Masukkan Kata Sandi',
+                      controller: passwordCtrl,
+                      obscureText: !showPassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => onSubmit(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppColors.onSurfaceVariant,
+                          size: 20,
+                        ),
+                        onPressed: onTogglePassword,
+                      ),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Masukkan kata sandi Anda'
+                          : null,
+                    ),
+                    const _ErrorText(),
+                    const SizedBox(height: AppSpacing.x6),
+                    _SubmitButton(onSubmit: onSubmit),
+                  ],
                 ),
-                onPressed: onTogglePassword,
               ),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Enter your password' : null,
             ),
-            const _ErrorText(),
-            const SizedBox(height: AppSpacing.x6),
-            _SubmitButton(onSubmit: onSubmit),
-            const SizedBox(height: AppSpacing.x6),
-            const _HintText(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ModeTabBar extends StatelessWidget {
+  const _ModeTabBar({required this.mode, required this.onSwitchMode});
+
+  final _LoginMode mode;
+  final ValueChanged<_LoginMode> onSwitchMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ModeTab(
+          icon: Icons.mail_outline,
+          isSelected: mode == _LoginMode.email,
+          onTap: () => onSwitchMode(_LoginMode.email),
+        ),
+        _ModeTab(
+          icon: Icons.manage_accounts_outlined,
+          isSelected: mode == _LoginMode.staff,
+          onTap: () => onSwitchMode(_LoginMode.staff),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeTab extends StatelessWidget {
+  const _ModeTab({
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 60,
+          color: isSelected ? AppColors.surface : AppColors.background,
+          child: Icon(
+            icon,
+            size: 28,
+            color: isSelected
+                ? AppColors.onSurface
+                : AppColors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginField extends StatelessWidget {
+  const _LoginField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.keyboardType,
+    this.obscureText = false,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.suffixIcon,
+    this.validator,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.x2),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          textInputAction: textInputAction,
+          onFieldSubmitted: onFieldSubmitted,
+          validator: validator,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurface,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+            suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(
+              borderRadius: AppRadius.sm,
+              borderSide: const BorderSide(color: AppColors.outline),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppRadius.sm,
+              borderSide: const BorderSide(color: AppColors.outline),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.sm,
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: AppRadius.sm,
+              borderSide: const BorderSide(color: AppColors.error),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: AppRadius.sm,
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x4,
+              vertical: AppSpacing.x4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -246,45 +417,34 @@ class _SubmitButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
-    return AppButton(
-      label: 'Sign In',
-      onPressed: onSubmit,
-      isLoading: isLoading,
-      icon: Icons.login,
+    return SizedBox(
       width: double.infinity,
-    );
-  }
-}
-
-class _HintText extends StatelessWidget {
-  const _HintText();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: AppRadius.sm,
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline,
-            size: 14,
-            color: AppColors.onSurfaceVariant,
-          ),
-          const SizedBox(width: AppSpacing.x2),
-          Text(
-            'Default: pos / pos123',
-            style: AppTypography.textTheme.bodySmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-        ],
+      height: 52,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onSubmit,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          disabledBackgroundColor: AppColors.primaryContainer,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
+          elevation: 0,
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.onPrimary,
+                ),
+              )
+            : Text(
+                'Masuk',
+                style: AppTypography.textTheme.titleMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }

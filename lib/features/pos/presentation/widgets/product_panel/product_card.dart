@@ -1,37 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/utils/currency_formatter.dart';
-import '../../../../pos/domain/entities/order_item.dart';
 import '../../../../pos/domain/entities/product.dart';
-import '../../providers/order_provider.dart';
 
 class ProductCard extends StatelessWidget {
-  const ProductCard({super.key, required this.product});
+  const ProductCard({
+    super.key,
+    required this.product,
+    required this.onTap,
+  });
 
   final Product product;
-
-  void _addToOrder(BuildContext context) {
-    context.read<OrderProvider>().addOrIncrement(
-          OrderItem(
-            productId: product.id,
-            name: product.name,
-            unitPrice: product.price,
-            quantity: 1,
-          ),
-        );
-  }
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
       child: InkWell(
-        onTap: product.isAvailable ? () => _addToOrder(context) : null,
+        onTap: product.isAvailable ? onTap : null,
         borderRadius: AppRadius.md,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -39,7 +30,7 @@ class ProductCard extends StatelessWidget {
             Expanded(child: _ProductImage(product: product)),
             _ProductInfo(
               product: product,
-              onAdd: product.isAvailable ? () => _addToOrder(context) : null,
+              onAdd: product.isAvailable ? onTap : null,
             ),
           ],
         ),

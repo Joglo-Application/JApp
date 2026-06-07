@@ -6,7 +6,7 @@ import '../../features/pos/presentation/pages/pos_page.dart';
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.splash,
+  initialLocation: AppRoutes.home,
   routes: [
     GoRoute(
       path: AppRoutes.splash,

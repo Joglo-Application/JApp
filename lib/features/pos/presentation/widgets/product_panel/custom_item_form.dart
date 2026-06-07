@@ -146,7 +146,7 @@ class _NameField extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.x3),
-        _DropdownButton(),
+        _DropdownButton(controller: controller, onSelected: onChanged),
       ],
     );
   }
@@ -178,20 +178,138 @@ class _AvatarBadge extends StatelessWidget {
   }
 }
 
+// Predefined custom item name templates
+const List<String> _kCustomItemTemplates = [
+  'Barang Titip Jual',
+  'Sambel Ulek',
+  'Sambel Ijo',
+];
+
 class _DropdownButton extends StatelessWidget {
+  const _DropdownButton({
+    required this.controller,
+    required this.onSelected,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onSelected;
+
+  void _showPicker(BuildContext context) {
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.primary,
+        shape: AppRadius.toShape(AppRadius.lg),
+        child: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x4,
+                  AppSpacing.x4,
+                  AppSpacing.x2,
+                  AppSpacing.x4,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppColors.onPrimary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Expanded(
+                      child: Text(
+                        'Custom',
+                        style: AppTypography.textTheme.titleMedium?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      color: AppColors.onPrimary,
+                      iconSize: 22,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.x4),
+                  shrinkWrap: true,
+                  children: _kCustomItemTemplates
+                      .map((name) => _CustomItemTile(
+                            label: name,
+                            onTap: () => Navigator.of(ctx).pop(name),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((selected) {
+      if (selected != null) {
+        controller.text = selected;
+        onSelected(selected);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.sm,
+    return GestureDetector(
+      onTap: () => _showPicker(context),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: AppRadius.sm,
+        ),
+        child: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: AppColors.onPrimary,
+          size: 20,
+        ),
       ),
-      child: const Icon(
-        Icons.keyboard_arrow_down_rounded,
-        color: AppColors.onPrimary,
-        size: 20,
+    );
+  }
+}
+
+class _CustomItemTile extends StatelessWidget {
+  const _CustomItemTile({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2,
+        ),
+        child: Text(
+          label,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: AppColors.onPrimary,
+          ),
+        ),
       ),
     );
   }

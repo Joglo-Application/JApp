@@ -9,6 +9,7 @@ import 'core/theme/app_typography.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/pos/presentation/providers/menu_provider.dart';
 import 'features/pos/presentation/providers/order_provider.dart';
+import 'features/pos/presentation/providers/pos_ui_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,19 +21,20 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => MenuProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => PosUiProvider()),
       ],
-      child: const RestoPosApp(),
+      child: const JApp(),
     ),
   );
 }
 
-class RestoPosApp extends StatelessWidget {
-  const RestoPosApp({super.key});
+class JApp extends StatelessWidget {
+  const JApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Resto POS',
+      title: 'JApp',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: appRouter,

@@ -42,28 +42,35 @@ class _ProductPanelHeaderState extends State<ProductPanelHeader> {
           horizontal: AppSpacing.x3,
           vertical: AppSpacing.x2,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchCtrl,
-                hint: 'Cari produk…',
-                onChanged: context.read<MenuProvider>().search,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 3,
+                child: AppSearchField(
+                  controller: _searchCtrl,
+                  hint: 'Cari produk…',
+                  onChanged: context.read<MenuProvider>().search,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            const _CategoryDropdown(),
-          ],
+              const SizedBox(width: AppSpacing.x2),
+              Expanded(
+                flex: 1,
+                child: const _CategoryFilterButton(),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Category dropdown ─────────────────────────────────────────────────────────
+// ── Category filter button ────────────────────────────────────────────────────
 
-class _CategoryDropdown extends StatelessWidget {
-  const _CategoryDropdown();
+class _CategoryFilterButton extends StatelessWidget {
+  const _CategoryFilterButton();
 
   @override
   Widget build(BuildContext context) {
@@ -75,59 +82,206 @@ class _CategoryDropdown extends StatelessWidget {
             .firstWhere((c) => c.id == menu.selectedCategoryId)
             .name;
 
-    return PopupMenuButton<String?>(
-      initialValue: menu.selectedCategoryId,
-      onSelected: menu.selectCategory,
-      itemBuilder: (_) => [
-        const PopupMenuItem<String?>(
-          value: null,
-          child: Text('Semua Kategori'),
+    return GestureDetector(
+      onTap: () => _showCategoryPicker(context, menu),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.xs,
+          border: Border.all(color: AppColors.outline),
         ),
-        ...menu.categories.map(
-          (c) => PopupMenuItem<String?>(
-            value: c.id,
-            child: Text(c.name),
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: AppTypography.textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x1),
+            const Icon(
+              Icons.filter_list_rounded,
+              size: 16,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ],
         ),
-      ],
-      child: _CategoryButton(label: label),
+      ),
+    );
+  }
+
+  void _showCategoryPicker(BuildContext context, MenuProvider menu) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: menu,
+        child: const _CategoryPickerDialog(),
+      ),
     );
   }
 }
 
-class _CategoryButton extends StatelessWidget {
-  const _CategoryButton({required this.label});
+// ── Category picker dialog ────────────────────────────────────────────────────
 
-  final String label;
+class _CategoryPickerDialog extends StatelessWidget {
+  const _CategoryPickerDialog();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x3,
-        vertical: AppSpacing.x2 + 2,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.xs,
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: AppTypography.textTheme.labelMedium?.copyWith(
-              color: AppColors.onSurfaceVariant,
+    final menu = context.watch<MenuProvider>();
+
+    return Dialog(
+      backgroundColor: AppColors.primary,
+      shape: AppRadius.toShape(AppRadius.lg),
+      child: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x4,
+                AppSpacing.x4,
+                AppSpacing.x2,
+                AppSpacing.x4,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.filter_list_rounded,
+                    color: AppColors.onPrimary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  Expanded(
+                    child: Text(
+                      menu.selectedCategoryId == null
+                          ? 'Semua Kategori'
+                          : menu.categories
+                              .firstWhere(
+                                  (c) => c.id == menu.selectedCategoryId)
+                              .name,
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.onPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: AppColors.onPrimary,
+                    iconSize: 22,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.x1),
-          const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 16,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ],
+
+            // Category list
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.55,
+              ),
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.x4),
+                shrinkWrap: true,
+                children: [
+                  // "All" option
+                  _CategoryTile(
+                    label: 'Semua Kategori',
+                    isSelected: menu.selectedCategoryId == null,
+                    onTap: () {
+                      menu.selectCategory(null);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  // Per-category tiles
+                  ...menu.categories.map(
+                    (c) => _CategoryTile(
+                      label: c.name,
+                      isSelected: menu.selectedCategoryId == c.id,
+                      onTap: () {
+                        menu.selectCategory(c.id);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Category tile ─────────────────────────────────────────────────────────────
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: isSelected
+            ? AppColors.onPrimary.withValues(alpha: 0.15)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2,
+        ),
+        child: Row(
+          children: [
+            // // Thumbnail placeholder
+            // Container(
+            //   width: 44,
+            //   height: 44,
+            //   decoration: BoxDecoration(
+            //     color: AppColors.surface,
+            //     borderRadius: AppRadius.sm,
+            //   ),
+            //   child: const Icon(
+            //     Icons.image_rounded,
+            //     size: 22,
+            //     color: AppColors.outline,
+            //   ),
+            // ),
+            // const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_rounded,
+                size: 18,
+                color: AppColors.onPrimary,
+              ),
+          ],
+        ),
       ),
     );
   }
