@@ -23,6 +23,12 @@ class OrderSummaryTotals extends StatelessWidget {
 
     return Column(
       children: [
+        if (order.orderDiscountAmount > 0)
+          _SummaryRow(
+            label: 'Diskon :',
+            value: '-${CurrencyFormatter.format(order.orderDiscountAmount)}',
+            shaded: true,
+          ),
         _SummaryRow(
           label: 'Subtotal :',
           value: CurrencyFormatter.format(order.subtotal),

@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../domain/entities/product.dart';
 import '../../providers/menu_provider.dart';
 import 'product_card.dart';
 
 class ProductGrid extends StatelessWidget {
-  const ProductGrid({super.key});
+  const ProductGrid({super.key, required this.onProductTap});
+
+  final ValueChanged<Product> onProductTap;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +41,10 @@ class ProductGrid extends StatelessWidget {
         mainAxisSpacing: AppSpacing.x3,
       ),
       itemCount: products.length,
-      itemBuilder: (_, index) => ProductCard(product: products[index]),
+      itemBuilder: (_, index) => ProductCard(
+        product: products[index],
+        onTap: () => onProductTap(products[index]),
+      ),
     );
   }
 }

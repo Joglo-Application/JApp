@@ -9,11 +9,21 @@ class OrderProvider extends ChangeNotifier {
   final double taxRate;
   final List<OrderItem> _items = [];
   String _customerName = '';
+  double _orderDiscount = 0;
+  DiscountType _orderDiscountType = DiscountType.amount;
 
   String get customerName => _customerName;
+  double get orderDiscount => _orderDiscount;
+  DiscountType get orderDiscountType => _orderDiscountType;
 
   void setCustomerName(String name) {
     _customerName = name;
+    notifyListeners();
+  }
+
+  void setOrderDiscount(double discount, DiscountType type) {
+    _orderDiscount = discount;
+    _orderDiscountType = type;
     notifyListeners();
   }
 
@@ -25,12 +35,36 @@ class OrderProvider extends ChangeNotifier {
 
   double get subtotal => _items.fold(0.0, (s, i) => s + i.subtotal);
   double get taxAmount => subtotal * taxRate;
-  double get total => subtotal + taxAmount;
+
+  double get orderDiscountAmount {
+    if (_orderDiscount <= 0) return 0;
+    if (_orderDiscountType == DiscountType.percent) {
+      return subtotal * (_orderDiscount / 100);
+    }
+    return _orderDiscount;
+  }
+
+  double get total => subtotal + taxAmount - orderDiscountAmount;
 
   void addOrIncrement(OrderItem item) {
     final idx = _items.indexWhere((e) => e.productId == item.productId);
     if (idx >= 0) {
       _items[idx] = _items[idx].copyWith(quantity: _items[idx].quantity + 1);
+    } else {
+      _items.add(item);
+    }
+    notifyListeners();
+  }
+
+  void addFromForm(OrderItem item) {
+    final idx = _items.indexWhere((e) => e.productId == item.productId);
+    if (idx >= 0) {
+      _items[idx] = _items[idx].copyWith(
+        quantity: _items[idx].quantity + item.quantity,
+        discount: item.discount,
+        discountType: item.discountType,
+        note: item.note,
+      );
     } else {
       _items.add(item);
     }
@@ -55,14 +89,23 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaceItem(OrderItem item) {
+    final idx = _items.indexWhere((e) => e.productId == item.productId);
+    if (idx < 0) return;
+    _items[idx] = item;
+    notifyListeners();
+  }
+
   void remove(String productId) {
     _items.removeWhere((e) => e.productId == productId);
     notifyListeners();
   }
 
   void clear() {
-    if (_items.isEmpty) return;
+    if (_items.isEmpty && _orderDiscount == 0) return;
     _items.clear();
+    _orderDiscount = 0;
+    _orderDiscountType = DiscountType.amount;
     notifyListeners();
   }
 }

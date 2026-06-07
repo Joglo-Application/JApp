@@ -34,6 +34,7 @@ class CustomerNameRow extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => _showEditDialog(context),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       label,
