@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/order_item.dart';
 import '../../providers/order_provider.dart';
+import '../../providers/pos_ui_provider.dart';
 import 'order_columns.dart';
 
 class OrderItemTile extends StatelessWidget {
@@ -17,24 +18,27 @@ class OrderItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x2 + 2,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(child: _ItemName(item: item)),
-          SizedBox(
-            width: OrderColumns.qty,
-            child: _QtyStepper(productId: item.productId, qty: item.quantity),
-          ),
-          SizedBox(
-            width: OrderColumns.total,
-            child: _ItemTotal(item: item),
-          ),
-        ],
+    return InkWell(
+      onTap: () => context.read<PosUiProvider>().editItem(item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2 + 2,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: _ItemName(item: item)),
+            SizedBox(
+              width: OrderColumns.qty,
+              child: _QtyBadge(qty: item.quantity),
+            ),
+            SizedBox(
+              width: OrderColumns.total,
+              child: _ItemTotal(item: item),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -47,22 +51,84 @@ class _ItemName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDiscount = item.discount > 0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Text(
-            item.name,
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.name,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurface,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (item.note.isNotEmpty)
+                Text(
+                  item.note,
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurface.withValues(alpha: 0.55),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
           ),
         ),
+        if (hasDiscount) ...[
+          const SizedBox(width: AppSpacing.x2),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                CurrencyFormatter.format(item.unitPrice),
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurface,
+                ),
+              ),
+              Text(
+                _discountLabel(item),
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(width: AppSpacing.x2),
         _RemoveButton(productId: item.productId),
       ],
+    );
+  }
+}
+
+class _QtyBadge extends StatelessWidget {
+  const _QtyBadge({required this.qty});
+
+  final int qty;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x2,
+          vertical: 2,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.xs,
+          border: Border.all(color: AppColors.outline),
+        ),
+        child: Text(
+          '×$qty',
+          style: AppTypography.quantity.copyWith(color: AppColors.onSurface),
+        ),
+      ),
     );
   }
 }
@@ -103,52 +169,15 @@ class _RemoveButton extends StatelessWidget {
   }
 }
 
-class _QtyStepper extends StatelessWidget {
-  const _QtyStepper({required this.productId, required this.qty});
-
-  final String productId;
-  final int qty;
-
-  @override
-  Widget build(BuildContext context) {
-    final order = context.read<OrderProvider>();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _StepButton(icon: Icons.remove, onTap: () => order.decrement(productId)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
-          child: Text(
-            '$qty',
-            style: AppTypography.quantity.copyWith(color: AppColors.onSurface),
-          ),
-        ),
-        _StepButton(icon: Icons.add, onTap: () => order.increment(productId)),
-      ],
-    );
+String _discountLabel(OrderItem item) {
+  final pct = item.discount.toStringAsFixed(0);
+  final nominal = CurrencyFormatter.format(item.discountAmount);
+  if (item.promoName != null) {
+    return item.discountType == DiscountType.percent
+        ? '${item.promoName} $pct%($nominal)'
+        : '${item.promoName} ($nominal)';
   }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.xs,
-          border: Border.all(color: AppColors.outline),
-        ),
-        child: Icon(icon, size: 12, color: AppColors.onSurface),
-      ),
-    );
-  }
+  return item.discountType == DiscountType.percent
+      ? 'Disc. $pct% ($nominal)'
+      : 'Disc. ($nominal)';
 }

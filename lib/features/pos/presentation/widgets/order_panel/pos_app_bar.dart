@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../providers/order_provider.dart';
+import '../product_panel/product_detail_form.dart';
+import 'diskon_input.dart';
 
 class PosAppBar extends StatelessWidget {
   const PosAppBar({super.key});
@@ -11,7 +15,7 @@ class PosAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.grey.shade700,
         border: Border(
           bottom: BorderSide(color: AppColors.secondaryContainer),
@@ -65,8 +69,8 @@ class _MenuButton extends StatelessWidget {
         onTap: () => Scaffold.of(context).openDrawer(),
         borderRadius: AppRadius.md,
         child: const SizedBox(
-          width: 60,
-          height: 60,
+          width: 45,
+          height: 45,
           child: Icon(Icons.menu_rounded, color: AppColors.onPrimary, size: 28),
         ),
       ),
@@ -79,25 +83,42 @@ class _MenuButton extends StatelessWidget {
 class _ActionBar extends StatelessWidget {
   const _ActionBar();
 
-  static const _actions = <_Action>[
-    _Action(icon: Icons.print_rounded, label: 'Cetak'),
-    _Action(icon: Icons.percent_rounded, label: 'Diskon Pesanan'),
-    _Action(icon: Icons.chat_bubble_rounded, label: 'Catatan Pesanan'),
-    _Action(icon: Icons.send_rounded, label: 'Kirim Dapur'),
-    _Action(icon: Icons.swap_horiz_rounded, label: 'In/Away'),
-    _Action(icon: Icons.chair_alt_rounded, label: 'Pilih Meja'),
-    _Action(icon: Icons.content_cut_rounded, label: 'Split Bill'),
-    _Action(icon: Icons.star_rounded, label: 'Loyalty Point'),
-    _Action(icon: Icons.hourglass_empty_rounded, label: 'Pending'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final actions = <_Action>[
+      const _Action(icon: Icons.print_rounded, label: 'Cetak'),
+      _Action(
+        icon: Icons.percent_rounded,
+        label: 'Diskon\nPesanan',
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (_) => DiskonPesananDialog(
+            title: 'Diskon Pesanan',
+            onPromoSelected: (promo) => context
+                .read<OrderProvider>()
+                .setOrderDiscount(promo.discount, promo.discountType),
+            onOpenInput: () => showDialog<void>(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const DiskonInputPage(),
+            ),
+          ),
+        ),
+      ),
+      const _Action(icon: Icons.chat_bubble_rounded, label: 'Catatan\nPesanan'),
+      const _Action(icon: Icons.send_rounded, label: 'Kirim\nDapur'),
+      const _Action(icon: Icons.swap_horiz_rounded, label: 'In/Away'),
+      const _Action(icon: Icons.chair_alt_rounded, label: 'Pilih\nMeja'),
+      const _Action(icon: Icons.content_cut_rounded, label: 'Split Bill'),
+      const _Action(icon: Icons.star_rounded, label: 'Loyalty\nPoint'),
+      const _Action(icon: Icons.hourglass_empty_rounded, label: 'Pending'),
+    ];
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _actions
+        children: actions
             .map(
               (a) => Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.x2),
@@ -111,10 +132,11 @@ class _ActionBar extends StatelessWidget {
 }
 
 class _Action {
-  const _Action({required this.icon, required this.label});
+  const _Action({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 }
 
 class _ActionButton extends StatelessWidget {
@@ -141,7 +163,7 @@ class _ActionButton extends StatelessWidget {
             color: AppColors.primary,
             borderRadius: AppRadius.md,
             child: InkWell(
-              onTap: () {},
+              onTap: action.onTap,
               borderRadius: AppRadius.md,
               child: SizedBox(
                 width: _box,
