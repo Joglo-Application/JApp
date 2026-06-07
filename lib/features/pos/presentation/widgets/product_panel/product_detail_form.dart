@@ -691,9 +691,12 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
             //   ),
             // ),
               _PromoTile(
-              name: '[Masukkan Kode VOucher]',
+              name: '[Masukkan Kode Voucher]',
               description: '',
-              onTap: () {},
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => _VoucherDialog(onConfirm: _selectPromo),
+              ),
             ),
             const SizedBox(height: AppSpacing.x3),
             Divider(height: 1, color: AppColors.onPrimary.withValues(alpha: 0.2)),
@@ -744,13 +747,139 @@ class _PromoTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
+            if(description.isNotEmpty) Text(
               description,
               style: AppTypography.textTheme.bodySmall?.copyWith(
                 color: AppColors.onPrimary.withValues(alpha: 0.7),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Voucher Dialog ────────────────────────────────────────────────────────────
+
+class _VoucherDialog extends StatefulWidget {
+  const _VoucherDialog({required this.onConfirm});
+
+  final ValueChanged<DiscountPromo> onConfirm;
+
+  @override
+  State<_VoucherDialog> createState() => _VoucherDialogState();
+}
+
+class _VoucherDialogState extends State<_VoucherDialog> {
+  final _ctrl = TextEditingController();
+  bool _invalid = false;
+
+  static const _vouchers = <String, DiscountPromo>{
+    'PROMOMEI1': DiscountPromo(
+      name: 'PROMO MEI',
+      discount: 5,
+      discountType: DiscountType.percent,
+    ),
+  };
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final promo = _vouchers[_ctrl.text.trim().toUpperCase()];
+    if (promo == null) {
+      setState(() => _invalid = true);
+      return;
+    }
+    Navigator.of(context).pop();
+    widget.onConfirm(promo);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      
+      backgroundColor: AppColors.surface,
+      shape: AppRadius.toShape(AppRadius.md),
+      child: SizedBox(
+        width: 420,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x5, AppSpacing.x5, AppSpacing.x5, AppSpacing.x4,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Voucher Diskon',
+              style: AppTypography.textTheme.titleLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x4),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              onChanged: (_) {
+                if (_invalid) setState(() => _invalid = false);
+              },
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                color: AppColors.onSurface,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Masukkan Kode Voucher',
+                hintStyle: TextStyle(color: AppColors.onSurfaceVariant),
+                errorText: _invalid ? 'Kode voucher tidak valid' : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                errorBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.error),
+                ),
+                focusedErrorBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.error, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.x5),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'BATAL',
+                    style: AppTypography.textTheme.labelLarge?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+                TextButton(
+                  onPressed: _confirm,
+                  child: Text(
+                    'KONFIRMASI',
+                    style: AppTypography.textTheme.labelLarge?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
         ),
       ),
     );
