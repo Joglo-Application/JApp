@@ -682,23 +682,22 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
               },
             ),
             ],
-            // Padding(
-            //   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-            //   child: TextField(
-            //     controller: _voucherCtrl,
-            //     style: _valueStyle,
-            //     decoration: _fieldDecoration(hintText: '[Masukkan Kode Voucher]'),
-            //   ),
-            // ),
-              _PromoTile(
-              name: '[Masukkan Kode VOucher]',
+            _PromoTile(
+              name: '[Masukkan Kode Voucher]',
               description: '',
-              onTap: () {},
+              onTap: () {
+                showDialog<DiscountPromo>(
+                  context: context,
+                  builder: (_) => const _VoucherInputDialog(),
+                ).then((promo) {
+                  if (promo != null) _selectPromo(promo);
+                });
+              },
             ),
             const SizedBox(height: AppSpacing.x3),
             Divider(height: 1, color: AppColors.onPrimary.withValues(alpha: 0.2)),
             _PromoTile(
-              name: 'PROMO MEI (PROMOMEI1)',
+              name: 'PROMO MEI (PROMOMEI)',
               description: 'Diskon. 5%',
               onTap: () => _selectPromo(const DiscountPromo(
                 name: 'PROMO MEI',
@@ -751,6 +750,278 @@ class _PromoTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Catatan Pesanan Dialog ────────────────────────────────────────────────────
+
+class CatatanPesananDialog extends StatefulWidget {
+  const CatatanPesananDialog({super.key, this.initialNote = ''});
+
+  final String initialNote;
+
+  @override
+  State<CatatanPesananDialog> createState() => _CatatanPesananDialogState();
+}
+
+class _CatatanPesananDialogState extends State<CatatanPesananDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialNote);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: AppRadius.toShape(AppRadius.lg),
+      child: SizedBox(
+        width: 420,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x4,
+            AppSpacing.x4,
+            AppSpacing.x3,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: Text(
+                      'Catatan',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: AppColors.onSurface,
+                    iconSize: 22,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.x4),
+              TextField(
+                controller: _ctrl,
+                maxLines: 2,
+                style: AppTypography.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.onSurface,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.x2,
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'BATAL',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(_ctrl.text.trim()),
+                    child: Text(
+                      'KONFIRMASI',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Voucher Input Dialog ──────────────────────────────────────────────────────
+
+class _VoucherInputDialog extends StatefulWidget {
+  const _VoucherInputDialog();
+
+  @override
+  State<_VoucherInputDialog> createState() => _VoucherInputDialogState();
+}
+
+class _VoucherInputDialogState extends State<_VoucherInputDialog> {
+  final _ctrl = TextEditingController();
+  String? _errorText;
+
+  static const _vouchers = <String, DiscountPromo>{
+    'PROMOMEI': DiscountPromo(
+      name: 'PROMO MEI',
+      discount: 5,
+      discountType: DiscountType.percent,
+    ),
+  };
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final code = _ctrl.text.trim().toUpperCase();
+    final promo = _vouchers[code];
+    if (promo == null) {
+      setState(() => _errorText = 'Kode voucher tidak valid');
+      return;
+    }
+    Navigator.of(context).pop(promo);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: AppRadius.toShape(AppRadius.lg),
+      child: SizedBox(
+        width: 420,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x4,
+            AppSpacing.x4,
+            AppSpacing.x3,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.confirmation_number_outlined,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: Text(
+                      'Kode Voucher',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: AppColors.onSurface,
+                    iconSize: 22,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.x4),
+              TextField(
+                controller: _ctrl,
+                textCapitalization: TextCapitalization.characters,
+                style: AppTypography.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.onSurface,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.x2,
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  errorText: _errorText,
+                  errorBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.error),
+                  ),
+                  focusedErrorBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.error, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'BATAL',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  TextButton(
+                    onPressed: _confirm,
+                    child: Text(
+                      'KONFIRMASI',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

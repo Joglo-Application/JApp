@@ -21,39 +21,37 @@ class OrderSummaryTotals extends StatelessWidget {
       (auth) => auth.user?.namaUser ?? '-',
     );
 
+    final rows = <({String label, String value})>[
+      if (order.orderDiscountAmount > 0)
+        (
+          label: order.orderPromoName != null
+              ? 'Diskon  [${order.orderPromoName}] :'
+              : 'Diskon :',
+          value: '-${CurrencyFormatter.format(order.orderDiscountAmount)}',
+        ),
+      (label: 'Subtotal :', value: CurrencyFormatter.format(order.subtotal)),
+      (
+        label: 'Biaya Layanan : ${(serviceRate * 100).toStringAsFixed(0)}%',
+        value: CurrencyFormatter.format(order.subtotal * serviceRate),
+      ),
+      (
+        label: 'Pajak : ${(taxRate * 100).toStringAsFixed(0)}%',
+        value: CurrencyFormatter.format(order.subtotal * taxRate),
+      ),
+      if (order.orderNote.isNotEmpty)
+      (label: 'Catatan :  ${order.orderNote}', value: ''),
+      (label: 'Jumlah Item : ${order.totalQty}', value: ''),
+      (label: 'Dilayani Oleh : $namaKasir', value: ''),
+    ];
+
     return Column(
       children: [
-        if (order.orderDiscountAmount > 0)
+        for (var i = 0; i < rows.length; i++)
           _SummaryRow(
-            label: 'Diskon :',
-            value: '-${CurrencyFormatter.format(order.orderDiscountAmount)}',
-            shaded: true,
+            label: rows[i].label,
+            value: rows[i].value,
+            shaded: i.isOdd,
           ),
-        _SummaryRow(
-          label: 'Subtotal :',
-          value: CurrencyFormatter.format(order.subtotal),
-          shaded: false,
-        ),
-        _SummaryRow(
-          label: 'Biaya Layanan : ${(serviceRate * 100).toStringAsFixed(0)}%',
-          value: CurrencyFormatter.format(order.subtotal * serviceRate),
-          shaded: true,
-        ),
-        _SummaryRow(
-          label: 'Pajak : ${(taxRate * 100).toStringAsFixed(0)}%',
-          value: CurrencyFormatter.format(order.subtotal * taxRate),
-          shaded: false,
-        ),
-        _SummaryRow(
-          label: 'Jumlah Item : ${order.totalQty}',
-          value: '',
-          shaded: true,
-        ),
-        _SummaryRow(
-          label: 'Dilayani Oleh : $namaKasir',
-          value: '',
-          shaded: false,
-        ),
       ],
     );
   }
