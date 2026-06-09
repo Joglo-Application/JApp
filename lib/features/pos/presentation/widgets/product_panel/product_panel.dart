@@ -34,19 +34,13 @@ class _ProductPanelState extends State<ProductPanel> {
   @override
   void initState() {
     super.initState();
-    // Fetch the menu from the backend once the panel mounts (the user is
-    // already authenticated by the time the POS screen is shown).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<MenuProvider>().loadMenus();
     });
   }
 
-  /// Tab content. Tab 0 = product grid, tab 1 = ad-hoc custom order item
-  /// (development), tab 2 = create persistent menu (dashboard-panel).
   Widget _buildTabContent() {
     switch (_tabIndex) {
-
-        
       case 1:
         // Jump back to the Produk grid after a menu is created so the
         // freshly-fetched item is visible right away.
@@ -62,7 +56,6 @@ class _ProductPanelState extends State<ProductPanel> {
     final posUi = context.watch<PosUiProvider>();
     final editingItem = posUi.editingItem;
 
-    // Edit mode — order item tapped: show form in-place
     if (editingItem != null) {
       return ColoredBox(
         color: AppColors.primary,
@@ -80,7 +73,6 @@ class _ProductPanelState extends State<ProductPanel> {
       );
     }
 
-    // Add mode — product tapped from grid
     return ColoredBox(
       color: AppColors.primary,
       child: _pendingProduct != null

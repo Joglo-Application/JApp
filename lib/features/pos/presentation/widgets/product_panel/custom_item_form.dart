@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -10,6 +9,7 @@ import '../../../../../core/utils/id_generator.dart';
 import '../../../../../core/widgets/app_button.dart';
 import '../../../domain/entities/order_item.dart';
 import '../../providers/order_provider.dart';
+import 'form_field_widgets.dart';
 
 class CustomItemForm extends StatefulWidget {
   const CustomItemForm({super.key});
@@ -36,7 +36,6 @@ class _CustomItemFormState extends State<CustomItemForm> {
   }
 
   void _increment() => setState(() => _quantity++);
-
   void _decrement() {
     if (_quantity > 1) setState(() => _quantity--);
   }
@@ -81,7 +80,7 @@ class _CustomItemFormState extends State<CustomItemForm> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: AppSpacing.x6),
-              _PriceField(controller: _priceController),
+              FormPriceField(controller: _priceController),
               const SizedBox(height: AppSpacing.x6),
               _QuantityRow(
                 quantity: _quantity,
@@ -118,7 +117,7 @@ class _NameField extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _AvatarBadge(letter: avatarLetter),
+        FormAvatarBadge(letter: avatarLetter),
         const SizedBox(width: AppSpacing.x3),
         Expanded(
           child: TextField(
@@ -152,33 +151,6 @@ class _NameField extends StatelessWidget {
   }
 }
 
-class _AvatarBadge extends StatelessWidget {
-  const _AvatarBadge({required this.letter});
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.sm,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        letter,
-        style: AppTypography.textTheme.titleSmall?.copyWith(
-          color: AppColors.onPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-// Predefined custom item name templates
 const List<String> _kCustomItemTemplates = [
   'Barang Titip Jual',
   'Sambel Ulek',
@@ -249,10 +221,12 @@ class _DropdownButton extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.x4),
                   shrinkWrap: true,
                   children: _kCustomItemTemplates
-                      .map((name) => _CustomItemTile(
-                            label: name,
-                            onTap: () => Navigator.of(ctx).pop(name),
-                          ))
+                      .map(
+                        (name) => _CustomItemTile(
+                          label: name,
+                          onTap: () => Navigator.of(ctx).pop(name),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -299,7 +273,7 @@ class _CustomItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
           vertical: AppSpacing.x2,
@@ -310,69 +284,6 @@ class _CustomItemTile extends StatelessWidget {
             color: AppColors.onPrimary,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PriceField extends StatelessWidget {
-  const _PriceField({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _CurrencyIcon(),
-        const SizedBox(width: AppSpacing.x3),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Harga',
-              hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.x2,
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.outline),
-              ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CurrencyIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.attach_money_rounded,
-        color: AppColors.onPrimary,
-        size: 18,
       ),
     );
   }
@@ -395,20 +306,19 @@ class _QuantityRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: TextField(
-            readOnly: true,
-            controller: TextEditingController(text: '$quantity'),
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: AppSpacing.x2),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.outline),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.outline),
               ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
+              child: Text(
+                '$quantity',
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurface,
+                ),
               ),
             ),
           ),

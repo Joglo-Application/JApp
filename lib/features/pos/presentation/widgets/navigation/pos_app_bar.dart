@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,10 +6,11 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../pages/pesanan_pending_page.dart';
 import '../../pages/pilih_meja_page.dart';
 import '../../providers/order_provider.dart';
+import '../order_panel/diskon_input.dart';
 import '../product_panel/product_detail_form.dart';
-import 'diskon_input.dart';
 
 class PosAppBar extends StatelessWidget {
   const PosAppBar({super.key});
@@ -167,7 +169,14 @@ class _ActionBar extends StatelessWidget {
       ),
       const _Action(icon: Icons.content_cut_rounded, label: 'Split Bill'),
       const _Action(icon: Icons.star_rounded, label: 'Loyalty\nPoint'),
-      const _Action(icon: Icons.hourglass_empty_rounded, label: 'Pending'),
+      _Action(
+        icon: Icons.hourglass_empty_rounded,
+        label: 'Pending',
+        badgeNotifier: pendingCountNotifier,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PesananPendingPage()),
+        ),
+      ),
     ];
 
     return SingleChildScrollView(
@@ -188,51 +197,68 @@ class _ActionBar extends StatelessWidget {
 }
 
 class _Action {
-  const _Action({required this.icon, required this.label, this.onTap});
+  const _Action({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.badgeNotifier,
+  });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final ValueListenable<int>? badgeNotifier;
 }
 
 class _ActionButton extends StatelessWidget {
   const _ActionButton({required this.action});
 
-  static const double _box = 48; // square icon button (width == height)
-  // Two lines of labelSmall (11px × 1.45 ≈ 16px/line) plus a small margin, so
-  // every button is the same height whether its label wraps to one or two
-  // lines — which keeps the squares tightly and evenly spaced.
+  static const double _box = 48;
   static const double _labelHeight = 34;
 
   final _Action action;
 
   @override
   Widget build(BuildContext context) {
-    // Cell width == the square, so squares sit close together (the gap is the
-    // _ActionBar's 8px padding). Labels wrap to two lines within that width.
     return SizedBox(
       width: _box,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: AppColors.primary,
-            borderRadius: AppRadius.md,
-            child: InkWell(
-              onTap: action.onTap,
-              borderRadius: AppRadius.md,
-              child: SizedBox(
-                width: _box,
-                height: _box,
-                child: Center(
-                  child: Icon(
-                    action.icon,
-                    size: 24,
-                    color: AppColors.onPrimary,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Material(
+                color: AppColors.primary,
+                borderRadius: AppRadius.md,
+                child: InkWell(
+                  onTap: action.onTap,
+                  borderRadius: AppRadius.md,
+                  child: SizedBox(
+                    width: _box,
+                    height: _box,
+                    child: Center(
+                      child: Icon(
+                        action.icon,
+                        size: 24,
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+              if (action.badgeNotifier != null)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: action.badgeNotifier!,
+                    builder: (_, count, _) => count > 0
+                        ? _BadgeCircle(count: count)
+                        : const SizedBox.shrink(),
+                  ),
+                )
+            ],
           ),
           const SizedBox(height: AppSpacing.x1),
           SizedBox(
@@ -248,6 +274,35 @@ class _ActionButton extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Badge circle ─────────────────────────────────────────────────────────────
+
+class _BadgeCircle extends StatelessWidget {
+  const _BadgeCircle({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: const BoxDecoration(
+        color: AppColors.error,
+        shape: BoxShape.circle,
+      ),
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      child: Text(
+        '$count',
+        style: AppTypography.textTheme.labelSmall?.copyWith(
+          color: AppColors.onError,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
-import '../../../../../core/utils/currency_formatter.dart';
+import 'payment_panel_widgets.dart';
 
 class CashNumpadPanel extends StatelessWidget {
   const CashNumpadPanel({
@@ -23,18 +25,9 @@ class CashNumpadPanel extends StatelessWidget {
   final VoidCallback onClose;
 
   String get _displayAmount {
-    if (cashRaw.isEmpty) return _dotFormat(orderTotal.toInt().toString());
+    if (cashRaw.isEmpty) return formatAmountDisplay(orderTotal.toInt().toString());
     if (cashRaw == '0') return '0';
-    return _dotFormat(cashRaw);
-  }
-
-  String _dotFormat(String digits) {
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write('.');
-      buf.write(digits[i]);
-    }
-    return buf.toString();
+    return formatAmountDisplay(cashRaw);
   }
 
   @override
@@ -42,16 +35,26 @@ class CashNumpadPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Header(orderTotal: orderTotal, onClose: onClose),
+        PaymentPanelHeader(
+          icon: Icons.payments_rounded,
+          title: 'TUNAI',
+          orderTotal: orderTotal,
+          onClose: onClose,
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x3,
+            AppSpacing.x4,
+            0,
+          ),
           child: Row(
             children: [
               _QuickChip(
                 label: '+ 50.000',
                 onTap: () => onQuickAmount(50000),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.x2 + 2),
               _QuickChip(
                 label: '+ 100.000',
                 onTap: () => onQuickAmount(100000),
@@ -60,13 +63,15 @@ class CashNumpadPanel extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x6,
+            vertical: AppSpacing.x3,
+          ),
           child: Align(
             alignment: Alignment.centerRight,
             child: Text(
               _displayAmount,
-              style: const TextStyle(
-                fontFamily: 'Inter',
+              style: AppTypography.textTheme.displaySmall?.copyWith(
                 fontSize: 48,
                 fontWeight: FontWeight.w700,
                 color: AppColors.onSurface,
@@ -78,61 +83,6 @@ class CashNumpadPanel extends StatelessWidget {
         Expanded(child: _Numpad(onKey: onNumpad)),
         _PayButton(onTap: onPay),
       ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.orderTotal, required this.onClose});
-
-  final double orderTotal;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.primary,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.payments_rounded,
-                  color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TUNAI',
-                  style: AppTypography.textTheme.labelLarge?.copyWith(
-                    color: Colors.white,
-                    letterSpacing: 1,
-                  ),
-                ),
-                Text(
-                  CurrencyFormatter.format(orderTotal),
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: onClose,
-              icon: const Icon(Icons.close, color: Colors.white),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -150,14 +100,18 @@ class _QuickChip extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: AppColors.primary),
         foregroundColor: AppColors.primary,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Text(
         label,
-        style: AppTypography.textTheme.labelLarge
-            ?.copyWith(color: AppColors.primary),
+        style: AppTypography.textTheme.labelLarge?.copyWith(
+          color: AppColors.primary,
+        ),
       ),
     );
   }
@@ -202,11 +156,11 @@ class _NumKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           border: Border.all(color: AppColors.outline, width: 0.5),
         ),
         child: Center(
@@ -230,20 +184,18 @@ class _PayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: const ColoredBox(
+      child: ColoredBox(
         color: AppColors.tertiary,
         child: SizedBox(
           height: 60,
           child: Center(
             child: Text(
               'BAYAR',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
+                color: AppColors.onTertiary,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
                 letterSpacing: 2,
               ),
             ),

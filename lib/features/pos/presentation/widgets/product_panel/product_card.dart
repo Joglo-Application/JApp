@@ -5,7 +5,7 @@ import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/utils/currency_formatter.dart';
-import '../../../../pos/domain/entities/product.dart';
+import '../../../domain/entities/product.dart';
 
 class ProductCard extends StatelessWidget {
   const ProductCard({

@@ -7,10 +7,10 @@ import '../../../../core/theme/app_typography.dart';
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-enum _MejaStatus { free, occupied, reserved }
+enum _MejaStatus { free, occupied, reserved, blocked }
 
 // Result returned by _MejaOptionsDialog to tell the page which action to take.
-enum _MejaAction { pilih, reservasi }
+enum _MejaAction { pilih, reservasi, blokir }
 
 // Result returned by _ReservasiOptionsDialog.
 enum _ReservasiAction { lanjutkan, batalkan }
@@ -37,11 +37,11 @@ class _Meja {
 
   bool get isOccupied => status == _MejaStatus.occupied;
 
-  _Meja copyWith({_MejaStatus? status}) => _Meja(
+  _Meja copyWith({_MejaStatus? status, int? transactionCount}) => _Meja(
         id: id,
         name: name,
         status: status ?? this.status,
-        transactionCount: transactionCount,
+        transactionCount: transactionCount ?? this.transactionCount,
         zoneId: zoneId,
       );
 }
@@ -69,6 +69,60 @@ const _seedTables = [
   _Meja(id: 'out-02', name: 'Garden 02', zoneId: 'out'),
 ];
 
+// ── Mock transaction data ─────────────────────────────────────────────────────
+
+class _MockItem {
+  const _MockItem({required this.name, required this.price, required this.qty});
+  final String name;
+  final int price;
+  final int qty;
+  int get total => price * qty;
+}
+
+class _MockTransaksi {
+  const _MockTransaksi({required this.code, required this.items});
+  final String code;
+  final List<_MockItem> items;
+  int get jumlahItem => items.fold(0, (s, i) => s + i.qty);
+  int get subtotal => items.fold(0, (s, i) => s + i.total);
+  int get pajak => (subtotal * 0.02).round();
+  int get biayaLayanan => (subtotal * 0.02).round();
+  int get grandTotal => subtotal + pajak + biayaLayanan;
+}
+
+String _fmtNum(int n) {
+  final s = n.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return buf.toString();
+}
+
+final _mockTransaksiByMeja = <String, List<_MockTransaksi>>{
+  'lesehan01': [
+    _MockTransaksi(code: 'Kode Transaksi 001', items: [
+      _MockItem(name: 'Bakmi Udang', price: 32000, qty: 1),
+      _MockItem(name: 'Americano', price: 10000, qty: 2),
+    ]),
+    _MockTransaksi(code: 'Kode Transaksi 002', items: [
+      _MockItem(name: 'Bakmi Udang', price: 20000, qty: 2),
+    ]),
+  ],
+  'out-01': [
+    _MockTransaksi(code: 'Kode Transaksi 001', items: [
+      _MockItem(name: 'Nasi Goreng', price: 25000, qty: 2),
+      _MockItem(name: 'Es Teh', price: 5000, qty: 3),
+    ]),
+  ],
+};
+
+const _mockJumlahTamuByMeja = <String, int>{
+  'lesehan01': 4,
+  'out-01': 2,
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 class PilihMejaPage extends StatefulWidget {
@@ -82,6 +136,7 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
   int _tabIndex = 0;
   int _zoneIndex = 0;
   _Meja? _selectedMeja;
+  bool _isGantiMejaMode = false;
   late List<_Meja> _tables = List.of(_seedTables);
 
   List<_Meja> get _filteredTables =>
@@ -96,6 +151,32 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
   }
 
   Future<void> _onTableTap(_Meja meja) async {
+    if (_isGantiMejaMode) {
+      if (meja.status != _MejaStatus.free) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => _GantiMejaConfirmDialog(mejaNama: meja.name),
+      );
+      if (!mounted) return;
+      if (confirmed == true && _selectedMeja != null) {
+        final oldMeja = _selectedMeja!;
+        final newMejaId = meja.id;
+        final transferred = oldMeja.transactionCount;
+        final updatedTables = _tables.map((t) {
+          if (t.id == oldMeja.id) return t.copyWith(status: _MejaStatus.free, transactionCount: 0);
+          if (t.id == newMejaId) return t.copyWith(status: _MejaStatus.occupied, transactionCount: transferred);
+          return t;
+        }).toList();
+        setState(() {
+          _tables = updatedTables;
+          _selectedMeja = updatedTables.firstWhere((t) => t.id == newMejaId);
+          _isGantiMejaMode = false;
+          _tabIndex = 1;
+        });
+      }
+      return;
+    }
+
     switch (meja.status) {
       case _MejaStatus.occupied:
         setState(() {
@@ -115,6 +196,23 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
           _updateTableStatus(meja.id, _MejaStatus.free);
         }
 
+      case _MejaStatus.blocked:
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => const _BukaBlokirDialog(),
+        );
+        if (!mounted) return;
+        if (confirmed == true) {
+          final pinValid = await showDialog<bool>(
+            context: context,
+            builder: (_) => const _PinSupervisorDialog(),
+          );
+          if (!mounted) return;
+          if (pinValid == true) {
+            _updateTableStatus(meja.id, _MejaStatus.free);
+          }
+        }
+
       case _MejaStatus.free:
         final action = await showDialog<_MejaAction>(
           context: context,
@@ -125,6 +223,8 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
           Navigator.of(context).pop(meja);
         } else if (action == _MejaAction.reservasi) {
           _updateTableStatus(meja.id, _MejaStatus.reserved);
+        } else if (action == _MejaAction.blokir) {
+          _updateTableStatus(meja.id, _MejaStatus.blocked);
         }
     }
   }
@@ -139,7 +239,30 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
             _PilihMejaHeader(
               selectedIndex: _tabIndex,
               onTabSelected: (i) => setState(() => _tabIndex = i),
-              onClose: () => Navigator.of(context).pop(),
+              overrideTitle: _isGantiMejaMode ? 'GANTI MEJA' : null,
+              onClose: _isGantiMejaMode
+                  ? () => setState(() {
+                        _isGantiMejaMode = false;
+                        _tabIndex = 1;
+                      })
+                  : () => Navigator.of(context).pop(),
+              onSortTap: () async {
+                final index = await showDialog<int>(
+                  context: context,
+                  builder: (_) => _PilihAreaDialog(
+                    zones: _zones,
+                    selectedIndex: _zoneIndex,
+                  ),
+                );
+                if (!mounted) return;
+                if (index != null) {
+                  setState(() {
+                    _zoneIndex = index;
+                    _tabIndex = 0;
+                    _selectedMeja = null;
+                  });
+                }
+              },
             ),
             Expanded(
               child: _tabIndex == 0
@@ -147,17 +270,39 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
                       tables: _filteredTables,
                       onTableTap: _onTableTap,
                     )
-                  : _TransaksiMejaContent(meja: _selectedMeja),
+                  : _TransaksiMejaContent(
+                      meja: _selectedMeja,
+                      onKosongkanMeja: () {
+                        if (_selectedMeja != null) {
+                          _updateTableStatus(_selectedMeja!.id, _MejaStatus.free);
+                        }
+                        setState(() {
+                          _selectedMeja = null;
+                          _tabIndex = 0;
+                        });
+                      },
+                      onGantiMeja: () => setState(() {
+                        _isGantiMejaMode = true;
+                        _tabIndex = 0;
+                      }),
+                      onLihatTransaksi: () {
+                        if (_selectedMeja == null) return;
+                        showDialog<void>(
+                          context: context,
+                          builder: (_) => _LihatTransaksiDialog(meja: _selectedMeja!),
+                        );
+                      },
+                    ),
             ),
-            _ZoneSelector(
-              zones: _zones,
-              selectedIndex: _zoneIndex,
-              onZoneSelected: (i) => setState(() {
-                _zoneIndex = i;
-                _tabIndex = 0;
-                _selectedMeja = null;
-              }),
-            ),
+            if (_tabIndex == 0)
+              _ZoneSelector(
+                zones: _zones,
+                selectedIndex: _zoneIndex,
+                onZoneSelected: (i) => setState(() {
+                  _zoneIndex = i;
+                  _selectedMeja = null;
+                }),
+              ),
           ],
         ),
       ),
@@ -172,11 +317,15 @@ class _PilihMejaHeader extends StatelessWidget {
     required this.selectedIndex,
     required this.onTabSelected,
     required this.onClose,
+    required this.onSortTap,
+    this.overrideTitle,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
   final VoidCallback onClose;
+  final VoidCallback onSortTap;
+  final String? overrideTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +344,7 @@ class _PilihMejaHeader extends StatelessWidget {
               color: AppColors.primary,
               borderRadius: AppRadius.md,
               child: InkWell(
-                onTap: () {},
+                onTap: onSortTap,
                 borderRadius: AppRadius.md,
                 child: const SizedBox(
                   width: 48,
@@ -210,10 +359,20 @@ class _PilihMejaHeader extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: _HeaderTabBar(
-              selectedIndex: selectedIndex,
-              onTabSelected: onTabSelected,
-            ),
+            child: overrideTitle != null
+                ? Center(
+                    child: Text(
+                      overrideTitle!,
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.onSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                : _HeaderTabBar(
+                    selectedIndex: selectedIndex,
+                    onTabSelected: onTabSelected,
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.x2),
@@ -331,12 +490,14 @@ class _TableCard extends StatelessWidget {
     final bgColor = switch (meja.status) {
       _MejaStatus.occupied => AppColors.error,
       _MejaStatus.reserved => _reservedColor,
+      _MejaStatus.blocked => Colors.black,
       _MejaStatus.free => AppColors.primary,
     };
 
     final subtitle = switch (meja.status) {
       _MejaStatus.occupied => '${meja.transactionCount} Transaksi Meja',
       _MejaStatus.reserved => 'Reservasi Meja',
+      _MejaStatus.blocked => 'Blokir Meja',
       _MejaStatus.free => null,
     };
 
@@ -384,9 +545,17 @@ class _TableCard extends StatelessWidget {
 // ── Transaksi Meja content ────────────────────────────────────────────────────
 
 class _TransaksiMejaContent extends StatelessWidget {
-  const _TransaksiMejaContent({this.meja});
+  const _TransaksiMejaContent({
+    this.meja,
+    this.onKosongkanMeja,
+    this.onGantiMeja,
+    this.onLihatTransaksi,
+  });
 
   final _Meja? meja;
+  final VoidCallback? onKosongkanMeja;
+  final VoidCallback? onGantiMeja;
+  final VoidCallback? onLihatTransaksi;
 
   @override
   Widget build(BuildContext context) {
@@ -438,20 +607,20 @@ class _TransaksiMejaContent extends StatelessWidget {
                     _TransaksiActionButton(
                       label: 'Kosongkan Meja',
                       color: AppColors.error,
-                      onTap: () {},
+                      onTap: onKosongkanMeja ?? () {},
                     ),
                     const SizedBox(width: AppSpacing.x2),
                     _TransaksiActionButton(
                       label: 'Ganti Meja',
                       color: const Color(0xFF4361EE),
                       icon: Icons.swap_horiz_rounded,
-                      onTap: () {},
+                      onTap: onGantiMeja ?? () {},
                     ),
                     const SizedBox(width: AppSpacing.x2),
                     _TransaksiActionButton(
                       label: 'Lihat Transaksi',
                       color: AppColors.onPrimaryContainer,
-                      onTap: () {},
+                      onTap: onLihatTransaksi ?? () {},
                     ),
                   ],
                 ),
@@ -604,7 +773,7 @@ class _MejaOptionsDialog extends StatelessWidget {
                   _MejaOption(
                     icon: Icons.remove_circle_outline_rounded,
                     label: 'Blokir Meja',
-                    onTap: () {},
+                    onTap: () => Navigator.of(context).pop(_MejaAction.blokir),
                   ),
                 ],
               ),
@@ -1129,6 +1298,631 @@ class _PinKey extends StatelessWidget {
                     ),
                   ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Buka blokir dialog ────────────────────────────────────────────────────────
+
+class _BukaBlokirDialog extends StatelessWidget {
+  const _BukaBlokirDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x6,
+                AppSpacing.x3,
+                AppSpacing.x3,
+                AppSpacing.x6,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.report_rounded,
+                        color: Colors.white,
+                        size: 64,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    'Buka Blokir Meja',
+                    style: AppTypography.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  Text(
+                    'Apakah anda ingin membuka blokir meja ini?',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Material(
+                    color: Colors.grey.shade300,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(false),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.x4,
+                        ),
+                        child: Text(
+                          'Tidak',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Material(
+                    color: AppColors.primary,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(true),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.x4,
+                        ),
+                        child: Text(
+                          'Ya',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Pilih area dialog ─────────────────────────────────────────────────────────
+
+class _PilihAreaDialog extends StatelessWidget {
+  const _PilihAreaDialog({
+    required this.zones,
+    required this.selectedIndex,
+  });
+
+  final List<_Zone> zones;
+  final int selectedIndex;
+
+  static const _bodyColor = Color(0xFF8E7210);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.3,
+        vertical: AppSpacing.x16,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.sort_rounded,
+                      color: AppColors.onPrimary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: AppSpacing.x3),
+                    Expanded(
+                      child: Text(
+                        'PILIH AREA',
+                        style: AppTypography.textTheme.titleMedium?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: AppColors.onPrimary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Zone list
+            ColoredBox(
+              color: _bodyColor,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(zones.length, (index) {
+                  final isSelected = index == selectedIndex;
+                  return InkWell(
+                    onTap: () => Navigator.of(context).pop(index),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                        vertical: AppSpacing.x4,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              zones[index].name,
+                              style: AppTypography.textTheme.titleSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Lihat transaksi dialog ────────────────────────────────────────────────────
+
+class _LihatTransaksiDialog extends StatelessWidget {
+  const _LihatTransaksiDialog({required this.meja});
+
+  final _Meja meja;
+
+  List<_MockTransaksi> get _transaksiList =>
+      _mockTransaksiByMeja[meja.id] ?? [];
+  int get _jumlahTamu => _mockJumlahTamuByMeja[meja.id] ?? 0;
+  int get _grandTotal =>
+      _transaksiList.fold(0, (s, t) => s + t.grandTotal);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.22,
+        vertical: AppSpacing.x8,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'MEJA [${meja.name.toUpperCase()}]',
+                        style: AppTypography.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Scrollable body
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Guest count
+                    ColoredBox(
+                      color: Colors.grey.shade800,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x4,
+                          vertical: AppSpacing.x3,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                size: 18,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.x2),
+                            Text(
+                              ': $_jumlahTamu',
+                              style: AppTypography.textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Transactions
+                    ..._transaksiList.map(
+                      (t) => _TransaksiBlock(transaksi: t),
+                    ),
+                    // Grand total
+                    ColoredBox(
+                      color: AppColors.primary,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x4,
+                          vertical: AppSpacing.x4,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Total',
+                              style: AppTypography.textTheme.titleSmall
+                                  ?.copyWith(color: Colors.white),
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            Text(
+                              'Rp ${_fmtNum(_grandTotal)}',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.textTheme.headlineSmall
+                                  ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TransaksiBlock extends StatelessWidget {
+  const _TransaksiBlock({required this.transaksi});
+
+  final _MockTransaksi transaksi;
+
+  static const _green = Color(0xFF4CAF50);
+
+  Widget _summaryRow(String label, String value) => ColoredBox(
+        color: Colors.grey.shade50,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x2,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.textTheme.bodySmall
+                      ?.copyWith(color: Colors.black87),
+                ),
+              ),
+              Text(
+                value,
+                style: AppTypography.textTheme.bodySmall
+                    ?.copyWith(color: Colors.black87),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Transaction code header
+        ColoredBox(
+          color: Colors.grey.shade800,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x4,
+              vertical: AppSpacing.x3,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '*${transaksi.code}*',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '00:00',
+                  style: AppTypography.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Column headers
+        ColoredBox(
+          color: Colors.grey.shade700,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x4,
+              vertical: AppSpacing.x2,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Item',
+                    style: AppTypography.textTheme.bodySmall
+                        ?.copyWith(color: Colors.white),
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    'Qty',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodySmall
+                        ?.copyWith(color: Colors.white),
+                  ),
+                ),
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    'Total',
+                    textAlign: TextAlign.end,
+                    style: AppTypography.textTheme.bodySmall
+                        ?.copyWith(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Item rows
+        ...transaksi.items.asMap().entries.map((e) {
+          final item = e.value;
+          return ColoredBox(
+            color: e.key.isEven ? Colors.white : Colors.grey.shade50,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.x4,
+                vertical: AppSpacing.x3,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: AppTypography.textTheme.bodySmall,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 70,
+                    child: Text(
+                      _fmtNum(item.price),
+                      textAlign: TextAlign.end,
+                      style: AppTypography.textTheme.bodySmall
+                          ?.copyWith(color: Colors.black54),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      '${item.qty}x',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.textTheme.bodySmall,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 70,
+                    child: Text(
+                      _fmtNum(item.total),
+                      textAlign: TextAlign.end,
+                      style: AppTypography.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        // Summary rows
+        _summaryRow('Jumlah Item :', transaksi.jumlahItem.toString()),
+        _summaryRow('Subtotal :', _fmtNum(transaksi.subtotal)),
+        _summaryRow('Pajak : 2%', _fmtNum(transaksi.pajak)),
+        _summaryRow('Biaya Layanan : 2%', _fmtNum(transaksi.biayaLayanan)),
+        // Transaction total (green)
+        ColoredBox(
+          color: _green,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x4,
+              vertical: AppSpacing.x3,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Total :',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  _fmtNum(transaksi.grandTotal),
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Ganti meja confirm dialog ─────────────────────────────────────────────────
+
+class _GantiMejaConfirmDialog extends StatelessWidget {
+  const _GantiMejaConfirmDialog({required this.mejaNama});
+
+  final String mejaNama;
+
+  static const _bodyColor = Color(0xFF8E7210);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.3,
+        vertical: AppSpacing.x16,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz_rounded,
+                        color: AppColors.onPrimary, size: 22),
+                    const SizedBox(width: AppSpacing.x3),
+                    Expanded(
+                      child: Text(
+                        'Ganti Meja $mejaNama',
+                        style: AppTypography.textTheme.titleMedium?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.close, color: AppColors.onPrimary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            ColoredBox(
+              color: _bodyColor,
+              child: _MejaOption(
+                icon: Icons.check_rounded,
+                label: 'Pilih Meja',
+                onTap: () => Navigator.of(context).pop(true),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -9,14 +8,11 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/widgets/app_button.dart';
 import '../../../domain/entities/category.dart';
 import '../../providers/menu_provider.dart';
+import 'form_field_widgets.dart';
 
-/// Form for creating a new persistent menu item (name + category + price),
-/// saved to the backend via [MenuProvider.createMenu]. Part of menu management.
 class AddMenuForm extends StatefulWidget {
   const AddMenuForm({super.key, this.onCreated});
 
-  /// Called after a menu is successfully created (e.g. to switch back to the
-  /// Produk grid so the new item is visible).
   final VoidCallback? onCreated;
 
   @override
@@ -42,7 +38,9 @@ class _AddMenuFormState extends State<AddMenuForm> {
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
-    final harga = int.tryParse(_priceController.text.replaceAll(RegExp(r'\D'), ''));
+    final harga = int.tryParse(
+      _priceController.text.replaceAll(RegExp(r'\D'), ''),
+    );
     final kategori = _categoryId;
 
     if (name.isEmpty || harga == null || harga <= 0 || kategori == null) {
@@ -104,7 +102,7 @@ class _AddMenuFormState extends State<AddMenuForm> {
                 onChanged: (id) => setState(() => _categoryId = id),
               ),
               const SizedBox(height: AppSpacing.x6),
-              _PriceField(controller: _priceController),
+              FormPriceField(controller: _priceController),
               const SizedBox(height: AppSpacing.x6),
               AppButton(
                 label: 'Tambahkan Menu',
@@ -136,7 +134,7 @@ class _NameField extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _AvatarBadge(letter: avatarLetter),
+        FormAvatarBadge(letter: avatarLetter),
         const SizedBox(width: AppSpacing.x3),
         Expanded(
           child: TextField(
@@ -232,95 +230,6 @@ class _CategoryField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AvatarBadge extends StatelessWidget {
-  const _AvatarBadge({required this.letter});
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.sm,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        letter,
-        style: AppTypography.textTheme.titleSmall?.copyWith(
-          color: AppColors.onPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _PriceField extends StatelessWidget {
-  const _PriceField({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _CurrencyIcon(),
-        const SizedBox(width: AppSpacing.x3),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Harga',
-              hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.x2,
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.outline),
-              ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CurrencyIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.attach_money_rounded,
-        color: AppColors.onPrimary,
-        size: 18,
-      ),
     );
   }
 }

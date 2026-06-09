@@ -6,7 +6,7 @@ import 'order_checkout_bar.dart';
 import 'order_item_list.dart';
 import 'order_summary_totals.dart';
 import 'order_table_header.dart';
-import 'pos_app_bar.dart';
+import '../navigation/pos_app_bar.dart';
 
 class OrderPanel extends StatelessWidget {
   const OrderPanel({super.key, this.onCheckout});

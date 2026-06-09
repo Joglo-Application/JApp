@@ -249,28 +249,12 @@ class _CategoryTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // // Thumbnail placeholder
-            // Container(
-            //   width: 44,
-            //   height: 44,
-            //   decoration: BoxDecoration(
-            //     color: AppColors.surface,
-            //     borderRadius: AppRadius.sm,
-            //   ),
-            //   child: const Icon(
-            //     Icons.image_rounded,
-            //     size: 22,
-            //     color: AppColors.outline,
-            //   ),
-            // ),
-            // const SizedBox(width: AppSpacing.x3),
             Expanded(
               child: Text(
                 label,
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onPrimary,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),

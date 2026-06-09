@@ -9,6 +9,7 @@ class OrderProvider extends ChangeNotifier {
   final double taxRate;
   final List<OrderItem> _items = [];
   String _customerName = '';
+  int? _memberPoints;
   double _orderDiscount = 0;
   DiscountType _orderDiscountType = DiscountType.amount;
   String? _orderPromoName;
@@ -16,6 +17,7 @@ class OrderProvider extends ChangeNotifier {
   OrderType? _orderType;
 
   String get customerName => _customerName;
+  int? get memberPoints => _memberPoints;
   double get orderDiscount => _orderDiscount;
   DiscountType get orderDiscountType => _orderDiscountType;
   String? get orderPromoName => _orderPromoName;
@@ -34,6 +36,13 @@ class OrderProvider extends ChangeNotifier {
 
   void setCustomerName(String name) {
     _customerName = name;
+    _memberPoints = null;
+    notifyListeners();
+  }
+
+  void setMember(String name, int points) {
+    _customerName = name;
+    _memberPoints = points;
     notifyListeners();
   }
 
@@ -119,13 +128,14 @@ class OrderProvider extends ChangeNotifier {
   }
 
   void clear() {
-    if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty) return;
+    if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty && _memberPoints == null) return;
     _items.clear();
     _orderDiscount = 0;
     _orderDiscountType = DiscountType.amount;
     _orderPromoName = null;
     _orderNote = '';
     _orderType = null;
+    _memberPoints = null;
     notifyListeners();
   }
 }

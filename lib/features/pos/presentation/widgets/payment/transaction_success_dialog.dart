@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import 'payment_panel_widgets.dart';
 
 class TransactionSuccessDialog extends StatefulWidget {
   const TransactionSuccessDialog({
@@ -33,24 +36,17 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog> {
     super.dispose();
   }
 
-  double get _change => (widget.cashPaid - widget.total).clamp(0, double.infinity);
+  double get _change =>
+      (widget.cashPaid - widget.total).clamp(0, double.infinity);
 
-  String _fmt(double n) {
-    if (n <= 0) return '0';
-    final s = n.toInt().toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
+  String _fmt(double n) =>
+      n <= 0 ? '0' : formatAmountDisplay(n.toInt().toString());
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 32),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: AppRadius.toShape(AppRadius.md),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: Column(
@@ -58,7 +54,7 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog> {
           children: [
             _DialogHeader(onClose: widget.onNew),
             Padding(
-              padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+              padding: const EdgeInsets.fromLTRB(28, AppSpacing.x5, 28, 28),
               child: Column(
                 children: [
                   Container(
@@ -68,15 +64,18 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog> {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 42),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.onPrimary,
+                      size: 42,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Text(
                     '(KODE TRANSAKSI)',
                     style: AppTypography.textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.x4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -84,26 +83,26 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog> {
                         label: 'Total Pembayaran',
                         value: _fmt(widget.cashPaid),
                       ),
-                      const SizedBox(width: 40),
+                      const SizedBox(width: AppSpacing.x10),
                       _AmountCol(
                         label: 'Kembalian',
                         value: _fmt(_change),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.x6),
                   _ReceiptField(
                     controller: _emailCtrl,
                     hint: 'Email Resi',
                     icon: Icons.email_rounded,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.x3),
                   _ReceiptField(
                     controller: _phoneCtrl,
                     hint: 'SMS/WhatsApp Resi',
                     icon: Icons.phone_rounded,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.x6),
                   Row(
                     children: [
                       Expanded(
@@ -114,7 +113,7 @@ class _TransactionSuccessDialogState extends State<TransactionSuccessDialog> {
                           onTap: widget.onPrint,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.x3),
                       Expanded(
                         child: _ActionButton(
                           label: 'Baru',
@@ -145,13 +144,13 @@ class _DialogHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        borderRadius: BorderRadius.vertical(top: AppRadiusValue.md),
       ),
       child: Align(
         alignment: Alignment.centerRight,
         child: IconButton(
           onPressed: onClose,
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          icon: const Icon(Icons.close_rounded, color: AppColors.onPrimary),
         ),
       ),
     );
@@ -209,19 +208,19 @@ class _ReceiptField extends StatelessWidget {
                 borderSide: BorderSide(color: AppColors.primary, width: 2),
               ),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.x2),
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
             color: AppColors.primary,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.sm,
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
+          child: Icon(icon, color: AppColors.onPrimary, size: 20),
         ),
       ],
     );
@@ -249,9 +248,9 @@ class _ActionButton extends StatelessWidget {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: AppRadius.toShape(AppRadius.sm),
         textStyle: AppTypography.textTheme.labelLarge,
       ),
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_radius.dart';
+import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../domain/entities/payment_method.dart';
 
@@ -24,7 +26,10 @@ class PaymentMethodSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.x5,
+              horizontal: AppSpacing.x4,
+            ),
             child: Text(
               'PILIH METODE PEMBAYARAN',
               style: AppTypography.textTheme.titleSmall?.copyWith(
@@ -45,22 +50,6 @@ class PaymentMethodSidebar extends StatelessWidget {
               }).toList(),
             ),
           ),
-          // Padding(
-          //   padding: const EdgeInsets.all(16),
-          //   child: DefaultTextStyle(
-          //     style: AppTypography.textTheme.bodySmall!.copyWith(
-          //       color: AppColors.onShell.withValues(alpha: 0.6),
-          //     ),
-          //     child: Column(
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       children: [
-          //         Text('Jumlah Item : $itemCount'),
-          //         const SizedBox(height: 4),
-          //         const Text('Dilayani Oleh : Kasir01'),
-          //       ],
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );
@@ -98,19 +87,22 @@ class _MethodTile extends StatelessWidget {
       child: ColoredBox(
         color: bg,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x5,
+            vertical: 18,
+          ),
           child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.onShell.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.sm,
                 ),
                 child: Icon(_icon, color: fg, size: 22),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.x4),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

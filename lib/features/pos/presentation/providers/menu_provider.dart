@@ -1,15 +1,22 @@
 import 'package:flutter/foundation.dart' hide Category;
 
 import '../../../../core/network/api_exception.dart';
-import '../../data/menu_repository.dart';
+import '../../data/repositories/menu_repository_impl.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/repositories/menu_repository.dart';
+import '../../domain/usecases/create_menu_usecase.dart';
+import '../../domain/usecases/fetch_menus_usecase.dart';
 
 class MenuProvider extends ChangeNotifier {
-  MenuProvider({MenuRepository? repository})
-      : _repo = repository ?? MenuRepository();
+  MenuProvider({MenuRepository? repository}) {
+    final repo = repository ?? MenuRepositoryImpl();
+    _fetchMenus = FetchMenusUseCase(repo);
+    _createMenu = CreateMenuUseCase(repo);
+  }
 
-  final MenuRepository _repo;
+  late final FetchMenusUseCase _fetchMenus;
+  late final CreateMenuUseCase _createMenu;
 
   bool _isLoading = false;
   String? _error;
@@ -28,8 +35,6 @@ class MenuProvider extends ChangeNotifier {
   String? get selectedCategoryId => _selectedCategoryId;
   String get searchQuery => _searchQuery;
 
-  /// Distinct categories derived from the fetched menus (the API stores
-  /// `kategori` as a free-text string on each menu).
   List<Category> get categories {
     final seen = <String>{};
     final result = <Category>[];
@@ -52,8 +57,6 @@ class MenuProvider extends ChangeNotifier {
     }).toList();
   }
 
-  /// Fetches the menu list from the backend. Call once when the POS screen
-  /// opens; use [refresh] to force a reload.
   Future<void> loadMenus() async {
     if (_hasLoaded || _isLoading) return;
     await refresh();
@@ -65,7 +68,7 @@ class MenuProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _products = await _repo.fetchMenus();
+      _products = await _fetchMenus();
       _hasLoaded = true;
     } on ApiException catch (e) {
       _error = e.message;
@@ -77,8 +80,6 @@ class MenuProvider extends ChangeNotifier {
     }
   }
 
-  /// POST /menus then reloads the list so the new menu shows in the grid.
-  /// Returns `true` on success; read [submitError] on failure.
   Future<bool> createMenu({
     required String namaMenu,
     required String kategori,
@@ -89,12 +90,8 @@ class MenuProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repo.createMenu(
-        namaMenu: namaMenu,
-        kategori: kategori,
-        harga: harga,
-      );
-      _products = await _repo.fetchMenus();
+      await _createMenu(namaMenu: namaMenu, kategori: kategori, harga: harga);
+      _products = await _fetchMenus();
       _hasLoaded = true;
       return true;
     } on ApiException catch (e) {
@@ -120,7 +117,6 @@ class MenuProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// "minuman" → "Minuman", "nasi goreng" → "Nasi Goreng".
   String _label(String raw) => raw
       .split(' ')
       .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')

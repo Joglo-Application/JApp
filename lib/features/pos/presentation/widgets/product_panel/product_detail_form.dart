@@ -254,11 +254,18 @@ class _QtySection extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                readOnly: true,
-                controller: TextEditingController(text: '$qty'),
-                style: _valueStyle,
-                decoration: _fieldDecoration(),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppColors.onPrimary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
+                  child: Text('$qty', style: _valueStyle),
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
@@ -593,14 +600,6 @@ class DiskonPesananDialog extends StatefulWidget {
 }
 
 class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
-  final _voucherCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _voucherCtrl.dispose();
-    super.dispose();
-  }
-
   void _selectPromo(DiscountPromo promo) {
     widget.onPromoSelected(promo);
     Navigator.of(context).pop();
@@ -608,7 +607,6 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
 
   @override
   Widget build(BuildContext context) {
-
     return Dialog(
       backgroundColor: AppColors.primary,
       shape: AppRadius.toShape(AppRadius.lg),
@@ -654,26 +652,7 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
               ),
             ),
             if (widget.onOpenInput != null) ...[
-              // InkWell(
-              //   onTap: () {
-              //     Navigator.of(context).pop();
-              //     widget.onOpenInput!();
-              //   },
-              //   child: Padding(
-              //     padding: const EdgeInsets.symmetric(
-              //       horizontal: AppSpacing.x4,
-              //       vertical: AppSpacing.x3,
-              //     ),
-              //     child: Text(
-              //       '[Masukan Jumlah/Persen Diskon]',
-              //       style: AppTypography.textTheme.bodyMedium?.copyWith(
-              //         color: AppColors.onPrimary.withValues(alpha: 0.55),
-              //       ),
-              //     ),
-              //   ),
-              // ),
-              // Divider(height: 1, color: AppColors.onPrimary.withValues(alpha: 0.2)),
-                _PromoTile(
+              _PromoTile(
               name: '[Masukkan Jumlah/Persen Diskon]',
               description: '',
               onTap: () {
