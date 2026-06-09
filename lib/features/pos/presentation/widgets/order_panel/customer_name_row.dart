@@ -12,8 +12,10 @@ class CustomerNameRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = context.watch<OrderProvider>().customerName;
+    final provider = context.watch<OrderProvider>();
+    final name = provider.customerName;
     final label = name.isEmpty ? 'Name Customer' : name;
+    final orderType = provider.orderType;
 
     return ColoredBox(
       color: AppColors.surface,
@@ -49,6 +51,16 @@ class CustomerNameRow extends StatelessWidget {
                       size: 14,
                       color: AppColors.primary,
                     ),
+                    if (orderType != null) ...[
+                      const SizedBox(width: AppSpacing.x2),
+                      Text(
+                        '(${orderType.label})',
+                        style: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

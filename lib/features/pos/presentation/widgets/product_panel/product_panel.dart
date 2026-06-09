@@ -45,9 +45,9 @@ class _ProductPanelState extends State<ProductPanel> {
   /// (development), tab 2 = create persistent menu (dashboard-panel).
   Widget _buildTabContent() {
     switch (_tabIndex) {
+
+        
       case 1:
-        return const CustomItemForm();
-      case 2:
         // Jump back to the Produk grid after a menu is created so the
         // freshly-fetched item is visible right away.
         return AddMenuForm(onCreated: () => setState(() => _tabIndex = 0));
@@ -92,7 +92,7 @@ class _ProductPanelState extends State<ProductPanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AppTabBar(
-                  tabs: const ['Produk', 'Custom', 'Menu'],
+                  tabs: const ['Produk', 'Menu'],
                   selectedIndex: _tabIndex,
                   onTabSelected: (i) => setState(() => _tabIndex = i),
                 ),

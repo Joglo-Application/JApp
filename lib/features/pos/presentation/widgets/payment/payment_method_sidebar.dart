@@ -45,22 +45,22 @@ class PaymentMethodSidebar extends StatelessWidget {
               }).toList(),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: DefaultTextStyle(
-              style: AppTypography.textTheme.bodySmall!.copyWith(
-                color: AppColors.onShell.withValues(alpha: 0.6),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Jumlah Item : $itemCount'),
-                  const SizedBox(height: 4),
-                  const Text('Dilayani Oleh : Kasir01'),
-                ],
-              ),
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.all(16),
+          //   child: DefaultTextStyle(
+          //     style: AppTypography.textTheme.bodySmall!.copyWith(
+          //       color: AppColors.onShell.withValues(alpha: 0.6),
+          //     ),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //         Text('Jumlah Item : $itemCount'),
+          //         const SizedBox(height: 4),
+          //         const Text('Dilayani Oleh : Kasir01'),
+          //       ],
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );

@@ -11,19 +11,36 @@ class OrderProvider extends ChangeNotifier {
   String _customerName = '';
   double _orderDiscount = 0;
   DiscountType _orderDiscountType = DiscountType.amount;
+  String? _orderPromoName;
+  String _orderNote = '';
+  OrderType? _orderType;
 
   String get customerName => _customerName;
   double get orderDiscount => _orderDiscount;
   DiscountType get orderDiscountType => _orderDiscountType;
+  String? get orderPromoName => _orderPromoName;
+  String get orderNote => _orderNote;
+  OrderType? get orderType => _orderType;
+
+  void setOrderNote(String note) {
+    _orderNote = note;
+    notifyListeners();
+  }
+
+  void setOrderType(OrderType type) {
+    _orderType = type;
+    notifyListeners();
+  }
 
   void setCustomerName(String name) {
     _customerName = name;
     notifyListeners();
   }
 
-  void setOrderDiscount(double discount, DiscountType type) {
+  void setOrderDiscount(double discount, DiscountType type, {String? promoName}) {
     _orderDiscount = discount;
     _orderDiscountType = type;
+    _orderPromoName = promoName;
     notifyListeners();
   }
 
@@ -102,10 +119,29 @@ class OrderProvider extends ChangeNotifier {
   }
 
   void clear() {
-    if (_items.isEmpty && _orderDiscount == 0) return;
+    if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty) return;
     _items.clear();
     _orderDiscount = 0;
     _orderDiscountType = DiscountType.amount;
+    _orderPromoName = null;
+    _orderNote = '';
+    _orderType = null;
     notifyListeners();
   }
+}
+
+enum OrderType {
+  dineIn,
+  takeAway,
+  goFood,
+  grabFood,
+  shopeeFood;
+
+  String get label => switch (this) {
+        OrderType.dineIn => 'DINE-IN',
+        OrderType.takeAway => 'TAKE-AWAY',
+        OrderType.goFood => 'GOFOOD',
+        OrderType.grabFood => 'GRABFOOD',
+        OrderType.shopeeFood => 'SHOPEEFOOD',
+      };
 }
