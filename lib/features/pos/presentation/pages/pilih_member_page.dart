@@ -68,7 +68,38 @@ const _seedMembers = [
     gender: 'Female',
     birthDate: '20 Apr 1992',
   ),
+  _Member(
+    name: 'Budi S',
+    phone: '+6281234567890',
+    role: 'Guest',
+    points: 120,
+    fullName: 'Budi Santoso',
+    gender: 'Male',
+    email: 'budi@example.com',
+    address: 'Jl. Sudirman No. 10',
+    birthDate: '15 Jun 1990',
+  ),
 ];
+
+// Module-level list — persists across navigations within the session.
+final List<_Member> _membersList = List.of(_seedMembers);
+
+void updateMemberPoints(String name, int newPoints) {
+  final idx = _membersList.indexWhere((m) => m.name == name);
+  if (idx < 0) return;
+  final m = _membersList[idx];
+  _membersList[idx] = _Member(
+    name: m.name,
+    phone: m.phone,
+    role: m.role,
+    points: newPoints,
+    fullName: m.fullName,
+    gender: m.gender,
+    email: m.email,
+    address: m.address,
+    birthDate: m.birthDate,
+  );
+}
 
 final _mockTransactionsByMember = <String, List<_MockTransaction>>{
   'Owner 01': [
@@ -95,8 +126,7 @@ class PilihMemberPage extends StatefulWidget {
 
 class _PilihMemberPageState extends State<PilihMemberPage> {
   final _searchCtrl = TextEditingController();
-  final List<_Member> _members = List.of(_seedMembers);
-  List<_Member> _filtered = List.of(_seedMembers);
+  late List<_Member> _filtered = List.of(_membersList);
 
   @override
   void initState() {
@@ -110,19 +140,64 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
     super.dispose();
   }
 
+  bool _isSearching = false;
+
   void _onSearch() {
     final q = _searchCtrl.text.toLowerCase();
     setState(() {
-      _filtered = _members
-          .where((m) =>
-              m.name.toLowerCase().contains(q) ||
-              m.phone.contains(q))
-          .toList();
+      _filtered = q.isEmpty
+          ? List.of(_membersList)
+          : _membersList
+              .where((m) =>
+                  m.name.toLowerCase().contains(q) ||
+                  m.phone.contains(q))
+              .toList();
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) _searchCtrl.clear();
     });
   }
 
   void _onAdd() {
-    // TODO: implement add member
+    Navigator.push<_Member>(
+      context,
+      MaterialPageRoute(builder: (_) => const _AddMemberPage()),
+    ).then((member) {
+      if (member == null || !mounted) return;
+      setState(() {
+        _membersList.add(member);
+        _filtered = List.of(_membersList);
+        _searchCtrl.clear();
+      });
+    });
+  }
+
+  void _onHapusMember(_Member member) {
+    setState(() {
+      _membersList.remove(member);
+      _filtered.remove(member);
+    });
+  }
+
+  void _onUbahMember(_Member original) {
+    Navigator.push<_Member>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _AddMemberPage(initialMember: original),
+      ),
+    ).then((updated) {
+      if (updated == null || !mounted) return;
+      setState(() {
+        final li = _membersList.indexOf(original);
+        if (li >= 0) _membersList[li] = updated;
+        final fi = _filtered.indexOf(original);
+        if (fi >= 0) _filtered[fi] = updated;
+      });
+    });
   }
 
   Future<void> _onMemberSelected(_Member member) async {
@@ -148,6 +223,8 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
               searchCtrl: _searchCtrl,
               onAdd: _onAdd,
               onClose: () => Navigator.of(context).pop(),
+              isSearching: _isSearching,
+              onSearchToggle: _toggleSearch,
             ),
             Expanded(
               child: _filtered.isEmpty
@@ -173,6 +250,8 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
                               builder: (_) => _MemberDetailPage(member: member),
                             ),
                           ),
+                          onUbah: () => _onUbahMember(member),
+                          onHapus: () => _onHapusMember(member),
                         );
                       },
                     ),
@@ -191,11 +270,15 @@ class _MemberHeader extends StatelessWidget {
     required this.searchCtrl,
     required this.onAdd,
     required this.onClose,
+    required this.isSearching,
+    required this.onSearchToggle,
   });
 
   final TextEditingController searchCtrl;
   final VoidCallback onAdd;
   final VoidCallback onClose;
+  final bool isSearching;
+  final VoidCallback onSearchToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -206,24 +289,35 @@ class _MemberHeader extends StatelessWidget {
           horizontal: AppSpacing.x2,
           vertical: AppSpacing.x2,
         ),
-        child: Row(
-          children: [
-            _HeaderIconButton(
-              icon: Icons.add,
-              onTap: onAdd,
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            _HeaderIconButton(
-              icon: Icons.search,
-              onTap: () {},
-            ),
-            const Spacer(),
-            _HeaderIconButton(
-              icon: Icons.close,
-              onTap: onClose,
-            ),
-          ],
-        ),
+        child: isSearching
+            ? Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: searchCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white),
+                      cursorColor: Colors.white,
+                      decoration: const InputDecoration(
+                        hintText: 'Cari member...',
+                        hintStyle: TextStyle(color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, color: Colors.white54),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  _HeaderIconButton(icon: Icons.close, onTap: onSearchToggle),
+                ],
+              )
+            : Row(
+                children: [
+                  _HeaderIconButton(icon: Icons.add, onTap: onAdd),
+                  const SizedBox(width: AppSpacing.x2),
+                  _HeaderIconButton(icon: Icons.search, onTap: onSearchToggle),
+                  const Spacer(),
+                  _HeaderIconButton(icon: Icons.close, onTap: onClose),
+                ],
+              ),
       ),
     );
   }
@@ -261,11 +355,15 @@ class _MemberTile extends StatelessWidget {
     required this.member,
     required this.onSelected,
     required this.onLihat,
+    required this.onUbah,
+    required this.onHapus,
   });
 
   final _Member member;
   final ValueChanged<_Member> onSelected;
   final VoidCallback onLihat;
+  final VoidCallback onUbah;
+  final VoidCallback onHapus;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +405,7 @@ class _MemberTile extends StatelessWidget {
                 ],
               ),
             ),
-            _MoreButton(member: member, onLihat: onLihat),
+            _MoreButton(member: member, onLihat: onLihat, onUbah: onUbah, onHapus: onHapus),
           ],
         ),
       ),
@@ -343,10 +441,17 @@ class _Avatar extends StatelessWidget {
 }
 
 class _MoreButton extends StatelessWidget {
-  const _MoreButton({required this.member, required this.onLihat});
+  const _MoreButton({
+    required this.member,
+    required this.onLihat,
+    required this.onUbah,
+    required this.onHapus,
+  });
 
   final _Member member;
   final VoidCallback onLihat;
+  final VoidCallback onUbah;
+  final VoidCallback onHapus;
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +480,8 @@ class _MoreButton extends StatelessWidget {
 
   void _onAction(BuildContext context, _MemberAction action) {
     if (action == _MemberAction.lihat) onLihat();
-    // TODO: ubah, hapus
+    if (action == _MemberAction.ubah) onUbah();
+    if (action == _MemberAction.hapus) onHapus();
   }
 }
 
@@ -756,6 +862,479 @@ class _PilihPelangganDialog extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Add member page ───────────────────────────────────────────────────────────
+
+const _tipeOptions = ['Guest'];
+
+class _AddMemberPage extends StatefulWidget {
+  const _AddMemberPage({this.initialMember});
+
+  final _Member? initialMember;
+
+  @override
+  State<_AddMemberPage> createState() => _AddMemberPageState();
+}
+
+class _AddMemberPageState extends State<_AddMemberPage> {
+  late String _selectedTipe;
+  late String _selectedGender;
+  late DateTime _birthDate;
+
+  late final TextEditingController _namaCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _telponCtrl;
+  late final TextEditingController _alamatCtrl;
+  late final TextEditingController _catatanCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.initialMember;
+    _selectedTipe = m?.role ?? 'Guest';
+    _selectedGender = m?.gender ?? 'Male';
+    _birthDate = _parseBirthDate(m?.birthDate) ?? DateTime(1900);
+    _namaCtrl = TextEditingController(text: m?.name ?? '');
+    _emailCtrl = TextEditingController(text: m?.email ?? '');
+    _telponCtrl = TextEditingController(text: m?.phone ?? '');
+    _alamatCtrl = TextEditingController(text: m?.address ?? '');
+    _catatanCtrl = TextEditingController();
+  }
+
+  DateTime? _parseBirthDate(String? s) {
+    if (s == null) return null;
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final p = s.split(' ');
+    if (p.length != 3) return null;
+    final d = int.tryParse(p[0]);
+    final m = mo.indexOf(p[1]) + 1;
+    final y = int.tryParse(p[2]);
+    if (d == null || m == 0 || y == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _emailCtrl.dispose();
+    _telponCtrl.dispose();
+    _alamatCtrl.dispose();
+    _catatanCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _formattedDate {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${_birthDate.day.toString().padLeft(2, '0')} '
+        '${months[_birthDate.month - 1]} ${_birthDate.year}';
+  }
+
+  Future<void> _pickTipe() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => _TipeKategoriDialog(
+        options: _tipeOptions,
+        selected: _selectedTipe,
+      ),
+    );
+    if (result != null) setState(() => _selectedTipe = result);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: ThemeData.light().copyWith(colorScheme: AppColors.scheme),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _birthDate = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            ColoredBox(
+              color: Colors.grey.shade700,
+              child: SizedBox(
+                height: 52,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 52),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          widget.initialMember != null
+                              ? 'Ubah Contact'
+                              : 'Membuat Contact Baru',
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: const SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: Icon(Icons.close, color: Colors.white, size: 22),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Form
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x6,
+                  vertical: AppSpacing.x6,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _OutlinedPickerField(
+                          label: 'Tipe Pelanggan',
+                          value: _selectedTipe,
+                          onTap: _pickTipe,
+                        ),
+                        const SizedBox(height: AppSpacing.x5),
+                        _AddFormField(label: 'Nama *', controller: _namaCtrl),
+                        const SizedBox(height: AppSpacing.x5),
+                        _GenderSelector(
+                          selected: _selectedGender,
+                          onChanged: (g) => setState(() => _selectedGender = g),
+                        ),
+                        const SizedBox(height: AppSpacing.x5),
+                        _AddFormField(label: 'Email', controller: _emailCtrl, keyboardType: TextInputType.emailAddress),
+                        const SizedBox(height: AppSpacing.x5),
+                        _AddFormField(label: 'Telpon *', controller: _telponCtrl, keyboardType: TextInputType.phone),
+                        const SizedBox(height: AppSpacing.x5),
+                        _AddFormField(label: 'Alamat', controller: _alamatCtrl),
+                        const SizedBox(height: AppSpacing.x5),
+                        _OutlinedPickerField(
+                          label: 'Tanggal Lahir',
+                          value: _formattedDate,
+                          onTap: _pickDate,
+                        ),
+                        const SizedBox(height: AppSpacing.x5),
+                        _AddFormField(label: 'Catatan', controller: _catatanCtrl),
+                        const SizedBox(height: AppSpacing.x4),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Material(
+        color: AppColors.primary,
+        child: InkWell(
+          onTap: () {
+            final name = _namaCtrl.text.trim();
+            final phone = _telponCtrl.text.trim();
+            if (name.isEmpty || phone.isEmpty) return;
+            Navigator.of(context).pop(
+              _Member(
+                name: name,
+                phone: phone,
+                role: _selectedTipe,
+                fullName: name,
+                gender: _selectedGender,
+                email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+                address: _alamatCtrl.text.trim().isEmpty ? null : _alamatCtrl.text.trim(),
+                birthDate: _formattedDate,
+              ),
+            );
+          },
+          child: SizedBox(
+            height: 56,
+            child: Center(
+              child: Text(
+                'SIMPAN',
+                style: AppTypography.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OutlinedPickerField extends StatelessWidget {
+  const _OutlinedPickerField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: AppColors.primary, fontSize: 12),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.primary),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x3,
+            vertical: AppSpacing.x3,
+          ),
+        ),
+        child: Text(
+          value,
+          textAlign: TextAlign.center,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddFormField extends StatelessWidget {
+  const _AddFormField({
+    required this.label,
+    required this.controller,
+    this.keyboardType,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      cursorColor: AppColors.primary,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: AppColors.primary),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.primary),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.primary, width: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _GenderSelector extends StatelessWidget {
+  const _GenderSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Gender *',
+          style: const TextStyle(color: AppColors.primary, fontSize: 12),
+        ),
+        const SizedBox(height: AppSpacing.x2),
+        Row(
+          children: [
+            Expanded(
+              child: _GenderButton(
+                label: 'Male',
+                isSelected: selected == 'Male',
+                onTap: () => onChanged('Male'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: _GenderButton(
+                label: 'Female',
+                isSelected: selected == 'Female',
+                onTap: () => onChanged('Female'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GenderButton extends StatelessWidget {
+  const _GenderButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? AppColors.primary : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.x3),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: isSelected ? Colors.white : AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tipe kategori dialog ──────────────────────────────────────────────────────
+
+class _TipeKategoriDialog extends StatelessWidget {
+  const _TipeKategoriDialog({
+    required this.options,
+    required this.selected,
+  });
+
+  final List<String> options;
+  final String selected;
+
+  static const _itemColor = Color(0xFF8E7210);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.25,
+        vertical: AppSpacing.x4,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          children: [
+            // Header
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Tipe Kategori',
+                        style: AppTypography.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Icon(Icons.close, color: Colors.white, size: 22),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Items + empty space
+            Expanded(
+              child: ColoredBox(
+                color: AppColors.primary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ...options.map(
+                      (opt) => Material(
+                        color: _itemColor,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(opt),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.x4,
+                              vertical: AppSpacing.x4,
+                            ),
+                            child: Text(
+                              opt == selected ? '[$opt]' : opt,
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

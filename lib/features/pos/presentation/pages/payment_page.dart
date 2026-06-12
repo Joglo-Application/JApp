@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../domain/entities/payment_method.dart';
 import '../providers/order_provider.dart';
+import 'pilih_member_page.dart';
 import '../widgets/payment/cash_numpad_panel.dart';
 import '../widgets/payment/payment_method_sidebar.dart';
 import '../widgets/payment/qris_payment_panel.dart';
@@ -50,20 +51,29 @@ class _PaymentPageState extends State<PaymentPage> {
       builder: (_) => TransactionSuccessDialog(
         total: order.total,
         cashPaid: cashPaid,
-        onNew: () {
-          Navigator.of(context)
-            ..pop()
-            ..pop();
-          order.clear();
-        },
-        onPrint: () {
-          Navigator.of(context)
-            ..pop()
-            ..pop();
-          order.clear();
-        },
+        onNew: () => _finishTransaction(order),
+        onPrint: () => _finishTransaction(order),
       ),
     );
+  }
+
+  void _finishTransaction(OrderProvider order) {
+    final memberName = order.customerName;
+    final memberPoints = order.memberPoints;
+    final earned = order.earnedPoints;
+
+    Navigator.of(context)
+      ..pop()
+      ..pop();
+    order.clear();
+
+    if (memberName.isNotEmpty && memberPoints != null && earned > 0) {
+      final newPoints = memberPoints + earned;
+      updateMemberPoints(memberName, newPoints);
+      order.setMember(memberName, newPoints);
+    } else if (memberName.isNotEmpty && memberPoints != null) {
+      order.setMember(memberName, memberPoints);
+    }
   }
 
   @override

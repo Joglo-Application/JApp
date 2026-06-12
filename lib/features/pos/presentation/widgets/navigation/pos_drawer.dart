@@ -8,13 +8,12 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 
-/// Side navigation drawer for the cashier (kasir) role.
-///
-/// Opened from the hamburger button in [PosAppBar]. Only "Point of Sale" is
-/// wired up today; the remaining destinations don't have pages yet, so they
-/// show a "coming soon" notice. "Keluar" logs out and returns to login.
+enum PosDrawerPage { pos, transaksi, inventori, shiftKas }
+
 class PosDrawer extends StatelessWidget {
-  const PosDrawer({super.key});
+  const PosDrawer({super.key, this.activePage = PosDrawerPage.pos});
+
+  final PosDrawerPage activePage;
 
   @override
   Widget build(BuildContext context) {
@@ -37,23 +36,26 @@ class PosDrawer extends StatelessWidget {
                 _DrawerItem(
                   icon: Icons.circle,
                   label: 'Point of Sale',
-                  active: true,
-                  onTap: () => Navigator.of(context).pop(),
+                  active: activePage == PosDrawerPage.pos,
+                  onTap: () => _navigateTo(context, PosDrawerPage.pos),
                 ),
                 _DrawerItem(
                   icon: Icons.receipt_long_rounded,
                   label: 'Transaksi',
-                  onTap: () => _soon(context, 'Transaksi'),
+                  active: activePage == PosDrawerPage.transaksi,
+                  onTap: () => _navigateTo(context, PosDrawerPage.transaksi),
                 ),
                 _DrawerItem(
                   icon: Icons.inventory_2_rounded,
                   label: 'Inventori',
-                  onTap: () => _soon(context, 'Inventori'),
+                  active: activePage == PosDrawerPage.inventori,
+                  onTap: () => _navigateTo(context, PosDrawerPage.inventori),
                 ),
                 _DrawerItem(
                   icon: Icons.account_balance_wallet_rounded,
                   label: 'Shift Kas Kasir',
-                  onTap: () => _soon(context, 'Shift Kas Kasir'),
+                  active: activePage == PosDrawerPage.shiftKas,
+                  onTap: () => _navigateTo(context, PosDrawerPage.shiftKas),
                 ),
                 const _DrawerDivider(),
                 _DrawerItem(
@@ -84,13 +86,27 @@ class PosDrawer extends StatelessWidget {
     );
   }
 
+  void _navigateTo(BuildContext context, PosDrawerPage destination) {
+    Navigator.of(context).pop(); // close drawer
+    if (activePage == destination) return; // already here
+
+    switch (destination) {
+      case PosDrawerPage.pos:
+        context.pop(); // go back to home in GoRouter stack
+      case PosDrawerPage.transaksi:
+        context.push(AppRoutes.transaksi);
+      case PosDrawerPage.inventori:
+        context.push(AppRoutes.inventori);
+      case PosDrawerPage.shiftKas:
+        context.push(AppRoutes.shiftKas);
+    }
+  }
+
   void _soon(BuildContext context, String label) {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text('$label belum tersedia')),
-      );
+      ..showSnackBar(SnackBar(content: Text('$label belum tersedia')));
   }
 
   Future<void> _logout(BuildContext context) async {

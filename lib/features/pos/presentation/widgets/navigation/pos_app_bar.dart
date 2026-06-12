@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../pages/pesanan_pending_page.dart';
 import '../../pages/pilih_meja_page.dart';
+import '../../../domain/entities/order_item.dart';
 import '../../providers/order_provider.dart';
 import '../order_panel/diskon_input.dart';
 import '../product_panel/product_detail_form.dart';
@@ -167,8 +168,47 @@ class _ActionBar extends StatelessWidget {
           MaterialPageRoute<void>(builder: (_) => const PilihMejaPage()),
         ),
       ),
-      const _Action(icon: Icons.content_cut_rounded, label: 'Split Bill'),
-      const _Action(icon: Icons.star_rounded, label: 'Loyalty\nPoint'),
+      _Action(
+        icon: Icons.content_cut_rounded,
+        label: 'Split Bill',
+        onTap: () {
+          final provider = context.read<OrderProvider>();
+          if (provider.items.isEmpty) return;
+          showDialog<List<String>>(
+            context: context,
+            builder: (_) => _SplitBillDialog(items: provider.items.toList()),
+          ).then((selectedIds) {
+            if (selectedIds == null || selectedIds.isEmpty) return;
+            final selected = provider.items
+                .where((i) => selectedIds.contains(i.productId))
+                .toList();
+            addOrderToPending(
+              customerName: provider.customerName,
+              items: selected,
+            );
+            for (final id in selectedIds) {
+              provider.remove(id);
+            }
+          });
+        },
+      ),
+      _Action(
+        icon: Icons.star_rounded,
+        label: 'Loyalty\nPoint',
+        onTap: () {
+          final provider = context.read<OrderProvider>();
+          if (provider.memberPoints == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Pilih member untuk menukar poin')),
+            );
+            return;
+          }
+          showDialog<void>(
+            context: context,
+            builder: (_) => _LoyaltyPointDialog(provider: provider),
+          );
+        },
+      ),
       _Action(
         icon: Icons.hourglass_empty_rounded,
         label: 'Pending',
@@ -518,6 +558,477 @@ class _KirimDapurDialog extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Split Bill dialog ─────────────────────────────────────────────────────────
+
+class _SplitBillDialog extends StatefulWidget {
+  const _SplitBillDialog({required this.items});
+
+  final List<OrderItem> items;
+
+  @override
+  State<_SplitBillDialog> createState() => _SplitBillDialogState();
+}
+
+class _SplitBillDialogState extends State<_SplitBillDialog> {
+  final Set<String> _selected = {};
+
+  static String _fmt(double amount) {
+    final s = amount.round().toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.35,
+        vertical: AppSpacing.x8,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Split Bill',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: AppColors.onPrimary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Items
+            ColoredBox(
+              color: Colors.white,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < widget.items.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Colors.grey.shade200,
+                      ),
+                    _SplitBillItem(
+                      item: widget.items[i],
+                      selected: _selected.contains(widget.items[i].productId),
+                      onTap: () => setState(() {
+                        final id = widget.items[i].productId;
+                        if (_selected.contains(id)) {
+                          _selected.remove(id);
+                        } else {
+                          _selected.add(id);
+                        }
+                      }),
+                      formatNum: _fmt,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Footer
+            ColoredBox(
+              color: AppColors.primary,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
+                        child: Text(
+                          'BATAL',
+                          style: AppTypography.textTheme.labelLarge?.copyWith(
+                            color: AppColors.onPrimary.withValues(alpha: 0.5),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _selected.isEmpty
+                          ? null
+                          : () => Navigator.of(context).pop(_selected.toList()),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
+                        child: Text(
+                          'PILIH',
+                          style: AppTypography.textTheme.labelLarge?.copyWith(
+                            color: _selected.isEmpty
+                                ? AppColors.onPrimary.withValues(alpha: 0.4)
+                                : AppColors.onPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SplitBillItem extends StatelessWidget {
+  const _SplitBillItem({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.formatNum,
+  });
+
+  final OrderItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final String Function(double) formatNum;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: selected ? AppColors.primary : Colors.grey.shade400,
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: selected
+                  ? const Icon(Icons.check, color: AppColors.onPrimary, size: 16)
+                  : null,
+            ),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Text(
+                '${item.quantity}x ${item.name}',
+                style: AppTypography.textTheme.bodyMedium,
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Total',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                Text(
+                  formatNum(item.subtotal),
+                  style: AppTypography.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Loyalty reward model ──────────────────────────────────────────────────────
+
+enum _RewardType { discount, freeItem }
+
+class _LoyaltyReward {
+  const _LoyaltyReward({
+    required this.type,
+    required this.icon,
+    required this.name,
+    required this.pointCost,
+    this.discountValue = 0,
+    this.discountType = DiscountType.amount,
+    this.freeItemProductId,
+    this.freeItemName,
+    this.freeItemUnitPrice,
+  });
+
+  final _RewardType type;
+  final IconData icon;
+  final String name;
+  final int pointCost;
+  final double discountValue;
+  final DiscountType discountType;
+  final String? freeItemProductId;
+  final String? freeItemName;
+  final double? freeItemUnitPrice;
+}
+
+const _loyaltyRewards = [
+  _LoyaltyReward(
+    type: _RewardType.discount,
+    icon: Icons.local_fire_department_rounded,
+    name: 'Diskon IDR 20000',
+    pointCost: 10,
+    discountValue: 20000,
+    discountType: DiscountType.amount,
+  ),
+  _LoyaltyReward(
+    type: _RewardType.discount,
+    icon: Icons.local_fire_department_rounded,
+    name: 'Diskon 50 %',
+    pointCost: 10,
+    discountValue: 50,
+    discountType: DiscountType.percent,
+  ),
+  _LoyaltyReward(
+    type: _RewardType.freeItem,
+    icon: Icons.card_giftcard_rounded,
+    name: 'Free 1 Pizza Keju',
+    pointCost: 10,
+    freeItemProductId: 'redeem_pizza_keju',
+    freeItemName: 'Pizza Keju',
+    freeItemUnitPrice: 100000,
+  ),
+];
+
+// ── Loyalty Point dialog ──────────────────────────────────────────────────────
+
+class _LoyaltyPointDialog extends StatelessWidget {
+  const _LoyaltyPointDialog({required this.provider});
+
+  final OrderProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPoints = provider.memberPoints ?? 0;
+    final activeReward = provider.redeemRewardName;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.3,
+        vertical: AppSpacing.x8,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.lg,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            ColoredBox(
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                  vertical: AppSpacing.x3,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: AppColors.onPrimary, size: 22),
+                    const SizedBox(width: AppSpacing.x3),
+                    Expanded(
+                      child: Text(
+                        'Loyalty Point',
+                        style: AppTypography.textTheme.titleMedium?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: AppColors.onPrimary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Body
+            ColoredBox(
+              color: Colors.white,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  InkWell(
+                    onTap: activeReward != null
+                        ? () {
+                            provider.removeRedemption();
+                            Navigator.of(context).pop();
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                        vertical: AppSpacing.x3,
+                      ),
+                      child: Text(
+                        '[Hapus Penukaran Saat Ini]',
+                        style: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: activeReward != null
+                              ? AppColors.primary
+                              : AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  for (final reward in _loyaltyRewards)
+                    _LoyaltyRewardTile(
+                      reward: reward,
+                      isSelected: activeReward == reward.name,
+                      canAfford: currentPoints >= reward.pointCost,
+                      onTap: currentPoints >= reward.pointCost
+                          ? () {
+                              if (reward.type == _RewardType.freeItem) {
+                                provider.redeemFreeItem(
+                                  name: reward.name,
+                                  pointCost: reward.pointCost,
+                                  item: OrderItem(
+                                    productId: reward.freeItemProductId!,
+                                    name: reward.freeItemName!,
+                                    unitPrice: reward.freeItemUnitPrice!,
+                                    quantity: 1,
+                                    note: '** REDEEM',
+                                  ),
+                                  displayValue: reward.freeItemUnitPrice!,
+                                );
+                              } else {
+                                provider.redeemReward(
+                                  reward.name,
+                                  reward.pointCost,
+                                  reward.discountValue,
+                                  reward.discountType,
+                                );
+                              }
+                              Navigator.of(context).pop();
+                            }
+                          : null,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoyaltyRewardTile extends StatelessWidget {
+  const _LoyaltyRewardTile({
+    required this.reward,
+    required this.isSelected,
+    required this.canAfford,
+    required this.onTap,
+  });
+
+  final _LoyaltyReward reward;
+  final bool isSelected;
+  final bool canAfford;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ColoredBox(
+        color: isSelected
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: canAfford ? const Color(0xFF6B5800) : Colors.grey.shade400,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(reward.icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reward.name,
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: canAfford
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${reward.pointCost} Pts',
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: canAfford
+                            ? AppColors.primary
+                            : AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+            ],
+          ),
         ),
       ),
     );

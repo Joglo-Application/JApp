@@ -15,6 +15,12 @@ class OrderProvider extends ChangeNotifier {
   String? _orderPromoName;
   String _orderNote = '';
   OrderType? _orderType;
+  int? _redeemedPointCost;
+  double _redeemDiscount = 0;
+  DiscountType _redeemDiscountType = DiscountType.amount;
+  String? _redeemRewardName;
+  String? _redeemedItemId;
+  double? _redeemDisplayValue;
 
   String get customerName => _customerName;
   int? get memberPoints => _memberPoints;
@@ -23,6 +29,21 @@ class OrderProvider extends ChangeNotifier {
   String? get orderPromoName => _orderPromoName;
   String get orderNote => _orderNote;
   OrderType? get orderType => _orderType;
+  int? get redeemedPointCost => _redeemedPointCost;
+  String? get redeemRewardName => _redeemRewardName;
+  String? get redeemedItemId => _redeemedItemId;
+
+  double get redeemDiscountAmount {
+    if (_redeemDiscount <= 0) return 0;
+    if (_redeemDiscountType == DiscountType.percent) {
+      return subtotal * (_redeemDiscount / 100);
+    }
+    return _redeemDiscount;
+  }
+
+  // For free-item rewards this holds the item's unit price (informational display).
+  // For discount rewards it falls back to the computed discount amount.
+  double get redeemDisplayValue => _redeemDisplayValue ?? redeemDiscountAmount;
 
   void setOrderNote(String note) {
     _orderNote = note;
@@ -59,7 +80,10 @@ class OrderProvider extends ChangeNotifier {
   int get itemCount => _items.length;
   int get totalQty => _items.fold(0, (s, i) => s + i.quantity);
 
-  double get subtotal => _items.fold(0.0, (s, i) => s + i.subtotal);
+  // Free-item reward is excluded from subtotal so taxes are not inflated.
+  double get subtotal => _items
+      .where((i) => i.productId != _redeemedItemId)
+      .fold(0.0, (s, i) => s + i.subtotal);
   double get taxAmount => subtotal * taxRate;
 
   double get orderDiscountAmount {
@@ -70,7 +94,62 @@ class OrderProvider extends ChangeNotifier {
     return _orderDiscount;
   }
 
-  double get total => subtotal + taxAmount - orderDiscountAmount;
+  double get total => subtotal + taxAmount - orderDiscountAmount - redeemDiscountAmount;
+
+  int get earnedPoints => (subtotal / 2000).floor();
+
+  void _clearRedemptionState() {
+    if (_redeemedItemId != null) {
+      _items.removeWhere((e) => e.productId == _redeemedItemId);
+      _redeemedItemId = null;
+    }
+    _redeemedPointCost = null;
+    _redeemDiscount = 0;
+    _redeemDiscountType = DiscountType.amount;
+    _redeemRewardName = null;
+    _redeemDisplayValue = null;
+  }
+
+  void redeemReward(String name, int pointCost, double discount, DiscountType type) {
+    if (_memberPoints == null) return;
+    if (_redeemedPointCost != null) {
+      _memberPoints = _memberPoints! + _redeemedPointCost!;
+    }
+    _clearRedemptionState();
+    _redeemedPointCost = pointCost;
+    _redeemDiscount = discount;
+    _redeemDiscountType = type;
+    _redeemRewardName = name;
+    _memberPoints = _memberPoints! - pointCost;
+    notifyListeners();
+  }
+
+  void redeemFreeItem({
+    required String name,
+    required int pointCost,
+    required OrderItem item,
+    required double displayValue,
+  }) {
+    if (_memberPoints == null) return;
+    if (_redeemedPointCost != null) {
+      _memberPoints = _memberPoints! + _redeemedPointCost!;
+    }
+    _clearRedemptionState();
+    _redeemedPointCost = pointCost;
+    _redeemRewardName = name;
+    _redeemDisplayValue = displayValue;
+    _redeemedItemId = item.productId;
+    _memberPoints = _memberPoints! - pointCost;
+    _items.add(item);
+    notifyListeners();
+  }
+
+  void removeRedemption() {
+    if (_redeemedPointCost == null) return;
+    _memberPoints = (_memberPoints ?? 0) + _redeemedPointCost!;
+    _clearRedemptionState();
+    notifyListeners();
+  }
 
   void addOrIncrement(OrderItem item) {
     final idx = _items.indexWhere((e) => e.productId == item.productId);
@@ -123,12 +202,20 @@ class OrderProvider extends ChangeNotifier {
   }
 
   void remove(String productId) {
-    _items.removeWhere((e) => e.productId == productId);
+    if (productId == _redeemedItemId) {
+      _memberPoints = (_memberPoints ?? 0) + (_redeemedPointCost ?? 0);
+      _clearRedemptionState();
+    } else {
+      _items.removeWhere((e) => e.productId == productId);
+    }
     notifyListeners();
   }
 
   void clear() {
-    if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty && _memberPoints == null) return;
+    if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty &&
+        _memberPoints == null && _redeemedPointCost == null) {
+      return;
+    }
     _items.clear();
     _orderDiscount = 0;
     _orderDiscountType = DiscountType.amount;
@@ -136,6 +223,12 @@ class OrderProvider extends ChangeNotifier {
     _orderNote = '';
     _orderType = null;
     _memberPoints = null;
+    _redeemedPointCost = null;
+    _redeemDiscount = 0;
+    _redeemDiscountType = DiscountType.amount;
+    _redeemRewardName = null;
+    _redeemedItemId = null;
+    _redeemDisplayValue = null;
     notifyListeners();
   }
 }

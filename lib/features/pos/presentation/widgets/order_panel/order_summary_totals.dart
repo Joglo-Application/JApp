@@ -38,6 +38,13 @@ class OrderSummaryTotals extends StatelessWidget {
         label: 'Pajak : ${(taxRate * 100).toStringAsFixed(0)}%',
         value: CurrencyFormatter.format(order.subtotal * taxRate),
       ),
+      if (order.redeemedPointCost != null)
+        (
+          label: 'Ditebus : -${order.redeemedPointCost}',
+          value: '-${CurrencyFormatter.format(order.redeemDisplayValue)}',
+        ),
+      if (order.memberPoints != null && order.earnedPoints > 0)
+        (label: 'Point :', value: '+${order.earnedPoints}'),
       if (order.orderNote.isNotEmpty)
       (label: 'Catatan :  ${order.orderNote}', value: ''),
       (label: 'Jumlah Item : ${order.totalQty}', value: ''),
