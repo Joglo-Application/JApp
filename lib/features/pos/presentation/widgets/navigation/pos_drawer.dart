@@ -8,7 +8,7 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 
-enum PosDrawerPage { pos, transaksi, inventori, shiftKas }
+enum PosDrawerPage { pos, transaksi, inventori, shiftKas, laporan, absensi }
 
 class PosDrawer extends StatelessWidget {
   const PosDrawer({super.key, this.activePage = PosDrawerPage.pos});
@@ -57,11 +57,19 @@ class PosDrawer extends StatelessWidget {
                   active: activePage == PosDrawerPage.shiftKas,
                   onTap: () => _navigateTo(context, PosDrawerPage.shiftKas),
                 ),
+                //# ADD VALUE ROLE FROM DATABASE
+                _DrawerItem(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Laporan',
+                  active: activePage == PosDrawerPage.laporan,
+                  onTap: () => _navigateTo(context, PosDrawerPage.laporan),
+                ),
                 const _DrawerDivider(),
                 _DrawerItem(
                   icon: Icons.face_retouching_natural_rounded,
                   label: 'Absensi',
-                  onTap: () => _soon(context, 'Absensi'),
+                  active: activePage == PosDrawerPage.absensi,
+                  onTap: () => _navigateTo(context, PosDrawerPage.absensi),
                 ),
                 _DrawerItem(
                   icon: Icons.settings_rounded,
@@ -99,6 +107,10 @@ class PosDrawer extends StatelessWidget {
         context.push(AppRoutes.inventori);
       case PosDrawerPage.shiftKas:
         context.push(AppRoutes.shiftKas);
+      case PosDrawerPage.laporan:
+        context.push(AppRoutes.laporan);
+      case PosDrawerPage.absensi:
+        context.push(AppRoutes.absensi);
     }
   }
 

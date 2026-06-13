@@ -101,9 +101,8 @@ class _EntriesList extends StatelessWidget {
     if (entries.isEmpty) return const _EmptyState();
 
     return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.x4),
       itemCount: entries.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.x2),
+      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
       itemBuilder: (context, i) => _EntryTile(entry: entries[i]),
     );
   }
@@ -149,15 +148,9 @@ class _EntryTile extends StatelessWidget {
   final ShiftKasEntry entry;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
   ];
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
 
   String _formatDate(DateTime dt) =>
       '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
@@ -174,42 +167,38 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSetoran = entry.jenis == ShiftKasJenis.setoran;
-    final selected =
-        context.watch<ShiftKasProvider>().selected?.id == entry.id;
+    final isMasuk = entry.jenis == ShiftKasJenis.setoran;
 
-    return GestureDetector(
-      onTap: () => context.read<ShiftKasProvider>().select(entry),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryContainer : AppColors.surface,
-          borderRadius: AppRadius.md,
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.shade200,
+    return InkWell(
+      onTap: () {
+        final provider = context.read<ShiftKasProvider>();
+        showDialog<void>(
+          context: context,
+          builder: (_) => ChangeNotifierProvider.value(
+            value: provider,
+            child: _EntryDetailDialog(entry: entry),
           ),
-        ),
+        );
+      },
+      child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
           vertical: AppSpacing.x3,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: isSetoran
-                    ? Colors.green.shade100
-                    : Colors.red.shade100,
-                shape: BoxShape.circle,
+                color: isMasuk ? Colors.green.shade500 : Colors.red.shade500,
+                borderRadius: AppRadius.md,
               ),
               child: Icon(
-                isSetoran
-                    ? Icons.arrow_downward_rounded
-                    : Icons.arrow_upward_rounded,
-                color: isSetoran ? Colors.green.shade700 : Colors.red.shade700,
-                size: 20,
+                isMasuk ? Icons.add_rounded : Icons.remove_rounded,
+                color: Colors.white,
+                size: 24,
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
@@ -218,26 +207,33 @@ class _EntryTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    entry.keterangan,
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${_formatDate(entry.waktu)}  ${_formatTime(entry.waktu)}',
+                    _formatDate(entry.waktu),
                     style: AppTypography.textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
                   ),
+                  Text(
+                    entry.namaTransaksi,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (entry.catatan.isNotEmpty)
+                    Text(
+                      entry.catatan,
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
                 ],
               ),
             ),
+            const SizedBox(width: AppSpacing.x3),
             Text(
-              '${isSetoran ? '+' : '-'} ${_formatRp(entry.jumlah)}',
+              _formatRp(entry.jumlah),
               style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: isSetoran ? Colors.green.shade700 : Colors.red.shade700,
-                fontWeight: FontWeight.bold,
+                color: isMasuk ? AppColors.onSurface : Colors.red.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -266,14 +262,6 @@ class _DetailPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<ShiftKasProvider>();
     final selected = provider.selected;
-    final entries = provider.entries;
-
-    final totalSetoran = entries
-        .where((e) => e.jenis == ShiftKasJenis.setoran)
-        .fold(0.0, (s, e) => s + e.jumlah);
-    final totalPenarikan = entries
-        .where((e) => e.jenis == ShiftKasJenis.penarikan)
-        .fold(0.0, (s, e) => s + e.jumlah);
 
     return Container(
       width: 320,
@@ -282,117 +270,8 @@ class _DetailPanel extends StatelessWidget {
         border: Border(left: BorderSide(color: Colors.grey.shade200)),
       ),
       child: selected == null
-          ? _PanelSummary(
-              totalSetoran: totalSetoran,
-              totalPenarikan: totalPenarikan,
-              totalKas: provider.totalKas,
-              formatRp: _formatRp,
-            )
+          ? const SizedBox.expand()
           : _PanelDetail(entry: selected, formatRp: _formatRp),
-    );
-  }
-}
-
-class _PanelSummary extends StatelessWidget {
-  const _PanelSummary({
-    required this.totalSetoran,
-    required this.totalPenarikan,
-    required this.totalKas,
-    required this.formatRp,
-  });
-
-  final double totalSetoran;
-  final double totalPenarikan;
-  final double totalKas;
-  final String Function(double) formatRp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ColoredBox(
-          color: Colors.grey.shade700,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x3,
-            ),
-            child: Text(
-              'Ringkasan Shift',
-              style: AppTypography.textTheme.titleMedium?.copyWith(
-                color: AppColors.onSecondary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.x4),
-          child: Column(
-            children: [
-              _SummaryRow(
-                label: 'Total Setoran',
-                value: formatRp(totalSetoran),
-                valueColor: Colors.green.shade700,
-              ),
-              const SizedBox(height: AppSpacing.x3),
-              _SummaryRow(
-                label: 'Total Penarikan',
-                value: formatRp(totalPenarikan),
-                valueColor: Colors.red.shade700,
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.x3),
-                child: Divider(height: 1),
-              ),
-              _SummaryRow(
-                label: 'Total Kas',
-                value: formatRp(totalKas),
-                valueColor: AppColors.primary,
-                bold: true,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-    this.bold = false,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: AppTypography.textTheme.bodyMedium?.copyWith(
-            color: AppColors.onSurfaceVariant,
-            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-        Text(
-          value,
-          style: AppTypography.textTheme.bodyMedium?.copyWith(
-            color: valueColor,
-            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -457,11 +336,15 @@ class _PanelDetail extends StatelessWidget {
             children: [
               _DetailField(
                 label: 'Jenis',
-                value: isSetoran ? 'Setoran' : 'Penarikan',
+                value: isSetoran ? 'Kas Masuk' : 'Kas Keluar',
                 valueColor: isSetoran ? Colors.green.shade700 : Colors.red.shade700,
               ),
               const SizedBox(height: AppSpacing.x3),
-              _DetailField(label: 'Keterangan', value: entry.keterangan),
+              _DetailField(label: 'Nama Transaksi', value: entry.namaTransaksi),
+              if (entry.catatan.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.x3),
+                _DetailField(label: 'Catatan', value: entry.catatan),
+              ],
               const SizedBox(height: AppSpacing.x3),
               _DetailField(
                 label: 'Jumlah',
@@ -789,6 +672,8 @@ class _ConfirmRow extends StatelessWidget {
 
 // ── Add entry dialog (after shift started) ────────────────────────────────────
 
+enum _KasTab { masuk, keluar }
+
 class _AddEntryDialog extends StatefulWidget {
   const _AddEntryDialog();
 
@@ -797,29 +682,32 @@ class _AddEntryDialog extends StatefulWidget {
 }
 
 class _AddEntryDialogState extends State<_AddEntryDialog> {
-  ShiftKasJenis _jenis = ShiftKasJenis.setoran;
-  final _keteranganCtrl = TextEditingController();
+  _KasTab _tab = _KasTab.masuk;
+  final _namaCtrl = TextEditingController();
   final _jumlahCtrl = TextEditingController();
+  final _catatanCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _keteranganCtrl.dispose();
+    _namaCtrl.dispose();
     _jumlahCtrl.dispose();
+    _catatanCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final keterangan = _keteranganCtrl.text.trim();
+    final nama = _namaCtrl.text.trim();
     final jumlah = double.tryParse(
       _jumlahCtrl.text.trim().replaceAll('.', '').replaceAll(',', ''),
     );
-    if (keterangan.isEmpty || jumlah == null || jumlah <= 0) return;
+    if (nama.isEmpty || jumlah == null || jumlah <= 0) return;
 
     context.read<ShiftKasProvider>().addEntry(
-          jenis: _jenis,
-          keterangan: keterangan,
-          jumlah: jumlah,
-        );
+      jenis: _tab == _KasTab.masuk ? ShiftKasJenis.setoran : ShiftKasJenis.penarikan,
+      namaTransaksi: nama,
+      jumlah: jumlah,
+      catatan: _catatanCtrl.text.trim(),
+    );
     Navigator.of(context).pop();
   }
 
@@ -828,140 +716,167 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
       child: SizedBox(
-        width: 420,
+        width: 680,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Tab selector
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: ColoredBox(
-                color: AppColors.primary,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x4,
-                    vertical: AppSpacing.x3,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        color: AppColors.onPrimary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppSpacing.x3),
-                      Expanded(
-                        child: Text(
-                          'Tambah Kas',
-                          style: AppTypography.textTheme.titleMedium?.copyWith(
-                            color: AppColors.onPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: AppColors.onPrimary),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.x4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Jenis',
-                    style: AppTypography.textTheme.bodySmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.x2),
-                  Row(
-                    children: ShiftKasJenis.values.map((j) {
-                      final isSelected = _jenis == j;
-                      final label =
-                          j == ShiftKasJenis.setoran ? 'Setoran' : 'Penarikan';
-                      return Expanded(
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _tab = _KasTab.masuk),
+                      child: ColoredBox(
+                        color: _tab == _KasTab.masuk ? Colors.white : Colors.grey.shade200,
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            right: j == ShiftKasJenis.setoran ? AppSpacing.x2 : 0,
-                          ),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _jenis = j),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.surface,
-                                borderRadius: AppRadius.md,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : Colors.grey.shade300,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                label,
-                                style: AppTypography.textTheme.labelLarge
-                                    ?.copyWith(
-                                  color: isSelected
-                                      ? AppColors.onPrimary
-                                      : AppColors.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
+                          child: Text(
+                            'Kas Masuk',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.textTheme.titleMedium?.copyWith(
+                              fontWeight: _tab == _KasTab.masuk ? FontWeight.bold : FontWeight.normal,
+                              color: _tab == _KasTab.masuk ? AppColors.onSurface : AppColors.onSurfaceVariant,
                             ),
                           ),
                         ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.x4),
-                  TextField(
-                    controller: _keteranganCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Keterangan',
-                      border: OutlineInputBorder(borderRadius: AppRadius.md),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x3,
-                        vertical: AppSpacing.x3,
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.x3),
-                  TextField(
-                    controller: _jumlahCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Jumlah (Rp)',
-                      border: OutlineInputBorder(borderRadius: AppRadius.md),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x3,
-                        vertical: AppSpacing.x3,
+                  Container(width: 1, height: 56, color: Colors.grey.shade300),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _tab = _KasTab.keluar),
+                      child: ColoredBox(
+                        color: _tab == _KasTab.keluar ? Colors.white : Colors.grey.shade200,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
+                          child: Text(
+                            'Kas Keluar',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.textTheme.titleMedium?.copyWith(
+                              fontWeight: _tab == _KasTab.keluar ? FontWeight.bold : FontWeight.normal,
+                              color: _tab == _KasTab.keluar ? AppColors.onSurface : AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+            // Form fields
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x5, AppSpacing.x5, AppSpacing.x5, AppSpacing.x4,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nama Transaksi',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _namaCtrl,
+                    autofocus: true,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: AppRadius.md),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3,
+                        vertical: AppSpacing.x3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    'Tipe Transaksi',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _jumlahCtrl,
+                    keyboardType: TextInputType.number,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      prefixText: 'Rp  ',
+                      border: OutlineInputBorder(borderRadius: AppRadius.md),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3,
+                        vertical: AppSpacing.x3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    'Catatan',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _catatanCtrl,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: AppRadius.md),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3,
+                        vertical: AppSpacing.x3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: AppRadius.md,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3,
+                        vertical: AppSpacing.x3,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'File Lampiran',
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.add_rounded, size: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Action buttons
             Row(
               children: [
                 Expanded(
                   child: InkWell(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(
-                      height: 52,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHighest,
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade200),
+                          right: BorderSide(color: Colors.grey.shade200),
+                        ),
                         borderRadius: const BorderRadius.only(
                           bottomLeft: Radius.circular(12),
                         ),
@@ -970,8 +885,8 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
                       child: Text(
                         'Batal',
                         style: AppTypography.textTheme.labelLarge?.copyWith(
-                          color: AppColors.onSurface,
                           fontWeight: FontWeight.w600,
+                          color: AppColors.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -981,10 +896,278 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
                   child: InkWell(
                     onTap: _submit,
                     child: Container(
-                      height: 52,
-                      decoration: const BoxDecoration(
+                      height: 56,
+                      decoration: BoxDecoration(
                         color: AppColors.primary,
+                        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                        borderRadius: const BorderRadius.only(
+                          bottomRight: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Simpan',
+                        style: AppTypography.textTheme.labelLarge?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Entry detail / edit dialog ────────────────────────────────────────────────
+
+class _EntryDetailDialog extends StatefulWidget {
+  const _EntryDetailDialog({required this.entry});
+
+  final ShiftKasEntry entry;
+
+  @override
+  State<_EntryDetailDialog> createState() => _EntryDetailDialogState();
+}
+
+class _EntryDetailDialogState extends State<_EntryDetailDialog> {
+  late final TextEditingController _namaCtrl;
+  late final TextEditingController _jumlahCtrl;
+  late final TextEditingController _catatanCtrl;
+
+  static String _formatNum(double amount) {
+    final s = amount.round().toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _namaCtrl = TextEditingController(text: widget.entry.namaTransaksi);
+    _jumlahCtrl = TextEditingController(text: _formatNum(widget.entry.jumlah));
+    _catatanCtrl = TextEditingController(text: widget.entry.catatan);
+  }
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _jumlahCtrl.dispose();
+    _catatanCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final nama = _namaCtrl.text.trim();
+    final jumlah = double.tryParse(
+      _jumlahCtrl.text.trim().replaceAll('.', '').replaceAll(',', ''),
+    );
+    if (nama.isEmpty || jumlah == null || jumlah <= 0) return;
+
+    context.read<ShiftKasProvider>().updateEntry(
+      widget.entry.id,
+      namaTransaksi: nama,
+      jumlah: jumlah,
+      catatan: _catatanCtrl.text.trim(),
+    );
+    Navigator.of(context).pop();
+  }
+
+  void _delete() {
+    context.read<ShiftKasProvider>().deleteEntry(widget.entry.id);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMasuk = widget.entry.jenis == ShiftKasJenis.setoran;
+    final headerColor = isMasuk ? Colors.green.shade500 : Colors.red.shade500;
+    final title = isMasuk ? 'Kas Masuk' : 'Kas Keluar';
+
+    final fieldDecoration = InputDecoration(
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      border: OutlineInputBorder(
+        borderRadius: AppRadius.md,
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: AppRadius.md,
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: AppRadius.md,
+        borderSide: BorderSide(color: headerColor, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x3,
+        vertical: AppSpacing.x3,
+      ),
+    );
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+      child: SizedBox(
+        width: 680,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Colored header
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: ColoredBox(
+                color: headerColor,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                    vertical: AppSpacing.x4,
+                  ),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      Text(
+                        title,
+                        style: AppTypography.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Form fields
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x5, AppSpacing.x5, AppSpacing.x5, AppSpacing.x4,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nama Transaksi',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _namaCtrl,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: fieldDecoration,
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    'Tipe Transaksi',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _jumlahCtrl,
+                    keyboardType: TextInputType.number,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: fieldDecoration.copyWith(prefixText: 'Rp  '),
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    'Catatan',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  TextField(
+                    controller: _catatanCtrl,
+                    style: AppTypography.textTheme.bodyLarge,
+                    decoration: fieldDecoration,
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: AppRadius.md,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3,
+                        vertical: AppSpacing.x3,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'File Lampiran',
+                              style: AppTypography.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          const Icon(Icons.add_rounded, size: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _delete,
+                    child: Container(
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
                         borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Hapus Transaksi',
+                        style: AppTypography.textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: _save,
+                    child: Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: const BorderRadius.only(
                           bottomRight: Radius.circular(12),
                         ),
                       ),

@@ -5,4 +5,6 @@ abstract final class AppRoutes {
   static const String transaksi = '/transaksi';
   static const String inventori = '/inventori';
   static const String shiftKas = '/shift-kas';
+  static const String laporan = '/laporan';
+  static const String absensi = '/absensi';
 }

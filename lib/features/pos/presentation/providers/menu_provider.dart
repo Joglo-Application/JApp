@@ -34,6 +34,7 @@ class MenuProvider extends ChangeNotifier {
   String? get submitError => _submitError;
   String? get selectedCategoryId => _selectedCategoryId;
   String get searchQuery => _searchQuery;
+  List<Product> get allProducts => List.unmodifiable(_products);
 
   List<Category> get categories {
     final seen = <String>{};

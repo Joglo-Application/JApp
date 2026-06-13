@@ -5,6 +5,8 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/pos/presentation/pages/inventori_page.dart';
 import '../../features/pos/presentation/pages/pos_page.dart';
 import '../../features/pos/presentation/pages/shift_kas_kasir_page.dart';
+import '../../features/pos/presentation/pages/absensi_page.dart';
+import '../../features/pos/presentation/pages/laporan_page.dart';
 import '../../features/pos/presentation/pages/transaksi_page.dart';
 import 'app_routes.dart';
 
@@ -34,6 +36,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.shiftKas,
       builder: (context, state) => const ShiftKasKasirPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.laporan,
+      builder: (context, state) => const LaporanPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.absensi,
+      builder: (context, state) => const AbsensiPage(),
     ),
   ],
 );
