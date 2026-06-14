@@ -1,0 +1,154 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../../core/router/app_routes.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/widgets/drawer/app_drawer_divider.dart';
+import '../../../../../core/widgets/drawer/app_drawer_item.dart';
+import '../../../../../core/widgets/drawer/app_drawer_user_header.dart';
+import '../../../../../core/widgets/drawer/ganti_role_sheet.dart';
+import '../../../../auth/presentation/providers/auth_provider.dart';
+
+enum OwnerDrawerPage {
+  dashboard,
+  inventori,
+  stokGudang,
+  kelolaStok,
+  laporan,
+  transaksi,
+  pegawai,
+}
+
+class OwnerDrawer extends StatelessWidget {
+  const OwnerDrawer({super.key, this.activePage = OwnerDrawerPage.dashboard});
+
+  final OwnerDrawerPage activePage;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = context.select<AuthProvider, String>(
+      (a) => a.user?.namaUser.isNotEmpty == true
+          ? a.user!.namaUser
+          : '[NAMA OWNER]',
+    );
+
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppDrawerUserHeader(name: name),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
+              children: [
+                AppDrawerItem(
+                  icon: Icons.circle,
+                  label: 'Dashboard',
+                  active: activePage == OwnerDrawerPage.dashboard,
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.dashboard),
+                ),
+                AppDrawerItem(
+                  icon: Icons.desktop_windows_rounded,
+                  label: 'Inventori',
+                  active: activePage == OwnerDrawerPage.inventori,
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.inventori),
+                ),
+                AppDrawerItem(
+                  icon: Icons.account_tree_rounded,
+                  label: 'Stok Gudang',
+                  active: activePage == OwnerDrawerPage.stokGudang,
+                  onTap: () =>
+                      _navigateTo(context, OwnerDrawerPage.stokGudang),
+                ),
+                AppDrawerItem(
+                  icon: Icons.add_box_rounded,
+                  label: 'Kelola Stok',
+                  active: activePage == OwnerDrawerPage.kelolaStok,
+                  onTap: () =>
+                      _navigateTo(context, OwnerDrawerPage.kelolaStok),
+                ),
+                AppDrawerItem(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Laporan & Pembukuan',
+                  active: activePage == OwnerDrawerPage.laporan,
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.laporan),
+                ),
+                AppDrawerItem(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Transaksi & Pembayaran',
+                  active: activePage == OwnerDrawerPage.transaksi,
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.transaksi),
+                ),
+                AppDrawerItem(
+                  icon: Icons.person_rounded,
+                  label: 'Pegawai',
+                  active: activePage == OwnerDrawerPage.pegawai,
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.pegawai),
+                ),
+                const AppDrawerDivider(),
+                AppDrawerItem(
+                  icon: Icons.settings_rounded,
+                  label: 'Pengaturan',
+                  onTap: () => _navigatePengaturan(context),
+                ),
+                AppDrawerItem(
+                  icon: Icons.switch_account_rounded,
+                  label: 'Ganti Role',
+                  onTap: () => _showGantiRole(context),
+                ),
+                AppDrawerItem(
+                  icon: Icons.help_outline_rounded,
+                  label: 'Pusat Bantuan',
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateTo(BuildContext context, OwnerDrawerPage destination) {
+    Navigator.of(context).pop();
+    if (activePage == destination) return;
+
+    switch (destination) {
+      case OwnerDrawerPage.dashboard:
+        context.go(AppRoutes.ownerDashboard);
+      case OwnerDrawerPage.inventori:
+        context.push(AppRoutes.ownerInventori);
+      case OwnerDrawerPage.stokGudang:
+        context.push(AppRoutes.ownerStokGudang);
+      case OwnerDrawerPage.kelolaStok:
+        context.push(AppRoutes.ownerKelolaStok);
+      case OwnerDrawerPage.laporan:
+        context.push(AppRoutes.ownerLaporan);
+      case OwnerDrawerPage.transaksi:
+        context.push(AppRoutes.ownerTransaksi);
+      case OwnerDrawerPage.pegawai:
+        context.push(AppRoutes.ownerPegawai);
+    }
+  }
+
+  void _navigatePengaturan(BuildContext context) {
+    Navigator.of(context).pop();
+    context.push(AppRoutes.pengaturan);
+  }
+
+  void _showGantiRole(BuildContext context) {
+    Navigator.of(context).pop();
+    GantiRoleSheet.show(
+      context,
+      accounts: const [
+        GantiRoleAccount(namaUser: 'Supervisor01', roleCode: 'SPV1'),
+        GantiRoleAccount(namaUser: 'Kasir01', roleCode: 'KASIR01'),
+        GantiRoleAccount(namaUser: 'Dapur01', roleCode: 'DAPUR01'),
+        GantiRoleAccount(namaUser: 'Gudang01', roleCode: 'GUDANG01'),
+      ],
+    );
+  }
+}

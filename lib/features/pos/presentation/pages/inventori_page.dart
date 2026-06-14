@@ -8,24 +8,28 @@ import '../widgets/inventori/inventori_table.dart';
 import '../widgets/navigation/pos_drawer.dart';
 
 class InventoriPage extends StatelessWidget {
-  const InventoriPage({super.key});
+  const InventoriPage({super.key, this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => InventoriProvider()..load(),
-      child: const _InventoriView(),
+      child: _InventoriView(drawer: drawer),
     );
   }
 }
 
 class _InventoriView extends StatelessWidget {
-  const _InventoriView();
+  const _InventoriView({this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const PosDrawer(activePage: PosDrawerPage.inventori),
+      drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.inventori),
       body: SafeArea(
         child: Column(
           children: [

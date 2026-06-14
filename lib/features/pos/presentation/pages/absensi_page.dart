@@ -136,7 +136,7 @@ class _RiwayatButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FilledButton(
-      onPressed: () {},
+      onPressed: () => _showRiwayat(context),
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
@@ -153,6 +153,19 @@ class _RiwayatButton extends StatelessWidget {
           color: AppColors.onPrimary,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+
+  void _showRiwayat(BuildContext context) {
+    final provider = context.read<AbsensiProvider>();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: provider,
+        child: const _RiwayatSheet(),
       ),
     );
   }
@@ -325,6 +338,123 @@ class _ActionButton extends StatelessWidget {
             color: AppColors.onPrimary,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Riwayat sheet ────────────────────────────────────────────────────────────
+
+class _RiwayatSheet extends StatelessWidget {
+  const _RiwayatSheet();
+
+  static const _days = [
+    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
+  ];
+  static const _months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  String _formatDate(DateTime dt) {
+    final day = _days[dt.weekday - 1];
+    final month = _months[dt.month - 1];
+    return '$day,\n${dt.day} $month ${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final history = context.watch<AbsensiProvider>().history;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: Column(
+          children: [
+            ColoredBox(
+              color: AppColors.primary,
+              child: SizedBox(
+                height: 56,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.onPrimary),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ColoredBox(
+                color: AppColors.surface,
+                child: history.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Belum ada riwayat',
+                          style: AppTypography.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x4,
+                          vertical: AppSpacing.x3,
+                        ),
+                        itemCount: history.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final record = history[i];
+                          final isHadir = record.type == AbsensiStatus.sudahHadir;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.x3,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.people_rounded,
+                                  size: 40,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: AppSpacing.x3),
+                                Expanded(
+                                  child: Text(
+                                    _formatDate(record.waktu),
+                                    style: AppTypography.textTheme.bodyMedium,
+                                  ),
+                                ),
+                                FilledButton(
+                                  onPressed: null,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: isHadir
+                                        ? Colors.green
+                                        : AppColors.error,
+                                    disabledBackgroundColor: isHadir
+                                        ? Colors.green
+                                        : AppColors.error,
+                                    foregroundColor: AppColors.onPrimary,
+                                    minimumSize: const Size(80, 36),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.md,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isHadir ? 'Hadir' : 'Pulang',
+                                    style: AppTypography.textTheme.labelMedium
+                                        ?.copyWith(color: AppColors.onPrimary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );
