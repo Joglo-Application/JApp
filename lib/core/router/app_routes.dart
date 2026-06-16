@@ -31,6 +31,15 @@ abstract final class AppRoutes {
   static const String ownerPengaturanToko = '/owner/pengaturan/toko';
   static const String ownerPengaturanPos = '/owner/pengaturan/pos';
   static const String ownerPengaturanPajak = '/owner/pengaturan/pajak';
+  static const String ownerPengaturanMataUang = '/owner/pengaturan/mata-uang';
+  static const String ownerPengaturanRingkasanShift =
+      '/owner/pengaturan/ringkasan-shift';
+  static const String ownerPengaturanLayoutToko =
+      '/owner/pengaturan/layout-toko';
+  static const String ownerPengaturanLayoutTokoEdit =
+      '/owner/pengaturan/layout-toko/edit';
+  static const String ownerPengaturanNotifikasi =
+      '/owner/pengaturan/notifikasi';
 
   // ── Kitchen ───────────────────────────────────────────────────────────────
   static const String kitchenDapur = '/kitchen/dapur';

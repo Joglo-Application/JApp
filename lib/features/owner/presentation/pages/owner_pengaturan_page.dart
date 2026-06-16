@@ -15,12 +15,6 @@ class OwnerPengaturanPage extends StatefulWidget {
 }
 
 class _OwnerPengaturanPageState extends State<OwnerPengaturanPage> {
-  bool _ringkasanOtomatis = true;
-  bool _cetakOtomatis = false;
-  bool _notifikasiPesanan = true;
-  bool _notifikasiStok = true;
-  bool _notifikasiLaporan = false;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,83 +40,23 @@ class _OwnerPengaturanPageState extends State<OwnerPengaturanPage> {
                       title: 'Pajak Toko',
                       onTap: () => context.push(AppRoutes.ownerPengaturanPajak),
                     ),
-                    _PengaturanSection(
+                    _NavSection(
                       title: 'Mata Uang Penjualan',
-                      children: [
-                        _NavTile(
-                          label: 'Mata Uang',
-                          value: 'Rupiah (IDR)',
-                          onTap: () {},
-                        ),
-                        _NavTile(
-                          label: 'Format Angka',
-                          value: '1.000.000',
-                          onTap: () {},
-                        ),
-                        _NavTile(
-                          label: 'Simbol',
-                          value: 'Rp',
-                          onTap: () {},
-                        ),
-                      ],
+                      onTap: () =>
+                              context.push(AppRoutes.ownerPengaturanMataUang),
                     ),
-                    _PengaturanSection(
+                    _NavSection(
                       title: 'Ringkasan Shift',
-                      children: [
-                        _ToggleTile(
-                          label: 'Tampilkan Ringkasan Otomatis',
-                          value: _ringkasanOtomatis,
-                          onChanged: (v) =>
-                              setState(() => _ringkasanOtomatis = v),
-                        ),
-                        _ToggleTile(
-                          label: 'Cetak Otomatis Saat Shift Ditutup',
-                          value: _cetakOtomatis,
-                          onChanged: (v) => setState(() => _cetakOtomatis = v),
-                        ),
-                      ],
+                      onTap: () => context
+                          .push(AppRoutes.ownerPengaturanRingkasanShift),
                     ),
-                    _PengaturanSection(
+                    _NavSection(
                       title: 'Layout Toko',
-                      children: [
-                        _NavTile(
-                          label: 'Tema Warna',
-                          value: 'Gold (Default)',
-                          onTap: () {},
-                        ),
-                        _NavTile(
-                          label: 'Pengaturan Meja',
-                          onTap: () {},
-                        ),
-                        _NavTile(
-                          label: 'Tampilan Menu',
-                          value: 'Grid',
-                          onTap: () {},
-                        ),
-                      ],
+                      onTap: () => context.push(AppRoutes.ownerPengaturanLayoutToko),
                     ),
-                    _PengaturanSection(
+                    _NavSection(
                       title: 'Notifikasi',
-                      children: [
-                        _ToggleTile(
-                          label: 'Pesanan Baru',
-                          value: _notifikasiPesanan,
-                          onChanged: (v) =>
-                              setState(() => _notifikasiPesanan = v),
-                        ),
-                        _ToggleTile(
-                          label: 'Stok Rendah',
-                          value: _notifikasiStok,
-                          onChanged: (v) =>
-                              setState(() => _notifikasiStok = v),
-                        ),
-                        _ToggleTile(
-                          label: 'Laporan Harian',
-                          value: _notifikasiLaporan,
-                          onChanged: (v) =>
-                              setState(() => _notifikasiLaporan = v),
-                        ),
-                      ],
+                      onTap: () => context.push(AppRoutes.ownerPengaturanNotifikasi),
                     ),
                     const SizedBox(height: AppSpacing.x6),
                   ],
@@ -184,68 +118,6 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-// ── Expandable section ────────────────────────────────────────────────────────
-
-class _PengaturanSection extends StatelessWidget {
-  const _PengaturanSection({
-    required this.title,
-    required this.children,
-  });
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(
-          bottom: BorderSide(color: AppColors.outlineVariant),
-        ),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-        ),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.x5,
-            vertical: AppSpacing.x2,
-          ),
-          childrenPadding: EdgeInsets.zero,
-          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-          title: Text(
-            title,
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          trailing: const _ChevronIcon(),
-          children: [
-            const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChevronIcon extends StatelessWidget {
-  const _ChevronIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Icon(
-      Icons.keyboard_arrow_down_rounded,
-      color: AppColors.onSurfaceVariant,
-      size: 24,
-    );
-  }
-}
-
 // ── Nav section (top-level row that pushes a detail page) ────────────────────
 
 class _NavSection extends StatelessWidget {
@@ -289,113 +161,6 @@ class _NavSection extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Nav tile ──────────────────────────────────────────────────────────────────
-
-class _NavTile extends StatelessWidget {
-  const _NavTile({
-    required this.label,
-    this.value,
-    this.onTap,
-  });
-
-  final String label;
-  final String? value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x5,
-          vertical: AppSpacing.x4,
-        ),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: AppColors.outlineVariant),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
-              ),
-            ),
-            if (value != null) ...[
-              Text(
-                value!,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.x1),
-            ],
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.onSurfaceVariant,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Toggle tile ───────────────────────────────────────────────────────────────
-
-class _ToggleTile extends StatelessWidget {
-  const _ToggleTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x5,
-        vertical: AppSpacing.x2,
-      ),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
-            activeTrackColor: AppColors.primaryContainer,
-            inactiveThumbColor: AppColors.onSurfaceVariant,
-            inactiveTrackColor: AppColors.outlineVariant,
-          ),
-        ],
       ),
     );
   }

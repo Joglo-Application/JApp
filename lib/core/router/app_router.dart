@@ -16,6 +16,11 @@ import '../../features/owner/presentation/pages/owner_pengaturan_page.dart';
 import '../../features/owner/presentation/pages/owner_pengaturan_toko_page.dart';
 import '../../features/owner/presentation/pages/owner_pengaturan_pos_page.dart';
 import '../../features/owner/presentation/pages/owner_pengaturan_pajak_page.dart';
+import '../../features/owner/presentation/pages/owner_pengaturan_mata_uang_page.dart';
+import '../../features/owner/presentation/pages/owner_pengaturan_ringkasan_shift_page.dart';
+import '../../features/owner/presentation/pages/owner_pengaturan_layout_toko_page.dart';
+import '../../features/owner/presentation/pages/owner_pengaturan_layout_toko_edit_page.dart';
+import '../../features/owner/presentation/pages/owner_pengaturan_notifikasi_page.dart';
 import '../../features/owner/presentation/pages/owner_pilih_produk_page.dart';
 import '../../features/owner/presentation/pages/owner_tambah_voucher_page.dart';
 import '../../features/owner/presentation/pages/owner_transaksi_list_page.dart';
@@ -165,6 +170,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.ownerPengaturanPajak,
       builder: (context, state) => const OwnerPengaturanPajakPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.ownerPengaturanMataUang,
+      builder: (context, state) => const OwnerPengaturanMataUangPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.ownerPengaturanRingkasanShift,
+      builder: (context, state) => const OwnerPengaturanRingkasanShiftPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.ownerPengaturanLayoutToko,
+      builder: (context, state) => const OwnerPengaturanLayoutTokoPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.ownerPengaturanLayoutTokoEdit,
+      builder: (context, state) => OwnerPengaturanLayoutTokoEditPage(
+        initialData: state.extra as LayoutTokoData?,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.ownerPengaturanNotifikasi,
+      builder: (context, state) => const OwnerPengaturanNotifikasiPage(),
     ),
 
     // ── Kitchen ──────────────────────────────────────────────────────────────

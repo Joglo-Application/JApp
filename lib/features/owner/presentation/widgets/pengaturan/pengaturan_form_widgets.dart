@@ -214,6 +214,260 @@ class PengaturanSoloTextField extends StatelessWidget {
   }
 }
 
+/// Single-select dropdown inside the standard solo container — closed state
+/// shows the current [value] with a leading chevron. Tapping it raises a
+/// scrim-backed popup (anchored over the field, same width) with a
+/// primary-colored header showing [placeholder] + a close action, and
+/// [options] listed below to pick from.
+class PengaturanSoloDropdownField extends StatefulWidget {
+  const PengaturanSoloDropdownField({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.placeholder = 'Pilih',
+  });
+
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+  final String placeholder;
+
+  @override
+  State<PengaturanSoloDropdownField> createState() =>
+      _PengaturanSoloDropdownFieldState();
+}
+
+class _PengaturanSoloDropdownFieldState
+    extends State<PengaturanSoloDropdownField> {
+  final _fieldKey = GlobalKey();
+  OverlayEntry? _overlay;
+
+  @override
+  void dispose() {
+    _overlay?.remove();
+    super.dispose();
+  }
+
+  void _open() {
+    final box = _fieldKey.currentContext!.findRenderObject()! as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    _overlay?.remove();
+    _overlay = OverlayEntry(
+      builder: (_) => _PengaturanDropdownPopup(
+        top: offset.dy,
+        left: offset.dx,
+        width: size.width,
+        placeholder: widget.placeholder,
+        options: widget.options,
+        onSelect: (option) {
+          widget.onChanged(option);
+          _close();
+        },
+        onClose: _close,
+      ),
+    );
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  void _close() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PengaturanSoloContainer(
+      child: InkWell(
+        key: _fieldKey,
+        onTap: _open,
+        borderRadius: BorderRadius.circular(AppSpacing.x3),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x4,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.onSurfaceVariant,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.x2),
+              Expanded(
+                child: Text(
+                  widget.value,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Scrim-backed popup raised by [PengaturanSoloDropdownField] — dims the
+/// rest of the screen and floats a gold header + option list at the
+/// field's exact position/width.
+class _PengaturanDropdownPopup extends StatelessWidget {
+  const _PengaturanDropdownPopup({
+    required this.top,
+    required this.left,
+    required this.width,
+    required this.placeholder,
+    required this.options,
+    required this.onSelect,
+    required this.onClose,
+  });
+
+  final double top;
+  final double left;
+  final double width;
+  final String placeholder;
+  final List<String> options;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: onClose,
+            child: const ColoredBox(
+              color: AppColors.scrim,
+              child: SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            top: top,
+            left: left,
+            width: width,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(AppSpacing.x3),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _PengaturanDropdownPopupHeader(
+                    placeholder: placeholder,
+                    onClose: onClose,
+                  ),
+                  for (final option in options) ...[
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AppColors.outlineVariant,
+                    ),
+                    _PengaturanDropdownOptionRow(
+                      label: option,
+                      onTap: () => onSelect(option),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PengaturanDropdownPopupHeader extends StatelessWidget {
+  const _PengaturanDropdownPopupHeader({
+    required this.placeholder,
+    required this.onClose,
+  });
+
+  final String placeholder;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.primary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x4,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                placeholder,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Container(
+              width: 1,
+              height: 20,
+              color: AppColors.onPrimary.withValues(alpha: 0.4),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            GestureDetector(
+              onTap: onClose,
+              child: const Icon(
+                Icons.close_rounded,
+                color: AppColors.onPrimary,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PengaturanDropdownOptionRow extends StatelessWidget {
+  const _PengaturanDropdownOptionRow({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x4,
+          ),
+          child: Text(
+            label,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Label + switch row inside the standard solo container.
 class PengaturanSoloToggleRow extends StatelessWidget {
   const PengaturanSoloToggleRow({
