@@ -16,5 +16,19 @@ abstract final class AppRoutes {
   static const String ownerKelolaStok = '/owner/kelola-stok';
   static const String ownerLaporan = '/owner/laporan';
   static const String ownerTransaksi = '/owner/transaksi';
+  static const String ownerTransaksiList = '/owner/transaksi/list';
+  static const String ownerDiskonVoucher = '/owner/transaksi/diskon-voucher';
+  static const String ownerTambahVoucher = '/owner/transaksi/diskon-voucher/tambah';
+  static const String ownerEditVoucher = '/owner/transaksi/diskon-voucher/edit';
+  static const String ownerLoyaltyPoint = '/owner/transaksi/loyalty-point';
+  static const String ownerTambahLoyaltyDiskon = '/owner/transaksi/loyalty-point/tambah-diskon';
+  static const String ownerTambahLoyaltyProdukGratis = '/owner/transaksi/loyalty-point/tambah-produk-gratis';
+  static const String ownerMetodePembayaran = '/owner/transaksi/metode-pembayaran';
+  static const String ownerTambahMetodePembayaran = '/owner/transaksi/metode-pembayaran/tambah';
+  static const String ownerPilihProduk = '/owner/pilih-produk';
   static const String ownerPegawai = '/owner/pegawai';
+  static const String ownerPengaturan = '/owner/pengaturan';
+  static const String ownerPengaturanToko = '/owner/pengaturan/toko';
+  static const String ownerPengaturanPos = '/owner/pengaturan/pos';
+  static const String ownerPengaturanPajak = '/owner/pengaturan/pajak';
 }

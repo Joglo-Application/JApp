@@ -136,7 +136,7 @@ class OwnerDrawer extends StatelessWidget {
 
   void _navigatePengaturan(BuildContext context) {
     Navigator.of(context).pop();
-    context.push(AppRoutes.pengaturan);
+    context.push(AppRoutes.ownerPengaturan);
   }
 
   void _showGantiRole(BuildContext context) {

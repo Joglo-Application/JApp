@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+
+import '../../../../../../core/theme/app_colors.dart';
+import '../../../../../../core/theme/app_radius.dart';
+import '../../../../../../core/theme/app_spacing.dart';
+import '../../../../../../core/theme/app_typography.dart';
+
+class TransaksiAppBar extends StatelessWidget {
+  const TransaksiAppBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.shellBackground,
+        border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              _HamburgerButton(),
+              const SizedBox(width: AppSpacing.x3),
+              Text(
+                'Transaksi & Pembayaran',
+                style: AppTypography.textTheme.headlineSmall?.copyWith(
+                  color: AppColors.onSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HamburgerButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: () => Scaffold.of(context).openDrawer(),
+        borderRadius: AppRadius.md,
+        child: const SizedBox(
+          width: 45,
+          height: 45,
+          child: Icon(Icons.menu_rounded, color: AppColors.onPrimary, size: 28),
+        ),
+      ),
+    );
+  }
+}
