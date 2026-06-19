@@ -22,6 +22,8 @@ import '../../features/owner/presentation/pages/owner_tambah_voucher_page.dart';
 import '../../features/owner/presentation/pages/owner_transaksi_list_page.dart';
 import '../../features/owner/presentation/pages/owner_transaksi_page.dart';
 import '../../features/owner/presentation/pages/owner_stok_gudang_page.dart';
+import '../../features/kitchen/presentation/pages/kitchen_dapur_page.dart';
+import '../../features/kitchen/presentation/pages/kitchen_transaksi_page.dart';
 import '../../features/owner/presentation/widgets/navigation/owner_drawer.dart';
 import '../../features/pos/presentation/pages/inventori_page.dart';
 import '../../features/pos/presentation/pages/pos_page.dart';
@@ -33,7 +35,7 @@ import '../../features/pos/presentation/pages/transaksi_page.dart';
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.home,
+  initialLocation: AppRoutes.kitchenDapur,
   routes: [
     GoRoute(
       path: AppRoutes.splash,
@@ -161,6 +163,16 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.ownerPengaturanPajak,
       builder: (context, state) => const OwnerPengaturanPajakPage(),
+    ),
+
+    // ── Kitchen ──────────────────────────────────────────────────────────────
+    GoRoute(
+      path: AppRoutes.kitchenDapur,
+      builder: (context, state) => const KitchenDapurPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.kitchenTransaksi,
+      builder: (context, state) => const KitchenTransaksiPage(),
     ),
   ],
 );

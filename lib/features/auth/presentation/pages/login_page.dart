@@ -51,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       _passwordCtrl.text,
     );
 
-    if (mounted && success) context.go(AppRoutes.ownerDashboard);
+    if (mounted && success) context.go(AppRoutes.kitchenDapur);
   }
 
   @override

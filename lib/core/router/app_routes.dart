@@ -31,4 +31,8 @@ abstract final class AppRoutes {
   static const String ownerPengaturanToko = '/owner/pengaturan/toko';
   static const String ownerPengaturanPos = '/owner/pengaturan/pos';
   static const String ownerPengaturanPajak = '/owner/pengaturan/pajak';
+
+  // ── Kitchen ───────────────────────────────────────────────────────────────
+  static const String kitchenDapur = '/kitchen/dapur';
+  static const String kitchenTransaksi = '/kitchen/transaksi';
 }

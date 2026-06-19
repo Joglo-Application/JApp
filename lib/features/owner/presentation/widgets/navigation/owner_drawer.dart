@@ -104,6 +104,11 @@ class OwnerDrawer extends StatelessWidget {
                   label: 'Pusat Bantuan',
                   onTap: () {},
                 ),
+                AppDrawerItem(
+                  icon: Icons.logout_rounded,
+                  label: 'Keluar',
+                  onTap: () => _logout(context),
+                ),
               ],
             ),
           ),
@@ -151,4 +156,13 @@ class OwnerDrawer extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _logout(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    await auth.logout();
+    router.go(AppRoutes.login);
+  }
+
 }

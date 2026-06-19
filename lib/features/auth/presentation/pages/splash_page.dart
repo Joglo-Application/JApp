@@ -51,7 +51,7 @@ class _SplashPageState extends State<SplashPage>
 
     if (!mounted) return;
     final loggedIn = results.first;
-    context.go(loggedIn ? AppRoutes.ownerDashboard : AppRoutes.login);
+    context.go(loggedIn ? AppRoutes.kitchenDapur : AppRoutes.login);
   }
 
   @override
