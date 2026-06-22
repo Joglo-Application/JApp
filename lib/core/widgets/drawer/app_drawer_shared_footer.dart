@@ -47,6 +47,7 @@ class AppDrawerSharedFooter extends StatelessWidget {
   }
 
   void _showGantiRole(BuildContext context) {
+    final router = GoRouter.of(context);
     Navigator.of(context).pop();
     GantiRoleSheet.show(
       context,
@@ -57,6 +58,14 @@ class AppDrawerSharedFooter extends StatelessWidget {
         GantiRoleAccount(namaUser: 'Dapur01', roleCode: 'DAPUR01'),
         GantiRoleAccount(namaUser: 'Gudang01', roleCode: 'GUDANG01'),
       ],
+      onSelect: (account) {
+        final route = switch (account.roleCode) {
+          'SPV1' || 'KASIR01' => AppRoutes.home,
+          'DAPUR01' => AppRoutes.kitchenDapur,
+          _ => null, // GUDANG01: coming soon
+        };
+        if (route != null) router.go(route);
+      },
     );
   }
 

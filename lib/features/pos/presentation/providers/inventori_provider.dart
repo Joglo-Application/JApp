@@ -73,4 +73,9 @@ class InventoriProvider extends ChangeNotifier {
     _searchQuery = query;
     notifyListeners();
   }
+
+  void addItem(InventoriItem item) {
+    _all = [item, ..._all];
+    notifyListeners();
+  }
 }

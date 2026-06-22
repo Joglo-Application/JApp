@@ -96,11 +96,11 @@ class KitchenDrawer extends StatelessWidget {
       case KitchenDrawerPage.transaksi:
         context.push(AppRoutes.kitchenTransaksi);
       case KitchenDrawerPage.inventori:
-        context.push(AppRoutes.inventori);
+        context.push(AppRoutes.kitchenInventori);
       case KitchenDrawerPage.kelolaStok:
-        context.push(AppRoutes.ownerKelolaStok);
+        context.push(AppRoutes.kitchenKelolaStok);
       case KitchenDrawerPage.stokGudang:
-        context.push(AppRoutes.ownerStokGudang);
+        context.push(AppRoutes.kitchenStokGudang);
     }
   }
 }

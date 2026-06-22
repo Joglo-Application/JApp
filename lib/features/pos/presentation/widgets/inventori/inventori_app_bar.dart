@@ -5,8 +5,11 @@ import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
 
+
 class InventoriAppBar extends StatelessWidget {
-  const InventoriAppBar({super.key});
+  const InventoriAppBar({super.key, this.onTambah});
+
+  final VoidCallback? onTambah;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +38,46 @@ class InventoriAppBar extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.x3),
               const _OnlineChip(),
+              const Spacer(),
+              if (onTambah != null) _TambahButton(onTap: onTambah!),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TambahButton extends StatelessWidget {
+  const _TambahButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x3,
+          vertical: AppSpacing.x2,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: AppRadius.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.add_rounded, size: 18, color: AppColors.onPrimary),
+            const SizedBox(width: AppSpacing.x1),
+            Text(
+              'Tambah',
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: AppColors.onPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

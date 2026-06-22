@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/router/app_routes.dart';
+import '../../domain/entities/inventori_item.dart';
 import '../providers/inventori_provider.dart';
 import '../widgets/inventori/inventori_app_bar.dart';
 import '../widgets/inventori/inventori_filter_bar.dart';
@@ -21,23 +24,36 @@ class InventoriPage extends StatelessWidget {
   }
 }
 
-class _InventoriView extends StatelessWidget {
+class _InventoriView extends StatefulWidget {
   const _InventoriView({this.drawer});
 
   final Widget? drawer;
 
   @override
+  State<_InventoriView> createState() => _InventoriViewState();
+}
+
+class _InventoriViewState extends State<_InventoriView> {
+  Future<void> _onTambah() async {
+    final item = await context.push<InventoriItem>(
+      AppRoutes.inventoriTambahProduk,
+    );
+    if (item != null && mounted) {
+      context.read<InventoriProvider>().addItem(item);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.inventori),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const InventoriAppBar(),
-            const InventoriFilterBar(),
-            const Expanded(child: InventoriTable()),
-          ],
-        ),
+      drawer: widget.drawer ??
+          const PosDrawer(activePage: PosDrawerPage.inventori),
+      body: Column(
+        children: [
+          InventoriAppBar(onTambah: _onTambah),
+          const InventoriFilterBar(),
+          const Expanded(child: InventoriTable()),
+        ],
       ),
     );
   }

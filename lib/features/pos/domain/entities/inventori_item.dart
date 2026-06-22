@@ -8,6 +8,7 @@ class InventoriItem {
     required this.qtyStok,
     required this.qtyTahan,
     this.imageUrl,
+    this.localImagePath,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class InventoriItem {
   final int qtyStok;
   final int qtyTahan;
   final String? imageUrl;
+  final String? localImagePath;
 
   InventoriStatus get status {
     if (qtyStok <= 0) return InventoriStatus.habis;

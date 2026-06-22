@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -197,6 +199,12 @@ class _ProductAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.localImagePath != null) {
+      return CircleAvatar(
+        radius: 24,
+        backgroundImage: FileImage(File(item.localImagePath!)),
+      );
+    }
     if (item.imageUrl != null) {
       return CircleAvatar(
         radius: 24,

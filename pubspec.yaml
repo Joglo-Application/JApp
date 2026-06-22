@@ -59,6 +59,9 @@ dependencies:
   # CHARTS
   fl_chart: ^0.68.0
 
+  # IMAGE
+  image_picker: ^1.1.2
+
   # LAUNCHER ICONS
   flutter_launcher_icons: ^0.14.4
   flutter_map: ^8.3.0
