@@ -57,11 +57,13 @@ class AppDrawerSharedFooter extends StatelessWidget {
         GantiRoleAccount(namaUser: 'Kasir01', roleCode: 'KASIR01'),
         GantiRoleAccount(namaUser: 'Dapur01', roleCode: 'DAPUR01'),
         GantiRoleAccount(namaUser: 'Gudang01', roleCode: 'GUDANG01'),
+        GantiRoleAccount(namaUser: 'Owner01', roleCode: 'OWNER01'),
       ],
       onSelect: (account) {
         final route = switch (account.roleCode) {
           'SPV1' || 'KASIR01' => AppRoutes.home,
           'DAPUR01' => AppRoutes.kitchenDapur,
+          'OWNER01' => AppRoutes.ownerDashboard,
           _ => null, // GUDANG01: coming soon
         };
         if (route != null) router.go(route);
