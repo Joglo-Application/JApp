@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -35,9 +37,12 @@ class _InventoriFilterBarState extends State<InventoriFilterBar> {
 
   @override
   Widget build(BuildContext context) {
-    final activeFilter = context.select<InventoriProvider, String?>(
-      (p) => p.kategoriFilter,
-    );
+    final provider = context.watch<InventoriProvider>();
+    final displayLabel = switch (provider.statusFilter) {
+      InventoriStatusFilter.peringatanStok => 'Peringatan Stok',
+      InventoriStatusFilter.tidakAdaStok => 'Tidak ada Stok',
+      null => provider.kategoriFilter ?? 'Semua Kategori',
+    };
 
     return ColoredBox(
       color: AppColors.primary,
@@ -46,15 +51,17 @@ class _InventoriFilterBarState extends State<InventoriFilterBar> {
           horizontal: AppSpacing.x4,
           vertical: AppSpacing.x2,
         ),
-        child: _isSearching ? _SearchRow(
-          controller: _searchCtrl,
-          onStop: _stopSearch,
-          onChanged: (q) => context.read<InventoriProvider>().search(q),
-        ) : _FilterRow(
-          activeFilter: activeFilter,
-          onSearchTap: _startSearch,
-          onFilterTap: () => _showKategoriPicker(context),
-        ),
+        child: _isSearching
+            ? _SearchRow(
+                controller: _searchCtrl,
+                onStop: _stopSearch,
+                onChanged: (q) => context.read<InventoriProvider>().search(q),
+              )
+            : _FilterRow(
+                activeLabel: displayLabel,
+                onSearchTap: _startSearch,
+                onFilterTap: () => _showKategoriPicker(context),
+              ),
       ),
     );
   }
@@ -75,12 +82,12 @@ class _InventoriFilterBarState extends State<InventoriFilterBar> {
 
 class _FilterRow extends StatelessWidget {
   const _FilterRow({
-    required this.activeFilter,
+    required this.activeLabel,
     required this.onSearchTap,
     required this.onFilterTap,
   });
 
-  final String? activeFilter;
+  final String activeLabel;
   final VoidCallback onSearchTap;
   final VoidCallback onFilterTap;
 
@@ -95,7 +102,7 @@ class _FilterRow extends StatelessWidget {
         ),
         Expanded(
           child: Text(
-            activeFilter ?? 'Semua Tipe Produk',
+            activeLabel,
             style: AppTypography.textTheme.bodyMedium?.copyWith(
               color: AppColors.onPrimary,
             ),
@@ -158,6 +165,13 @@ class _KategoriPickerDialog extends StatelessWidget {
     final provider = context.watch<InventoriProvider>();
     final kategoriList = provider.availableKategori.toList()..sort();
     final selected = provider.kategoriFilter;
+    final statusFilter = provider.statusFilter;
+
+    final headerLabel = switch (statusFilter) {
+      InventoriStatusFilter.peringatanStok => 'Peringatan Stok',
+      InventoriStatusFilter.tidakAdaStok => 'Tidak ada Stok',
+      null => selected ?? 'Semua Kategori',
+    };
 
     return Dialog(
       backgroundColor: AppColors.primary,
@@ -182,7 +196,7 @@ class _KategoriPickerDialog extends StatelessWidget {
                   const SizedBox(width: AppSpacing.x2),
                   Expanded(
                     child: Text(
-                      selected ?? 'Semua Tipe Produk',
+                      headerLabel,
                       style: AppTypography.textTheme.titleMedium?.copyWith(
                         color: AppColors.onPrimary,
                         fontWeight: FontWeight.w600,
@@ -208,18 +222,41 @@ class _KategoriPickerDialog extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: AppSpacing.x4),
                 shrinkWrap: true,
                 children: [
-                  _KategoriTile(
-                    label: 'Semua Tipe Produk',
-                    isSelected: selected == null,
+                  // ── Special filters ───────────────────────────────────────
+                  _SpecialFilterTile(
+                    label: '[Semua Kategori]',
+                    isSelected: selected == null && statusFilter == null,
                     onTap: () {
                       provider.setKategoriFilter(null);
                       Navigator.of(context).pop();
                     },
                   ),
+                  _SpecialFilterTile(
+                    label: '[Peringatan Stok]',
+                    isSelected:
+                        statusFilter == InventoriStatusFilter.peringatanStok,
+                    onTap: () {
+                      provider.setStatusFilter(
+                          InventoriStatusFilter.peringatanStok);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  _SpecialFilterTile(
+                    label: '[Tidak ada Stok]',
+                    isSelected:
+                        statusFilter == InventoriStatusFilter.tidakAdaStok,
+                    onTap: () {
+                      provider.setStatusFilter(
+                          InventoriStatusFilter.tidakAdaStok);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  // ── Category items ────────────────────────────────────────
                   ...kategoriList.map(
                     (k) => _KategoriTile(
                       label: k,
-                      isSelected: selected == k,
+                      imagePath: provider.kategoriImage(k),
+                      isSelected: selected == k && statusFilter == null,
                       onTap: () {
                         provider.setKategoriFilter(k);
                         Navigator.of(context).pop();
@@ -236,8 +273,10 @@ class _KategoriPickerDialog extends StatelessWidget {
   }
 }
 
-class _KategoriTile extends StatelessWidget {
-  const _KategoriTile({
+// ── Special filter tile (text-only, bracketed labels) ─────────────────────────
+
+class _SpecialFilterTile extends StatelessWidget {
+  const _SpecialFilterTile({
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -257,7 +296,7 @@ class _KategoriTile extends StatelessWidget {
             : Colors.transparent,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x2,
+          vertical: AppSpacing.x3,
         ),
         child: Row(
           children: [
@@ -277,6 +316,96 @@ class _KategoriTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Category tile with image thumbnail ───────────────────────────────────────
+
+class _KategoriTile extends StatelessWidget {
+  const _KategoriTile({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.imagePath,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final String? imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: isSelected
+            ? AppColors.onPrimary.withValues(alpha: 0.15)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2,
+        ),
+        child: Row(
+          children: [
+            _Thumbnail(imagePath: imagePath),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_rounded,
+                  size: 18, color: AppColors.onPrimary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({this.imagePath});
+  final String? imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.onPrimary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imagePath != null
+          ? _buildImage(imagePath!)
+          : const Icon(Icons.image_rounded,
+              color: AppColors.onPrimary, size: 22),
+    );
+  }
+
+  Widget _buildImage(String path) {
+    if (!path.startsWith('http')) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, err, st) =>
+            const Icon(Icons.image_rounded, color: AppColors.onPrimary, size: 22),
+      );
+    }
+    return Image.network(
+      path,
+      fit: BoxFit.cover,
+      errorBuilder: (ctx, err, st) =>
+          const Icon(Icons.image_rounded, color: AppColors.onPrimary, size: 22),
     );
   }
 }
