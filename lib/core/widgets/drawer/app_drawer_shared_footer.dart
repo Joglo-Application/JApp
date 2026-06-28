@@ -64,7 +64,8 @@ class AppDrawerSharedFooter extends StatelessWidget {
           'SPV1' || 'KASIR01' => AppRoutes.home,
           'DAPUR01' => AppRoutes.kitchenDapur,
           'OWNER01' => AppRoutes.ownerDashboard,
-          _ => null, // GUDANG01: coming soon
+          'GUDANG01' => AppRoutes.supplierGudang,
+          _ => null,
         };
         if (route != null) router.go(route);
       },

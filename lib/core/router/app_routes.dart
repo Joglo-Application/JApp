@@ -48,6 +48,12 @@ abstract final class AppRoutes {
   static const String kitchenKelolaStok = '/kitchen/kelola-stok';
   static const String kitchenStokGudang = '/kitchen/stok-gudang';
 
+  // ── Supplier ──────────────────────────────────────────────────────────────
+  static const String supplierGudang = '/supplier/gudang';
+  static const String supplierInventori = '/supplier/inventori';
+  static const String supplierStokGudang = '/supplier/stok-gudang';
+  static const String supplierKategoriStokGudang = '/supplier/kategori-stok-gudang';
+
   // ── Shared ────────────────────────────────────────────────────────────────
   static const String inventoriTambahProduk = '/inventori/tambah-produk';
   static const String inventoriPilihBahan = '/inventori/pilih-bahan';

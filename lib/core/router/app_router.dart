@@ -40,6 +40,9 @@ import '../../features/pos/presentation/pages/absensi_page.dart';
 import '../../features/pos/presentation/pages/laporan_page.dart';
 import '../../features/pos/presentation/pages/pengaturan_page.dart';
 import '../../features/pos/presentation/pages/transaksi_page.dart';
+import '../../features/supplier/presentation/pages/supplier_main_page.dart';
+import '../../features/supplier/presentation/pages/supplier_kategori_stok_gudang_page.dart';
+import '../../features/supplier/presentation/widgets/navigation/supplier_drawer.dart';
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
@@ -192,6 +195,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.ownerPengaturanNotifikasi,
       builder: (context, state) => const OwnerPengaturanNotifikasiPage(),
+    ),
+
+    // ── Supplier ─────────────────────────────────────────────────────────────
+    GoRoute(
+      path: AppRoutes.supplierGudang,
+      builder: (context, state) => const SupplierMainPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.supplierInventori,
+      builder: (context, state) => const InventoriPage(
+        drawer: SupplierDrawer(activePage: SupplierDrawerPage.inventori),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.supplierStokGudang,
+      builder: (context, state) => const OwnerStokGudangPage(
+        drawer: SupplierDrawer(activePage: SupplierDrawerPage.stokGudang),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.supplierKategoriStokGudang,
+      builder: (context, state) => const SupplierKategoriStokGudangPage(),
     ),
 
     // ── Kitchen ──────────────────────────────────────────────────────────────

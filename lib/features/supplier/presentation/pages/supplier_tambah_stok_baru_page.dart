@@ -1,0 +1,823 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../domain/entities/supplier_item.dart';
+import '../providers/supplier_provider.dart';
+
+// ── Stub data ─────────────────────────────────────────────────────────────────
+
+const _kKategori = ['Bahan Dasar', 'Bumbu', 'Cabe', 'Saos', 'Frozen Food'];
+const _kSatuan = [
+  'Butir',
+  'Centimeter',
+  'Gram',
+  'Kilogram',
+  'Liter',
+  'Meter',
+  'Miligram',
+  'Mililiter',
+  'Porsi',
+];
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+class SupplierTambahStokBaruPage extends StatefulWidget {
+  const SupplierTambahStokBaruPage({super.key, required this.provider});
+
+  final SupplierProvider provider;
+
+  @override
+  State<SupplierTambahStokBaruPage> createState() =>
+      _SupplierTambahStokBaruPageState();
+}
+
+class _SupplierTambahStokBaruPageState
+    extends State<SupplierTambahStokBaruPage> {
+  final _namaCtrl = TextEditingController();
+  final _konverterCtrl = TextEditingController(text: '0');
+  final _qtyStokCtrl = TextEditingController();
+  final _qtyTahanCtrl = TextEditingController();
+
+  String? _fotoPath;
+  String? _selectedKategori;
+  String? _selectedSatuan;
+
+  bool get _isValid =>
+      _fotoPath != null &&
+      _namaCtrl.text.trim().isNotEmpty &&
+      _selectedKategori != null &&
+      _selectedSatuan != null &&
+      _qtyStokCtrl.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _konverterCtrl.dispose();
+    _qtyStokCtrl.dispose();
+    _qtyTahanCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: ListView(
+                children: [
+                  // Foto
+                  _Section(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _FieldLabel(label: 'Foto', required: true),
+                        const SizedBox(height: AppSpacing.x2),
+                        _FotoInput(fotoPath: _fotoPath, onPick: _pickImage),
+                      ],
+                    ),
+                  ),
+                  const _SectionDivider(),
+
+                  // Nama
+                  _Section(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _FieldLabel(label: 'Nama', required: true),
+                        const SizedBox(height: AppSpacing.x2),
+                        _TextInput(
+                          controller: _namaCtrl,
+                          hint: 'Nama',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const _SectionDivider(),
+
+                  // Kategori
+                  _Section(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _FieldLabel(label: 'Kategori', required: true),
+                        const SizedBox(height: AppSpacing.x2),
+                        _DropdownInput(
+                          value: _selectedKategori,
+                          items: _kKategori,
+                          pickerStyle: _PickerStyle.gold,
+                          onChanged: (v) =>
+                              setState(() => _selectedKategori = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const _SectionDivider(),
+
+                  // Satuan + Konverter Satuan
+                  _Section(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _FieldLabel(
+                                  label: 'Satuan', required: true),
+                              const SizedBox(height: AppSpacing.x2),
+                              _DropdownInput(
+                                value: _selectedSatuan,
+                                items: _kSatuan,
+                                pickerStyle: _PickerStyle.white,
+                                onChanged: (v) =>
+                                    setState(() => _selectedSatuan = v),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.x4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _FieldLabel(
+                                  label: 'Konverter Satuan', required: false),
+                              const SizedBox(height: AppSpacing.x2),
+                              _NumberInput(controller: _konverterCtrl),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Qty Stok + Qty Tahan (visible after Satuan selected)
+                  if (_selectedSatuan != null) ...[
+                    const _SectionDivider(),
+                    _Section(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _FieldLabel(
+                                    label: 'Qty Stok', required: true),
+                                const SizedBox(height: AppSpacing.x2),
+                                _NumberInput(
+                                  controller: _qtyStokCtrl,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.x4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _FieldLabel(
+                                    label: 'Qty Tahan', required: false),
+                                const SizedBox(height: AppSpacing.x2),
+                                _NumberInput(controller: _qtyTahanCtrl),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const _SectionDivider(),
+            _BottomButtons(
+              canSave: _isValid,
+              onCancel: () => Navigator.of(context).pop(),
+              onSimpan: _simpan,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x4,
+        vertical: AppSpacing.x3,
+      ),
+      child: Row(
+        children: [
+          const Spacer(),
+          Text(
+            'Tambah Stok Baru',
+            style: AppTypography.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(Icons.close_rounded, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery);
+    if (file != null && mounted) setState(() => _fotoPath = file.path);
+  }
+
+  void _simpan() {
+    if (!_isValid) return;
+    final konverter = int.tryParse(_konverterCtrl.text.trim()) ?? 0;
+    final item = SupplierItem(
+      id: 'SUP-${DateTime.now().millisecondsSinceEpoch}',
+      nama: _namaCtrl.text.trim(),
+      kategori: _selectedKategori!,
+      unitProduk: '$_selectedSatuan ($konverter)',
+      qtyStok: int.tryParse(_qtyStokCtrl.text.trim()) ?? 0,
+      qtyTahan: int.tryParse(_qtyTahanCtrl.text.trim()) ?? 0,
+      imageUrl: null,
+    );
+    widget.provider.addItem(item);
+
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Berhasil menambahkan ke Stok Gudang'),
+        backgroundColor: AppColors.tertiary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+}
+
+// ── Layout helpers ────────────────────────────────────────────────────────────
+
+class _Section extends StatelessWidget {
+  const _Section({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.x4),
+        child: child,
+      );
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) => const Divider(
+        height: 1,
+        thickness: 1,
+        color: AppColors.outlineVariant,
+      );
+}
+
+// ── Field label ───────────────────────────────────────────────────────────────
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({required this.label, required this.required});
+  final String label;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!required) {
+      return Text(
+        label,
+        style: AppTypography.textTheme.bodyMedium
+            ?.copyWith(fontWeight: FontWeight.bold),
+      );
+    }
+    return RichText(
+      text: TextSpan(
+        text: label,
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: AppColors.onSurface,
+        ),
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+                color: AppColors.error, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Input widgets ─────────────────────────────────────────────────────────────
+
+class _FotoInput extends StatelessWidget {
+  const _FotoInput({required this.fotoPath, required this.onPick});
+  final String? fotoPath;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPick,
+      child: Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          color: AppColors.outline,
+          borderRadius: AppRadius.sm,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: fotoPath != null
+            ? Image.file(File(fotoPath!), fit: BoxFit.cover)
+            : null,
+      ),
+    );
+  }
+}
+
+class _TextInput extends StatelessWidget {
+  const _TextInput(
+      {required this.controller,
+      required this.hint,
+      this.onChanged});
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: AppTypography.textTheme.bodyMedium,
+        decoration: _fieldDecoration(hint),
+      );
+}
+
+class _NumberInput extends StatelessWidget {
+  const _NumberInput({required this.controller, this.onChanged});
+  final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: onChanged,
+        style: AppTypography.textTheme.bodyMedium,
+        decoration: _fieldDecoration('0'),
+      );
+}
+
+// ── Dropdown picker ───────────────────────────────────────────────────────────
+
+enum _PickerStyle { gold, white }
+
+class _DropdownInput extends StatelessWidget {
+  const _DropdownInput({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    required this.pickerStyle,
+  });
+
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+  final _PickerStyle pickerStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showPicker(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x3,
+          vertical: AppSpacing.x3,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.outline),
+          borderRadius: AppRadius.xs,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: value != null
+                  ? AppColors.onSurface
+                  : AppColors.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Expanded(
+              child: Text(
+                value ?? 'Pilih',
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: value != null
+                      ? AppColors.onSurface
+                      : AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPicker(BuildContext context) {
+    final future = pickerStyle == _PickerStyle.gold
+        ? showDialog<String>(
+            context: context,
+            builder: (_) =>
+                _GoldPickerDialog(items: items, selectedValue: value),
+          )
+        : showDialog<String>(
+            context: context,
+            builder: (_) =>
+                _WhitePickerDialog(items: items, selectedValue: value),
+          );
+    future.then((result) {
+      if (result != null) onChanged(result);
+    });
+  }
+}
+
+// ── Gold picker (Kategori style) ──────────────────────────────────────────────
+
+class _GoldPickerDialog extends StatelessWidget {
+  const _GoldPickerDialog({required this.items, this.selectedValue});
+  final List<String> items;
+  final String? selectedValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.primary,
+      shape: AppRadius.toShape(AppRadius.lg),
+      child: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x4,
+                AppSpacing.x4,
+                AppSpacing.x2,
+                AppSpacing.x4,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Pilih',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: AppColors.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.onPrimary),
+                    iconSize: 22,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.55,
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: AppSpacing.x4),
+                children: items
+                    .map((item) => _GoldPickerItem(
+                          label: item,
+                          isSelected: item == selectedValue,
+                          onTap: () => Navigator.of(context).pop(item),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoldPickerItem extends StatelessWidget {
+  const _GoldPickerItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: isSelected
+            ? AppColors.onPrimary.withValues(alpha: 0.15)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_rounded,
+                  size: 18, color: AppColors.onPrimary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── White picker (Satuan style) ───────────────────────────────────────────────
+
+class _WhitePickerDialog extends StatelessWidget {
+  const _WhitePickerDialog({required this.items, this.selectedValue});
+  final List<String> items;
+  final String? selectedValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: AppRadius.toShape(AppRadius.lg),
+      child: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x4,
+                AppSpacing.x4,
+                AppSpacing.x2,
+                AppSpacing.x4,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Pilih',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    iconSize: 22,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.60,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x4,
+                  0,
+                  AppSpacing.x4,
+                  AppSpacing.x4,
+                ),
+                itemCount: items.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.x2),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _WhitePickerItem(
+                    label: item,
+                    isSelected: item == selectedValue,
+                    onTap: () => Navigator.of(context).pop(item),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WhitePickerItem extends StatelessWidget {
+  const _WhitePickerItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.sm,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.outline,
+            width: isSelected ? 1.5 : 1,
+          ),
+          borderRadius: AppRadius.sm,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: isSelected
+                  ? AppColors.primary
+                  : AppColors.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shared field decoration ───────────────────────────────────────────────────
+
+InputDecoration _fieldDecoration(String hint) {
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+      color: AppColors.onSurfaceVariant,
+    ),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.x3,
+      vertical: AppSpacing.x3,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: AppRadius.xs,
+      borderSide: const BorderSide(color: AppColors.outline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: AppRadius.xs,
+      borderSide: const BorderSide(color: AppColors.outline),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: AppRadius.xs,
+      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+    ),
+  );
+}
+
+// ── Bottom buttons ────────────────────────────────────────────────────────────
+
+class _BottomButtons extends StatelessWidget {
+  const _BottomButtons({
+    required this.canSave,
+    required this.onCancel,
+    required this.onSimpan,
+  });
+  final bool canSave;
+  final VoidCallback onCancel;
+  final VoidCallback onSimpan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _Btn(
+            label: 'Cancel',
+            color: AppColors.surface,
+            textColor: AppColors.onSurface,
+            bordered: true,
+            onPressed: onCancel,
+          ),
+        ),
+        Expanded(
+          child: _Btn(
+            label: 'Simpan',
+            color: canSave ? AppColors.tertiary : AppColors.outline,
+            textColor: canSave
+                ? AppColors.onTertiary
+                : AppColors.onSurfaceVariant,
+            onPressed: canSave ? onSimpan : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Btn extends StatelessWidget {
+  const _Btn({
+    required this.label,
+    required this.color,
+    required this.textColor,
+    this.bordered = false,
+    required this.onPressed,
+  });
+  final String label;
+  final Color color;
+  final Color textColor;
+  final bool bordered;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: color,
+        shape: bordered
+            ? RoundedRectangleBorder(
+                side: const BorderSide(color: AppColors.outline),
+              )
+            : null,
+        child: InkWell(
+          onTap: onPressed,
+          child: Center(
+            child: Text(
+              label,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
