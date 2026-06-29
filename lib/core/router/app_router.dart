@@ -46,7 +46,7 @@ import '../../features/supplier/presentation/widgets/navigation/supplier_drawer.
 import 'app_routes.dart';
 
 final appRouter = GoRouter(
-  initialLocation: AppRoutes.kitchenDapur,
+  initialLocation: AppRoutes.splash,
   routes: [
     GoRoute(
       path: AppRoutes.splash,
