@@ -119,7 +119,10 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
 
   Widget _buildAppBar(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.shellBackground),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,

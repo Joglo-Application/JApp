@@ -45,7 +45,7 @@ class OwnerDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
               children: [
                 AppDrawerItem(
-                  icon: Icons.circle,
+                  icon: Icons.dashboard_rounded,
                   label: 'Dashboard',
                   active: activePage == OwnerDrawerPage.dashboard,
                   onTap: () => _navigateTo(context, OwnerDrawerPage.dashboard),
@@ -60,15 +60,13 @@ class OwnerDrawer extends StatelessWidget {
                   icon: Icons.account_tree_rounded,
                   label: 'Stok Gudang',
                   active: activePage == OwnerDrawerPage.stokGudang,
-                  onTap: () =>
-                      _navigateTo(context, OwnerDrawerPage.stokGudang),
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.stokGudang),
                 ),
                 AppDrawerItem(
                   icon: Icons.add_box_rounded,
                   label: 'Kelola Stok',
                   active: activePage == OwnerDrawerPage.kelolaStok,
-                  onTap: () =>
-                      _navigateTo(context, OwnerDrawerPage.kelolaStok),
+                  onTap: () => _navigateTo(context, OwnerDrawerPage.kelolaStok),
                 ),
                 AppDrawerItem(
                   icon: Icons.bar_chart_rounded,
@@ -104,10 +102,16 @@ class OwnerDrawer extends StatelessWidget {
                   label: 'Pusat Bantuan',
                   onTap: () {},
                 ),
+                const AppDrawerDivider(),
                 AppDrawerItem(
                   icon: Icons.logout_rounded,
                   label: 'Keluar',
                   onTap: () => _logout(context),
+                ),
+                AppDrawerItem(
+                  icon: Icons.info_outline_rounded,
+                  label: 'App Version',
+                  onTap: () {},
                 ),
               ],
             ),
