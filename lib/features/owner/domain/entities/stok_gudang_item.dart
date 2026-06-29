@@ -3,6 +3,7 @@ enum StokGudangStatus { aman, rendah, habis }
 class StokGudangItem {
   const StokGudangItem({
     required this.id,
+    required this.bahanId,
     required this.nama,
     required this.kategori,
     required this.unitProduk,
@@ -12,6 +13,10 @@ class StokGudangItem {
   });
 
   final String id;
+
+  /// Raw integer FK to `bahan_baku`, used to reference this bahan in a menu's
+  /// resep (`POST /menus`).
+  final int bahanId;
   final String nama;
   final String kategori;
   final String unitProduk;
