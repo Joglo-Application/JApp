@@ -39,18 +39,53 @@ class _PaymentPageState extends State<PaymentPage> {
     });
   }
 
-  void _onPay() {
+  Future<void> _onPay() async {
     final order = context.read<OrderProvider>();
-    final cashPaid = _cashRaw.isEmpty
-        ? order.total
-        : (double.tryParse(_cashRaw) ?? 0);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Non-Dine-In: pesanan belum dibuat → buat sekarang (masuk dapur + potong
+    // stok) tepat saat pembayaran, baru lanjut bayar. Dine-In sudah dikirim.
+    if (!order.isSentToKitchen) {
+      final created = await order.kirimDapur();
+      if (!mounted) return;
+      if (!created) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(order.submitError ?? 'Gagal membuat pesanan')),
+        );
+        return;
+      }
+    }
+
+    final total = order.payableTotal;
+
+    // Cash can be over-tendered (change is returned); non-cash pays exact total.
+    final jumlahBayar = _selected == PaymentMethod.tunai
+        ? (_cashRaw.isEmpty ? total.round() : (int.tryParse(_cashRaw) ?? 0))
+        : total.round();
+
+    if (jumlahBayar < total.round()) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Jumlah bayar kurang dari total')),
+      );
+      return;
+    }
+
+    final payment = await order.bayar(metode: _selected, jumlahBayar: jumlahBayar);
+    if (!mounted) return;
+
+    if (payment == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(order.submitError ?? 'Pembayaran gagal')),
+      );
+      return;
+    }
 
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => TransactionSuccessDialog(
-        total: order.total,
-        cashPaid: cashPaid,
+        total: total,
+        cashPaid: payment.jumlahBayar,
         onNew: () => _finishTransaction(order),
         onPrint: () => _finishTransaction(order),
       ),
@@ -65,15 +100,16 @@ class _PaymentPageState extends State<PaymentPage> {
     Navigator.of(context)
       ..pop()
       ..pop();
-    order.clear();
 
+    // Persist earned loyalty points to the member store (so the new balance
+    // loads next time the member is selected) before wiping the order.
     if (memberName.isNotEmpty && memberPoints != null && earned > 0) {
-      final newPoints = memberPoints + earned;
-      updateMemberPoints(memberName, newPoints);
-      order.setMember(memberName, newPoints);
-    } else if (memberName.isNotEmpty && memberPoints != null) {
-      order.setMember(memberName, memberPoints);
+      updateMemberPoints(memberName, memberPoints + earned);
     }
+
+    // Reset everything — including the customer name — so the panel shows the
+    // default "Name Customer" ready for the next transaction.
+    order.clear();
   }
 
   @override

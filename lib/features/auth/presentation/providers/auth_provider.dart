@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../data/auth_repository.dart';
 import '../../data/models/auth_user_model.dart';
 
@@ -18,6 +19,24 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   AuthUser? get user => _user;
   bool get isAuthenticated => _user != null;
+
+  /// Halaman awal sesuai role user yang login.
+  /// admin/owner → dashboard owner; kasir (atau lainnya) → POS.
+  String get landingRoute {
+    switch (_user?.role) {
+      case 'owner':
+      case 'admin':
+        return AppRoutes.ownerDashboard;
+      case 'kasir':
+        return AppRoutes.home;
+      case 'dapur':
+        return AppRoutes.kitchenDapur;
+      case 'gudang':
+        return AppRoutes.supplierGudang;
+      default:
+        return AppRoutes.home;
+    }
+  }
 
   /// Authenticates against the backend. Returns `true` on success.
   Future<bool> login(String username, String password) async {

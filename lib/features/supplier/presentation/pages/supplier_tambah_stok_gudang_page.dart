@@ -5,30 +5,15 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-
-// ── Stub product list (replace with real API) ─────────────────────────────────
-
-class _ProdukOption {
-  const _ProdukOption({required this.id, required this.nama});
-  final String id;
-  final String nama;
-}
-
-const _kProdukList = [
-  _ProdukOption(id: 'STK-001', nama: 'Beras'),
-  _ProdukOption(id: 'STK-002', nama: 'Air Galon'),
-  _ProdukOption(id: 'STK-003', nama: 'Telur'),
-  _ProdukOption(id: 'STK-004', nama: 'Tepung Terigu'),
-  _ProdukOption(id: 'STK-005', nama: 'Daging Ayam Fillet'),
-  _ProdukOption(id: 'STK-006', nama: 'Gula Pasir'),
-  _ProdukOption(id: 'STK-007', nama: 'Kecap Manis'),
-  _ProdukOption(id: 'STK-008', nama: 'Minyak Goreng'),
-];
+import '../../domain/entities/supplier_item.dart';
+import '../providers/supplier_provider.dart';
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 class SupplierTambahStokGudangPage extends StatefulWidget {
-  const SupplierTambahStokGudangPage({super.key});
+  const SupplierTambahStokGudangPage({super.key, required this.provider});
+
+  final SupplierProvider provider;
 
   @override
   State<SupplierTambahStokGudangPage> createState() =>
@@ -37,7 +22,7 @@ class SupplierTambahStokGudangPage extends StatefulWidget {
 
 class _SupplierTambahStokGudangPageState
     extends State<SupplierTambahStokGudangPage> {
-  _ProdukOption? _selectedProduk;
+  SupplierItem? _selectedProduk;
   final _qtyCtrl = TextEditingController();
 
   bool get _isValid =>
@@ -136,10 +121,11 @@ class _SupplierTambahStokGudangPageState
   }
 
   Future<void> _navigateToPilihProduk() async {
-    final result = await Navigator.of(context).push<_ProdukOption>(
-      MaterialPageRoute<_ProdukOption>(
+    final result = await Navigator.of(context).push<SupplierItem>(
+      MaterialPageRoute<SupplierItem>(
         fullscreenDialog: false,
         builder: (_) => _PilihProdukPage(
+          items: widget.provider.items,
           selectedId: _selectedProduk?.id,
         ),
       ),
@@ -149,18 +135,32 @@ class _SupplierTambahStokGudangPageState
     }
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
     if (!_isValid) return;
+    final qty = int.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    if (qty <= 0) return;
     final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Berhasil menambahkan Stok Gudang'),
-        backgroundColor: AppColors.tertiary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    final navigator = Navigator.of(context);
+    final ok = await widget.provider.tambahStok(_selectedProduk!.bahanId, qty);
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Berhasil menambahkan Stok Gudang'),
+          backgroundColor: AppColors.tertiary,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(widget.provider.error ?? 'Gagal menambah stok'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 
@@ -210,7 +210,7 @@ class _SelectedProdukRow extends StatelessWidget {
     required this.onRemove,
   });
 
-  final _ProdukOption produk;
+  final SupplierItem produk;
   final TextEditingController qtyCtrl;
   final ValueChanged<String> onQtyChanged;
   final VoidCallback onRemove;
@@ -303,7 +303,8 @@ class _TrashButton extends StatelessWidget {
 // ── Product picker sub-page ───────────────────────────────────────────────────
 
 class _PilihProdukPage extends StatefulWidget {
-  const _PilihProdukPage({this.selectedId});
+  const _PilihProdukPage({required this.items, this.selectedId});
+  final List<SupplierItem> items;
   final String? selectedId;
 
   @override
@@ -314,7 +315,7 @@ class _PilihProdukPageState extends State<_PilihProdukPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 
-  List<_ProdukOption> get _filtered => _kProdukList
+  List<SupplierItem> get _filtered => widget.items
       .where((p) => p.nama.toLowerCase().contains(_query.toLowerCase()))
       .toList();
 
@@ -443,7 +444,7 @@ class _ProdukTile extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
-  final _ProdukOption produk;
+  final SupplierItem produk;
   final bool isSelected;
   final VoidCallback onTap;
 

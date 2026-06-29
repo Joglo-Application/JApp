@@ -340,11 +340,14 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
     showDialog<bool>(
       context: context,
       builder: (_) => const _HapusConfirmDialog(),
-    ).then((confirmed) {
-      if (confirmed == true && mounted) {
-        widget.provider.removeItem(widget.item.id);
-        final messenger = ScaffoldMessenger.of(context);
-        Navigator.of(context).pop();
+    ).then((confirmed) async {
+      if (confirmed != true || !mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final ok = await widget.provider.deleteItem(widget.item.bahanId);
+      if (!mounted) return;
+      if (ok) {
+        navigator.pop();
         messenger.showSnackBar(
           SnackBar(
             content: Text('${widget.item.nama} berhasil dihapus'),
@@ -353,36 +356,49 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
             duration: const Duration(seconds: 3),
           ),
         );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(widget.provider.error ?? 'Gagal menghapus'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
   }
 
-  void _simpan() {
-    final konverter = int.tryParse(_konverterCtrl.text.trim()) ?? 0;
-    final updated = SupplierItem(
-      id: widget.item.id,
-      nama: _namaCtrl.text.trim(),
-      kategori: _selectedKategori ?? widget.item.kategori,
-      unitProduk:
-          '${_selectedSatuan ?? _parseSatuan(widget.item.unitProduk)} ($konverter)',
-      qtyStok:
-          int.tryParse(_qtyStokCtrl.text.trim()) ?? widget.item.qtyStok,
-      qtyTahan:
-          int.tryParse(_qtyTahanCtrl.text.trim()) ?? widget.item.qtyTahan,
-      imageUrl: _fotoPath,
-    );
-    widget.provider.updateItem(updated);
-
+  Future<void> _simpan() async {
     final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Berhasil mengubah Stok Gudang'),
-        backgroundColor: AppColors.tertiary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
+    final navigator = Navigator.of(context);
+    // Foto & konverter tidak dikirim ke BE (lihat catatan di halaman tambah).
+    final ok = await widget.provider.updateStok(
+      widget.item.bahanId,
+      namaBahan: _namaCtrl.text.trim(),
+      satuan: _selectedSatuan ?? _parseSatuan(widget.item.unitProduk),
+      stok: int.tryParse(_qtyStokCtrl.text.trim()) ?? widget.item.qtyStok,
+      stokMinimum:
+          int.tryParse(_qtyTahanCtrl.text.trim()) ?? widget.item.qtyTahan,
+      kategori: _selectedKategori ?? widget.item.kategori,
     );
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Berhasil mengubah Stok Gudang'),
+          backgroundColor: AppColors.tertiary,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(widget.provider.error ?? 'Gagal mengubah stok'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 

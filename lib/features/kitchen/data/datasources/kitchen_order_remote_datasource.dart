@@ -1,37 +1,39 @@
-import '../../domain/entities/kitchen_order.dart';
+import '../../../../core/network/api_client.dart';
 import '../models/kitchen_order_model.dart';
 
 abstract interface class KitchenOrderRemoteDatasource {
   Future<List<KitchenOrderModel>> fetchActiveOrders();
+  Future<void> completeOrder(String id);
 }
 
 class KitchenOrderRemoteDatasourceImpl implements KitchenOrderRemoteDatasource {
+  KitchenOrderRemoteDatasourceImpl({ApiClient? client})
+      : _client = client ?? ApiClient.instance;
+
+  final ApiClient _client;
+
   @override
   Future<List<KitchenOrderModel>> fetchActiveOrders() async {
-    // Replace with real API call
-    await Future.delayed(const Duration(milliseconds: 400));
-    return [
-      KitchenOrderModel(
-        id: '1',
-        kodeTransaksi: 'TRX-001',
-        tipe: KitchenOrderType.takeAway,
-        startTime: DateTime.now(),
-        items: const [
-          KitchenOrderItemModel(nama: 'Burger Sapi', qty: 2, catatan: '*** Pedas'),
-          KitchenOrderItemModel(nama: 'Lemon Squash', qty: 2),
-          KitchenOrderItemModel(nama: 'Americano', qty: 1),
-        ],
-      ),
-      KitchenOrderModel(
-        id: '2',
-        kodeTransaksi: 'TRX-002',
-        tipe: KitchenOrderType.dineIn,
-        startTime: DateTime.now(),
-        items: const [
-          KitchenOrderItemModel(nama: 'Burger Sapi', qty: 1),
-          KitchenOrderItemModel(nama: 'Lemon Squash', qty: 4),
-        ],
-      ),
-    ];
+    // GET /kitchen/orders — order aktif (pesanan pending) untuk layar dapur.
+    try {
+      final res =
+          await _client.dio.get<Map<String, dynamic>>('/kitchen/orders');
+      final rows = res.data?['data'] as List<dynamic>? ?? const [];
+      return rows
+          .map((e) => KitchenOrderModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<void> completeOrder(String id) async {
+    // PATCH /kitchen/orders/:id/done — dapur menyelesaikan pesanan (non Dine-In).
+    try {
+      await _client.dio.patch<Map<String, dynamic>>('/kitchen/orders/$id/done');
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
   }
 }

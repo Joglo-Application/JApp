@@ -1,15 +1,11 @@
 import '../../../../core/network/api_client.dart';
+import '../../domain/entities/create_menu_params.dart';
 import '../models/menu_model.dart';
 
 abstract class MenuRemoteDatasource {
   Future<List<MenuModel>> fetchMenus();
 
-  Future<MenuModel> createMenu({
-    required String namaMenu,
-    required String kategori,
-    required int harga,
-    bool isActive = true,
-  });
+  Future<MenuModel> createMenu(CreateMenuParams params);
 }
 
 class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
@@ -50,20 +46,32 @@ class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
   }
 
   @override
-  Future<MenuModel> createMenu({
-    required String namaMenu,
-    required String kategori,
-    required int harga,
-    bool isActive = true,
-  }) async {
+  Future<MenuModel> createMenu(CreateMenuParams params) async {
     try {
       final res = await _client.dio.post<Map<String, dynamic>>(
         '/menus',
         data: {
-          'namaMenu': namaMenu,
-          'kategori': kategori,
-          'harga': harga,
-          'isActive': isActive,
+          'namaMenu': params.namaMenu,
+          'kategori': params.kategori,
+          'harga': params.harga,
+          'isActive': params.isActive,
+          'stok': params.stok,
+          'stokMinimum': params.stokMinimum,
+          'isProdukKhusus': params.isProdukKhusus,
+          if (params.royaltyPoint != null) 'royaltyPoint': params.royaltyPoint,
+          if (params.isProdukKhusus && params.produkKhususMulai != null)
+            'produkKhususMulai': params.produkKhususMulai,
+          if (params.isProdukKhusus && params.produkKhususSelesai != null)
+            'produkKhususSelesai': params.produkKhususSelesai,
+          if (params.catatan != null && params.catatan!.isNotEmpty)
+            'catatan': params.catatan,
+          if (params.resep.isNotEmpty)
+            'resep': params.resep
+                .map((r) => {
+                      'bahanId': r.bahanId,
+                      'jumlahPakai': r.jumlahPakai,
+                    })
+                .toList(),
         },
       );
       final data = res.data!['data'] as Map<String, dynamic>;

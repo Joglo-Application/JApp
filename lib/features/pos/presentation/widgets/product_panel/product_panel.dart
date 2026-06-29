@@ -6,7 +6,6 @@ import '../../../../../core/widgets/app_tab_bar.dart';
 import '../../../domain/entities/product.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/pos_ui_provider.dart';
-import 'add_menu_form.dart';
 import 'custom_item_form.dart';
 import 'product_detail_form.dart';
 import 'product_grid.dart';
@@ -42,9 +41,9 @@ class _ProductPanelState extends State<ProductPanel> {
   Widget _buildTabContent() {
     switch (_tabIndex) {
       case 1:
-        // Jump back to the Produk grid after a menu is created so the
-        // freshly-fetched item is visible right away.
-        return AddMenuForm(onCreated: () => setState(() => _tabIndex = 0));
+        // Manual entry adds a one-off custom line straight to the current
+        // order (it does NOT create a catalog product).
+        return const CustomItemForm();
       case 0:
       default:
         return ProductGrid(onProductTap: _openDetailForm);
@@ -84,7 +83,7 @@ class _ProductPanelState extends State<ProductPanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AppTabBar(
-                  tabs: const ['Produk', 'Menu'],
+                  tabs: const ['Produk', 'Custom'],
                   selectedIndex: _tabIndex,
                   onTabSelected: (i) => setState(() => _tabIndex = i),
                 ),

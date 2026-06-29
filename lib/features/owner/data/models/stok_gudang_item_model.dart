@@ -3,6 +3,7 @@ import '../../domain/entities/stok_gudang_item.dart';
 class StokGudangItemModel {
   const StokGudangItemModel({
     required this.id,
+    required this.bahanId,
     required this.nama,
     required this.kategori,
     required this.unitProduk,
@@ -14,6 +15,13 @@ class StokGudangItemModel {
   factory StokGudangItemModel.fromJson(Map<String, dynamic> json) {
     return StokGudangItemModel(
       id: json['id'] as String,
+      // Prefer the explicit FK; fall back to parsing the "STK-###" id so this
+      // keeps working even if the backend hasn't shipped `bahanId` yet.
+      bahanId: (json['bahanId'] as num?)?.toInt() ??
+          int.tryParse(
+                (json['id'] as String? ?? '').replaceAll(RegExp(r'[^0-9]'), ''),
+              ) ??
+          0,
       nama: json['nama'] as String,
       kategori: json['kategori'] as String,
       unitProduk: json['unitProduk'] as String,
@@ -24,6 +32,7 @@ class StokGudangItemModel {
   }
 
   final String id;
+  final int bahanId;
   final String nama;
   final String kategori;
   final String unitProduk;
@@ -33,6 +42,7 @@ class StokGudangItemModel {
 
   StokGudangItem toEntity() => StokGudangItem(
         id: id,
+        bahanId: bahanId,
         nama: nama,
         kategori: kategori,
         unitProduk: unitProduk,

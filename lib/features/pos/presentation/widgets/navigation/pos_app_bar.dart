@@ -127,25 +127,73 @@ class _ActionBar extends StatelessWidget {
       _Action(
         icon: Icons.send_rounded,
         label: 'Kirim\nDapur',
-        onTap: () {
+        onTap: () async {
+          final order = context.read<OrderProvider>();
           final messenger = ScaffoldMessenger.of(context);
-          showDialog<bool>(
-            context: context,
-            builder: (_) => const _KirimDapurDialog(),
-          ).then((confirmed) {
-            if (confirmed == true) {
+
+          if (order.isEmpty) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Belum ada item pesanan')),
+            );
+            return;
+          }
+          if (order.isSentToKitchen) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Pesanan sudah dikirim ke dapur')),
+            );
+            return;
+          }
+
+          // Tanpa In/Away → default Take-Away, langsung lanjut (tak perlu pilih
+          // ulang). Dine-In bersifat opt-in dan butuh meja.
+          if (order.effectiveOrderType == OrderType.dineIn &&
+              order.mejaId == null) {
+            if (!context.mounted) return;
+            final selected = await Navigator.of(context).push<SelectedMeja>(
+              MaterialPageRoute<SelectedMeja>(
+                builder: (_) => const PilihMejaPage(),
+              ),
+            );
+            if (selected == null) {
               messenger.showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    'Berhasil kirim ke Dapur',
-                    style: TextStyle(color: AppColors.onTertiary),
-                  ),
-                  backgroundColor: AppColors.tertiary,
-                  behavior: SnackBarBehavior.floating,
+                const SnackBar(
+                  content: Text('Pilih nomor meja dulu untuk pesanan Dine-In'),
                 ),
               );
+              return;
             }
-          });
+            order.setMeja(selected.mejaId, selected.nomor);
+          }
+
+          if (!context.mounted) return;
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (_) => const _KirimDapurDialog(),
+          );
+          if (confirmed != true) return;
+
+          final ok = await order.kirimDapur();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                ok
+                    ? 'Berhasil kirim ke Dapur'
+                    : (order.submitError ?? 'Gagal kirim ke Dapur'),
+                style: TextStyle(
+                  color: ok ? AppColors.onTertiary : AppColors.onError,
+                ),
+              ),
+              backgroundColor: ok ? AppColors.tertiary : AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          // Dine-In: pesanan terparkir di meja → bersihkan cart untuk transaksi
+          // berikutnya; pembayaran nanti lewat "Lihat Pesanan" di meja.
+          // Non-Dine-In: tak ada meja sebagai jangkar, jadi biarkan pesanan tetap
+          // di POS agar kasir bisa langsung menekan Bayar.
+          if (ok && order.effectiveOrderType == OrderType.dineIn) {
+            order.clear();
+          }
         },
       ),
       _Action(
@@ -164,30 +212,48 @@ class _ActionBar extends StatelessWidget {
       _Action(
         icon: Icons.chair_alt_rounded,
         label: 'Pilih\nMeja',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const PilihMejaPage()),
-        ),
+        onTap: () async {
+          final selected = await Navigator.of(context).push<SelectedMeja>(
+            MaterialPageRoute<SelectedMeja>(
+              builder: (_) => const PilihMejaPage(),
+            ),
+          );
+          if (selected != null && context.mounted) {
+            context
+                .read<OrderProvider>()
+                .setMeja(selected.mejaId, selected.nomor);
+          }
+        },
       ),
       _Action(
         icon: Icons.content_cut_rounded,
         label: 'Split Bill',
         onTap: () {
           final provider = context.read<OrderProvider>();
+          final messenger = ScaffoldMessenger.of(context);
           if (provider.items.isEmpty) return;
           showDialog<List<String>>(
             context: context,
             builder: (_) => _SplitBillDialog(items: provider.items.toList()),
-          ).then((selectedIds) {
+          ).then((selectedIds) async {
             if (selectedIds == null || selectedIds.isEmpty) return;
             final selected = provider.items
                 .where((i) => selectedIds.contains(i.productId))
                 .toList();
-            addOrderToPending(
-              customerName: provider.customerName,
-              items: selected,
-            );
-            for (final id in selectedIds) {
-              provider.remove(id);
+            // Simpan subset terpilih sebagai draft held di backend.
+            final ok = await provider.holdItems(selected, provider.customerName);
+            if (ok) {
+              for (final id in selectedIds) {
+                provider.remove(id);
+              }
+              await refreshPendingOrders();
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Sebagian pesanan disimpan ke Pending')),
+              );
+            } else {
+              messenger.showSnackBar(
+                SnackBar(content: Text(provider.submitError ?? 'Gagal split bill')),
+              );
             }
           });
         },

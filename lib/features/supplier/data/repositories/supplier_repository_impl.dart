@@ -13,4 +13,45 @@ class SupplierRepositoryImpl implements SupplierRepository {
     final models = await _datasource.fetchItems();
     return models.map((m) => m.toEntity()).toList();
   }
+
+  @override
+  Future<void> createItem({
+    required String namaBahan,
+    required String satuan,
+    required num stok,
+    required num stokMinimum,
+    String? kategori,
+  }) =>
+      _datasource.createItem(
+        namaBahan: namaBahan,
+        satuan: satuan,
+        stok: stok,
+        stokMinimum: stokMinimum,
+        kategori: kategori,
+      );
+
+  @override
+  Future<void> updateItem(
+    int bahanId, {
+    String? namaBahan,
+    String? satuan,
+    num? stok,
+    num? stokMinimum,
+    String? kategori,
+  }) =>
+      _datasource.updateItem(
+        bahanId,
+        namaBahan: namaBahan,
+        satuan: satuan,
+        stok: stok,
+        stokMinimum: stokMinimum,
+        kategori: kategori,
+      );
+
+  @override
+  Future<void> tambahStok(int bahanId, num jumlah) =>
+      _datasource.tambahStok(bahanId, jumlah);
+
+  @override
+  Future<void> deleteItem(int bahanId) => _datasource.deleteItem(bahanId);
 }

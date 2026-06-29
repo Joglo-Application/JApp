@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' hide Category;
 import '../../../../core/network/api_exception.dart';
 import '../../data/repositories/menu_repository_impl.dart';
 import '../../domain/entities/category.dart';
+import '../../domain/entities/create_menu_params.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/repositories/menu_repository.dart';
 import '../../domain/usecases/create_menu_usecase.dart';
@@ -91,7 +92,9 @@ class MenuProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _createMenu(namaMenu: namaMenu, kategori: kategori, harga: harga);
+      await _createMenu(
+        CreateMenuParams(namaMenu: namaMenu, kategori: kategori, harga: harga),
+      );
       _products = await _fetchMenus();
       _hasLoaded = true;
       return true;

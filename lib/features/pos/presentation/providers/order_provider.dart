@@ -1,10 +1,33 @@
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/meja_remote_datasource.dart';
+import '../../data/models/loaded_pesanan_model.dart';
+import '../../data/repositories/checkout_repository_impl.dart';
+import '../../domain/entities/create_pesanan_params.dart';
 import '../../domain/entities/order_item.dart';
+import '../../domain/entities/payment_method.dart';
+import '../../domain/entities/pembayaran.dart';
+import '../../domain/repositories/checkout_repository.dart';
+import '../../domain/usecases/create_pembayaran_usecase.dart';
+import '../../domain/usecases/create_pesanan_usecase.dart';
 
 class OrderProvider extends ChangeNotifier {
-  OrderProvider({this.taxRate = 0.10});
+  OrderProvider({
+    this.taxRate = 0.10,
+    CheckoutRepository? checkoutRepository,
+    MejaRemoteDatasource? mejaDatasource,
+  }) {
+    final repo = checkoutRepository ?? CheckoutRepositoryImpl();
+    _createPesanan = CreatePesananUseCase(repo);
+    _createPembayaran = CreatePembayaranUseCase(repo);
+    _mejaDatasource = mejaDatasource ?? MejaRemoteDatasourceImpl();
+  }
+
+  late final CreatePesananUseCase _createPesanan;
+  late final CreatePembayaranUseCase _createPembayaran;
+  late final MejaRemoteDatasource _mejaDatasource;
 
   final double taxRate;
   final List<OrderItem> _items = [];
@@ -15,12 +38,30 @@ class OrderProvider extends ChangeNotifier {
   String? _orderPromoName;
   String _orderNote = '';
   OrderType? _orderType;
+  int? _mejaId;
+  String? _mejaNomor;
   int? _redeemedPointCost;
   double _redeemDiscount = 0;
   DiscountType _redeemDiscountType = DiscountType.amount;
   String? _redeemRewardName;
   String? _redeemedItemId;
   double? _redeemDisplayValue;
+
+  // ── Checkout (kirim dapur → bayar) ─────────────────────────────────────────
+  int? _pesananId;
+  double? _serverTotal;
+  bool _isSubmitting = false;
+  String? _submitError;
+
+  /// True once the order has been created on the backend ("Kirim Dapur").
+  bool get isSentToKitchen => _pesananId != null;
+  int? get pesananId => _pesananId;
+  bool get isSubmitting => _isSubmitting;
+  String? get submitError => _submitError;
+
+  /// Authoritative total returned by the server after creating the order;
+  /// falls back to the locally computed [total] before that.
+  double get payableTotal => _serverTotal ?? total;
 
   String get customerName => _customerName;
   int? get memberPoints => _memberPoints;
@@ -29,6 +70,8 @@ class OrderProvider extends ChangeNotifier {
   String? get orderPromoName => _orderPromoName;
   String get orderNote => _orderNote;
   OrderType? get orderType => _orderType;
+  int? get mejaId => _mejaId;
+  String? get mejaNomor => _mejaNomor;
   int? get redeemedPointCost => _redeemedPointCost;
   String? get redeemRewardName => _redeemRewardName;
   String? get redeemedItemId => _redeemedItemId;
@@ -66,6 +109,58 @@ class OrderProvider extends ChangeNotifier {
     _memberPoints = points;
     notifyListeners();
   }
+
+  /// Meja terpilih dari halaman Pilih Meja (dikirim sebagai mejaId di pesanan).
+  /// Memilih meja menyiratkan Dine-In (kecuali channel online sudah dipilih).
+  void setMeja(int id, String nomor) {
+    _mejaId = id;
+    _mejaNomor = nomor;
+    if (_orderType == null || _orderType == OrderType.takeAway) {
+      _orderType = OrderType.dineIn;
+    }
+    notifyListeners();
+  }
+
+  /// Tipe order efektif untuk ditampilkan: default Take-Away bila kasir belum
+  /// memilih In/Away (meja → Dine-In via [setMeja]).
+  OrderType get effectiveOrderType => _orderType ?? OrderType.takeAway;
+
+  /// Memuat pesanan pending yang sudah ada (lewat "Lihat Pesanan" di meja) ke
+  /// POS agar bisa langsung dibayar. Status menjadi "sudah dikirim ke dapur",
+  /// dan total memakai nilai dari server.
+  void loadExistingOrder(LoadedPesanan p) {
+    _items
+      ..clear()
+      ..addAll(p.items.map((it) => OrderItem(
+            productId: it.menuId?.toString() ?? 'custom-${it.detailId}',
+            name: it.nama,
+            unitPrice: it.hargaSatuan.toDouble(),
+            quantity: it.jumlah,
+            discount: it.diskon.toDouble(),
+            note: it.catatan ?? '',
+          )));
+    _pesananId = p.pesananId;
+    _serverTotal = p.total.toDouble();
+    _mejaId = p.mejaId;
+    _customerName = p.customerNama ?? '';
+    _orderType = _orderTypeFromApi(p.orderType);
+    // Reset state transien agar tidak salah hitung (total memakai _serverTotal).
+    _orderDiscount = 0;
+    _orderPromoName = null;
+    _orderNote = '';
+    _memberPoints = null;
+    _submitError = null;
+    notifyListeners();
+  }
+
+  OrderType? _orderTypeFromApi(String? s) => switch (s) {
+        'dine_in' => OrderType.dineIn,
+        'take_away' => OrderType.takeAway,
+        'gofood' => OrderType.goFood,
+        'grabfood' => OrderType.grabFood,
+        'shopeefood' => OrderType.shopeeFood,
+        _ => null,
+      };
 
   void setOrderDiscount(double discount, DiscountType type, {String? promoName}) {
     _orderDiscount = discount;
@@ -211,17 +306,201 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Checkout ───────────────────────────────────────────────────────────────
+
+  /// Creates the order on the backend ("Kirim Dapur"): `POST /pesanan`.
+  /// Stock is deducted and totals computed server-side. Returns `true` on
+  /// success; on failure see [submitError].
+  Future<bool> kirimDapur() async {
+    if (_items.isEmpty || _isSubmitting || isSentToKitchen) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      final pesanan = await _createPesanan(_buildPesananParams());
+      _pesananId = pesanan.pesananId;
+      _serverTotal = pesanan.total;
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal mengirim pesanan ke dapur.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Menyimpan cart saat ini sebagai draft "held" (fitur Pending / tombol "+").
+  /// `POST /pesanan` dengan `hold:true` — tanpa potong stok / ke dapur.
+  Future<bool> holdOrder(String customerNama) async {
+    if (_items.isEmpty || _isSubmitting) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    _customerName = customerNama;
+    notifyListeners();
+    try {
+      await _createPesanan(_buildPesananParams(hold: true));
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal menyimpan pesanan pending.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Menyimpan SEBAGIAN item (subset) sebagai draft held — dipakai Split Bill.
+  /// Tidak menyentuh cart aktif (pemanggil yang menghapus item terpilih).
+  Future<bool> holdItems(List<OrderItem> items, String customerNama) async {
+    if (items.isEmpty || _isSubmitting) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      await _createPesanan(CreatePesananParams(
+        items: items.map(_toItemParams).toList(),
+        customerNama: customerNama.isEmpty ? null : customerNama,
+        orderType: _apiOrderType(effectiveOrderType),
+        hold: true,
+      ));
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal menyimpan split bill ke Pending.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Pays for the already-created order: `POST /pembayaran`. The order must be
+  /// sent to the kitchen first. Returns the payment (with change) or `null`.
+  Future<Pembayaran?> bayar({
+    required PaymentMethod metode,
+    required int jumlahBayar,
+  }) async {
+    final id = _pesananId;
+    if (id == null || _isSubmitting) return null;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      final payment = await _createPembayaran(
+        pesananId: id,
+        metode: _apiMetode(metode),
+        jumlahBayar: jumlahBayar,
+      );
+      // Pembayaran sukses → bebaskan meja (status available) bila ada.
+      final mid = _mejaId;
+      if (mid != null) {
+        try {
+          await _mejaDatasource.updateStatus(mid, 'available');
+        } catch (_) {
+          // Non-kritis: pembayaran tetap sukses meski gagal bebaskan meja.
+        }
+      }
+      return payment;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return null;
+    } catch (_) {
+      _submitError = 'Gagal memproses pembayaran.';
+      return null;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  CreatePesananItemParams _toItemParams(OrderItem it) {
+    final menuId = int.tryParse(it.productId);
+    final isCustom = menuId == null;
+    // A redeemed free item is charged-then-discounted to net zero so the
+    // kitchen still sees it without inflating the total.
+    final lineDiskon = it.productId == _redeemedItemId
+        ? (it.unitPrice * it.quantity).round()
+        : it.discountAmount.round();
+    return CreatePesananItemParams(
+      menuId: isCustom ? null : menuId,
+      namaCustom: isCustom ? it.name : null,
+      hargaSatuan: isCustom ? it.unitPrice.round() : null,
+      jumlah: it.quantity,
+      diskon: lineDiskon,
+      catatan: it.note.isEmpty ? null : it.note,
+    );
+  }
+
+  CreatePesananParams _buildPesananParams({bool hold = false}) {
+    final items = _items.map(_toItemParams).toList();
+
+    // Order-level + loyalty discounts are sent as a single nominal amount so the
+    // server-computed total matches what the cashier sees.
+    final orderDiskon = (orderDiscountAmount + redeemDiscountAmount).round();
+    final diskon = orderDiskon > 0
+        ? OrderDiscountParams(
+            tipe: 'amount',
+            nilai: orderDiskon.toDouble(),
+            promoNama: _orderPromoName ?? _redeemRewardName,
+          )
+        : null;
+
+    return CreatePesananParams(
+      items: items,
+      customerNama: _customerName.isEmpty ? null : _customerName,
+      // No In/Away chosen → default to take-away (dine-in is opt-in, and only
+      // dine-in requires a meja).
+      orderType: _apiOrderType(effectiveOrderType),
+      catatan: _orderNote.isEmpty ? null : _orderNote,
+      mejaId: _mejaId,
+      diskon: diskon,
+      hold: hold,
+    );
+  }
+
+  String _apiOrderType(OrderType t) => switch (t) {
+        OrderType.dineIn => 'dine_in',
+        OrderType.takeAway => 'take_away',
+        OrderType.goFood => 'gofood',
+        OrderType.grabFood => 'grabfood',
+        OrderType.shopeeFood => 'shopeefood',
+      };
+
+  String _apiMetode(PaymentMethod m) => switch (m) {
+        PaymentMethod.tunai => 'cash',
+        PaymentMethod.qris => 'qris',
+        PaymentMethod.debitCard => 'debit',
+        PaymentMethod.qrisNetzme => 'qris_netzme',
+      };
+
   void clear() {
     if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty &&
-        _memberPoints == null && _redeemedPointCost == null) {
+        _customerName.isEmpty &&
+        _memberPoints == null && _redeemedPointCost == null &&
+        _pesananId == null && _mejaId == null) {
       return;
     }
+    _pesananId = null;
+    _serverTotal = null;
+    _submitError = null;
     _items.clear();
     _orderDiscount = 0;
     _orderDiscountType = DiscountType.amount;
     _orderPromoName = null;
     _orderNote = '';
     _orderType = null;
+    _mejaId = null;
+    _mejaNomor = null;
+    _customerName = '';
     _memberPoints = null;
     _redeemedPointCost = null;
     _redeemDiscount = 0;

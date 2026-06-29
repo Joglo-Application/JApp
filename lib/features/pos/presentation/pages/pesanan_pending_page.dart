@@ -5,12 +5,50 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/checkout_remote_datasource.dart';
 import '../../domain/entities/order_item.dart';
 import '../providers/order_provider.dart';
 
 const _kGold = Color(0xFFC9A227);
 
-final pendingCountNotifier = ValueNotifier<int>(_mockOrders.length);
+/// Jumlah draft "held" (untuk badge tombol Pending). Diisi dari backend.
+final pendingCountNotifier = ValueNotifier<int>(0);
+
+/// Daftar draft held terkini (sumber data halaman Pending) — dari backend.
+final List<_PendingOrder> _heldOrders = [];
+
+final _pendingDatasource = CheckoutRemoteDatasourceImpl();
+
+/// Ambil ulang daftar draft dari backend (GET /pesanan?status=pending).
+Future<void> refreshPendingOrders() async {
+  try {
+    final drafts = await _pendingDatasource.fetchHeldOrders();
+    _heldOrders
+      ..clear()
+      ..addAll(drafts.map((d) {
+        final dt = d.createdAt ?? DateTime.now();
+        final nama = (d.customerNama ?? '').isEmpty ? 'Customer' : d.customerNama!;
+        return _PendingOrder(
+          pesananId: d.pesananId,
+          customerName: nama,
+          date: _formatDate(dt),
+          time: _formatTime(dt),
+          total: d.total,
+          items: d.items
+              .map((it) => _Item(
+                    productId: it.menuId?.toString() ?? 'custom-${it.detailId}',
+                    name: it.nama,
+                    unitPrice: it.hargaSatuan.toDouble(),
+                    qty: it.jumlah,
+                  ))
+              .toList(),
+        );
+      }));
+    pendingCountNotifier.value = _heldOrders.length;
+  } catch (_) {
+    // Non-kritis: biarkan daftar apa adanya bila gagal memuat.
+  }
+}
 
 const _months = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
@@ -25,29 +63,7 @@ String _formatDate(DateTime dt) {
 String _formatTime(DateTime dt) =>
     '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
-void addOrderToPending({
-  required String customerName,
-  required List<OrderItem> items,
-}) {
-  final now = DateTime.now();
-  _mockOrders.add(_PendingOrder(
-    id: now.millisecondsSinceEpoch.toString(),
-    customerName: customerName.isEmpty ? 'Customer' : customerName,
-    date: _formatDate(now),
-    time: _formatTime(now),
-    items: items
-        .map((i) => _Item(
-              productId: i.productId,
-              name: i.name,
-              unitPrice: i.unitPrice,
-              qty: i.quantity,
-            ))
-        .toList(),
-  ));
-  pendingCountNotifier.value = _mockOrders.length;
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Model tampilan draft ────────────────────────────────────────────────────
 
 class _Item {
   const _Item({
@@ -65,65 +81,26 @@ class _Item {
 
 class _PendingOrder {
   const _PendingOrder({
-    required this.id,
+    required this.pesananId,
     required this.customerName,
     required this.date,
     required this.time,
+    required this.total,
     required this.items,
   });
 
-  final String id;
+  final int pesananId;
   final String customerName;
   final String date;
   final String time;
+  final int total;
   final List<_Item> items;
+
+  String get id => pesananId.toString();
 
   String get itemSummary =>
       items.map((i) => '${i.qty}x ${i.name}').join(', ');
-
-  int get total =>
-      items.fold(0, (s, i) => s + (i.unitPrice * i.qty).round());
 }
-
-final _mockOrders = <_PendingOrder>[
-  _PendingOrder(
-    id: '1',
-    customerName: 'Customer01',
-    date: '01 Mei 2026',
-    time: '12:11',
-    items: [
-      _Item(productId: 'lemon-squash', name: 'Lemon Squash', unitPrice: 14000, qty: 1),
-      _Item(productId: 'burger-sapi', name: 'Burger Sapi', unitPrice: 18000, qty: 2),
-    ],
-  ),
-  _PendingOrder(
-    id: '2',
-    customerName: 'Customer02',
-    date: '01 Mei 2026',
-    time: '12:32',
-    items: [
-      _Item(productId: 'lemon-squash', name: 'Lemon Squash', unitPrice: 14000, qty: 1),
-    ],
-  ),
-  _PendingOrder(
-    id: '3',
-    customerName: 'Customer03',
-    date: '05 Mei 2026',
-    time: '15:27',
-    items: [
-      _Item(productId: 'americano', name: 'Americano', unitPrice: 10000, qty: 1),
-    ],
-  ),
-  _PendingOrder(
-    id: '4',
-    customerName: 'Bagas',
-    date: '05 Mei 2026',
-    time: '15:27',
-    items: [
-      _Item(productId: 'burger-sapi-bagas', name: 'Burger Sapi', unitPrice: 20000, qty: 1),
-    ],
-  ),
-];
 
 String _fmtNum(int n) {
   final s = n.toString();
@@ -147,11 +124,23 @@ class PesananPendingPage extends StatefulWidget {
 class _PesananPendingPageState extends State<PesananPendingPage> {
   String? _selectedId;
   String _searchQuery = '';
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    await refreshPendingOrders();
+    if (mounted) setState(() => _loading = false);
+  }
 
   List<_PendingOrder> get _filteredOrders {
-    if (_searchQuery.isEmpty) return _mockOrders;
+    if (_searchQuery.isEmpty) return _heldOrders;
     final q = _searchQuery.toLowerCase();
-    return _mockOrders
+    return _heldOrders
         .where((o) =>
             o.customerName.toLowerCase().contains(q) ||
             o.itemSummary.toLowerCase().contains(q))
@@ -166,7 +155,7 @@ class _PesananPendingPageState extends State<PesananPendingPage> {
     if (!mounted || selectedIds == null || selectedIds.isEmpty) return;
 
     final orders =
-        _mockOrders.where((o) => selectedIds.contains(o.id)).toList();
+        _heldOrders.where((o) => selectedIds.contains(o.id)).toList();
     final provider = context.read<OrderProvider>();
 
     provider.setCustomerName(orders.first.customerName);
@@ -180,6 +169,16 @@ class _PesananPendingPageState extends State<PesananPendingPage> {
         ));
       }
     }
+
+    // Consume draft di backend (sudah dimuat ke POS) lalu refresh daftar.
+    for (final order in orders) {
+      try {
+        await _pendingDatasource.deleteHeldOrder(order.pesananId);
+      } catch (_) {
+        // abaikan; draft mungkin sudah terhapus
+      }
+    }
+    await refreshPendingOrders();
 
     if (mounted) Navigator.of(context).pop();
   }
@@ -197,7 +196,9 @@ class _PesananPendingPageState extends State<PesananPendingPage> {
               onClose: () => Navigator.of(context).pop(),
             ),
             Expanded(
-              child: _filteredOrders.isEmpty
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredOrders.isEmpty
                   ? Center(
                       child: Text(
                         'Tidak ada pesanan pending',
@@ -571,14 +572,14 @@ class _GabungDialogState extends State<_GabungDialog> {
                 color: Colors.white,
                 child: ListView.separated(
                   shrinkWrap: true,
-                  itemCount: _mockOrders.length,
+                  itemCount: _heldOrders.length,
                   separatorBuilder: (_, _) => Divider(
                     height: 1,
                     thickness: 1,
                     color: AppColors.outlineVariant,
                   ),
                   itemBuilder: (_, i) {
-                    final order = _mockOrders[i];
+                    final order = _heldOrders[i];
                     final checked = _selected.contains(order.id);
                     return _DialogOrderRow(
                       order: order,

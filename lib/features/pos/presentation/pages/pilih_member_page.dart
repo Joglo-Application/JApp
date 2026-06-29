@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/member_remote_datasource.dart';
 
 // ── Public result type ────────────────────────────────────────────────────────
 
@@ -126,12 +127,43 @@ class PilihMemberPage extends StatefulWidget {
 
 class _PilihMemberPageState extends State<PilihMemberPage> {
   final _searchCtrl = TextEditingController();
+  final _datasource = MemberRemoteDatasourceImpl();
   late List<_Member> _filtered = List.of(_membersList);
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _searchCtrl.addListener(_onSearch);
+    _load();
+  }
+
+  /// Memuat daftar member dari backend (GET /member) ke list halaman.
+  Future<void> _load() async {
+    try {
+      final models = await _datasource.fetchMembers();
+      if (!mounted) return;
+      _membersList
+        ..clear()
+        ..addAll(models.map((m) => _Member(
+              name: m.nama,
+              phone: m.noTelp ?? '',
+              role: 'Guest',
+              points: m.poin,
+              email: m.email,
+            )));
+      setState(() {
+        _filtered = List.of(_membersList);
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Gagal memuat member.';
+      });
+    }
   }
 
   @override
@@ -227,7 +259,18 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
               onSearchToggle: _toggleSearch,
             ),
             Expanded(
-              child: _filtered.isEmpty
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        style: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : _filtered.isEmpty
                   ? Center(
                       child: Text(
                         'Tidak ada member',

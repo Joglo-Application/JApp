@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -51,7 +50,7 @@ class _LoginPageState extends State<LoginPage> {
       _passwordCtrl.text,
     );
 
-    if (mounted && success) context.go(AppRoutes.kitchenDapur);
+    if (mounted && success) context.go(auth.landingRoute);
   }
 
   @override

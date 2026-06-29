@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -12,7 +11,8 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../owner/domain/entities/stok_gudang_item.dart';
-import '../../domain/entities/inventori_item.dart';
+import '../../domain/entities/create_menu_params.dart';
+import '../../domain/entities/menu_resep_input.dart';
 
 class InventoriTambahProdukPage extends StatefulWidget {
   const InventoriTambahProdukPage({super.key});
@@ -55,12 +55,17 @@ class _InventoriTambahProdukPageState
     'Lainnya',
   ];
 
-  bool get _canSave => _namaCtrl.text.trim().isNotEmpty;
+  // POST /menus needs nama, kategori and harga, so all three are required.
+  bool get _canSave =>
+      _namaCtrl.text.trim().isNotEmpty &&
+      _kategori != null &&
+      (int.tryParse(_hargaCtrl.text) ?? 0) > 0;
 
   @override
   void initState() {
     super.initState();
     _namaCtrl.addListener(() => setState(() {}));
+    _hargaCtrl.addListener(() => setState(() {}));
   }
 
   @override
@@ -444,16 +449,41 @@ class _InventoriTambahProdukPageState
 
   void _onSimpan() {
     if (!_canSave) return;
-    final item = InventoriItem(
-      id: const Uuid().v4(),
-      nama: _namaCtrl.text.trim(),
-      kategori: _kategori ?? '',
-      qtyStok: int.tryParse(_stokCtrl.text) ?? 0,
-      qtyTahan: int.tryParse(_peringatanStokCtrl.text) ?? 0,
-      localImagePath: _pickedImage?.path,
+    // Sent to POST /menus: nama, kategori, harga, lacak inventori
+    // (stok/stokMinimum), resep, royalty point, produk khusus + tanggal, and
+    // catatan. (Foto has no backend field yet and is not sent.)
+    final resep = _resepEntries
+        .map((e) => MenuResepInput(
+              bahanId: e.item.bahanId,
+              jumlahPakai: double.tryParse(e.jumlah.text.trim()) ?? 0,
+            ))
+        .where((r) => r.jumlahPakai > 0)
+        .toList();
+
+    // Produk khusus only counts when a date range is set (backend requires it).
+    final isKhusus = _produkKhusus && _tanggalKhusus != null;
+    final catatan = _catatanCtrl.text.trim();
+
+    context.pop(
+      CreateMenuParams(
+        namaMenu: _namaCtrl.text.trim(),
+        kategori: _kategori!,
+        harga: int.tryParse(_hargaCtrl.text) ?? 0,
+        stok: int.tryParse(_stokCtrl.text) ?? 0,
+        stokMinimum: int.tryParse(_peringatanStokCtrl.text) ?? 0,
+        resep: resep,
+        royaltyPoint: int.tryParse(_royaltyCtrl.text.trim()),
+        isProdukKhusus: isKhusus,
+        produkKhususMulai: isKhusus ? _apiDate(_tanggalKhusus!.start) : null,
+        produkKhususSelesai: isKhusus ? _apiDate(_tanggalKhusus!.end) : null,
+        catatan: catatan.isEmpty ? null : catatan,
+      ),
     );
-    context.pop(item);
   }
+
+  /// `YYYY-MM-DD` for the API (the display helper uses dd/MM/yyyy).
+  String _apiDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 // ── Shared label widgets ──────────────────────────────────────────────────────
