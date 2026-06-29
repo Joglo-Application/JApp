@@ -10,4 +10,7 @@ class KitchenOrderRepositoryImpl implements KitchenOrderRepository {
   @override
   Future<List<KitchenOrder>> fetchActiveOrders() =>
       _datasource.fetchActiveOrders();
+
+  @override
+  Future<void> completeOrder(String id) => _datasource.completeOrder(id);
 }

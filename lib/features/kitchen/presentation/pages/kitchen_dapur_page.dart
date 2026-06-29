@@ -97,7 +97,20 @@ class _OrderGrid extends StatelessWidget {
                   key: ValueKey(order.id),
                   order: order,
                   onItemToggle: (i) => provider.toggleItem(order.id, i),
-                  onAllDone: () => provider.markOrderDone(order.id),
+                  onAllDone: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final ok = await provider.completeOrder(order.id);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok
+                              ? 'Pesanan ${order.kodeTransaksi} selesai'
+                              : (provider.error ??
+                                  'Gagal menyelesaikan pesanan'),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
           ],
