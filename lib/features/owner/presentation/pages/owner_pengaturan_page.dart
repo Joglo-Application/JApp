@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../widgets/navigation/owner_drawer.dart';
@@ -78,7 +79,10 @@ class _AppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.shellBackground),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
@@ -153,10 +157,18 @@ class _NavSection extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.onSurfaceVariant,
-                size: 24,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: AppRadius.sm,
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.onPrimary,
+                  size: 20,
+                ),
               ),
             ],
           ),

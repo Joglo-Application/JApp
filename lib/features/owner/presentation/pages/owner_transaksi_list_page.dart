@@ -34,7 +34,7 @@ class _OwnerTransaksiListPageState extends State<OwnerTransaksiListPage> {
           children: [
             _buildHeader(context),
             _buildTabBar(),
-            if (_tab == _TransaksiTab.selesai) _buildFilterBar(),
+            _buildActionBar(),
             const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
             Expanded(child: _buildTable()),
           ],
@@ -108,24 +108,23 @@ class _OwnerTransaksiListPageState extends State<OwnerTransaksiListPage> {
     );
   }
 
-  Widget _buildFilterBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, color: AppColors.onSurfaceVariant, size: 22),
-          const SizedBox(width: AppSpacing.x2),
-          Expanded(
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHighest,
-                borderRadius: AppRadius.md,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+  Widget _buildActionBar() {
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: AppColors.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Expanded(
               child: TextField(
                 controller: _searchController,
                 style: AppTypography.textTheme.bodyMedium,
@@ -134,30 +133,76 @@ class _OwnerTransaksiListPageState extends State<OwnerTransaksiListPage> {
                   hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerHighest,
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x3,
+                    vertical: AppSpacing.x2 + 2,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.x3),
-          const Icon(Icons.sort_rounded, size: 22),
-          const SizedBox(width: AppSpacing.x3),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: AppRadius.md,
-            ),
-            child: const Icon(
-              Icons.calendar_month_rounded,
-              color: AppColors.onPrimary,
+            const SizedBox(width: AppSpacing.x3),
+            const Icon(
+              Icons.sort_rounded,
               size: 22,
+              color: AppColors.onSurfaceVariant,
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.x2),
+            Material(
+              color: AppColors.primary,
+              borderRadius: AppRadius.sm,
+              child: InkWell(
+                onTap: () {},
+                borderRadius: AppRadius.sm,
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppColors.onPrimary,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Material(
+              color: AppColors.primary,
+              borderRadius: AppRadius.sm,
+              child: InkWell(
+                onTap: () {},
+                borderRadius: AppRadius.sm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                    vertical: AppSpacing.x2 + 2,
+                  ),
+                  child: Text(
+                    'Export Excel',
+                    style: AppTypography.textTheme.labelLarge?.copyWith(
+                      color: AppColors.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
