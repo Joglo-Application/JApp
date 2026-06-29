@@ -467,7 +467,8 @@ class _PilihDialog extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     fullscreenDialog: true,
-                    builder: (_) => const SupplierTambahStokGudangPage(),
+                    builder: (_) =>
+                        SupplierTambahStokGudangPage(provider: provider),
                   ),
                 );
               },

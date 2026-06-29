@@ -3,6 +3,7 @@ enum SupplierItemStatus { aman, rendah, habis }
 class SupplierItem {
   const SupplierItem({
     required this.id,
+    required this.bahanId,
     required this.nama,
     required this.kategori,
     required this.unitProduk,
@@ -12,6 +13,7 @@ class SupplierItem {
   });
 
   final String id;
+  final int bahanId;
   final String nama;
   final String kategori;
   final String unitProduk;

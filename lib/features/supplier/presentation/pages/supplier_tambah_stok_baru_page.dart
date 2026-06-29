@@ -8,7 +8,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/supplier_item.dart';
 import '../providers/supplier_provider.dart';
 
 // ── Stub data ─────────────────────────────────────────────────────────────────
@@ -247,30 +246,38 @@ class _SupplierTambahStokBaruPageState
     if (file != null && mounted) setState(() => _fotoPath = file.path);
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
     if (!_isValid) return;
-    final konverter = int.tryParse(_konverterCtrl.text.trim()) ?? 0;
-    final item = SupplierItem(
-      id: 'SUP-${DateTime.now().millisecondsSinceEpoch}',
-      nama: _namaCtrl.text.trim(),
-      kategori: _selectedKategori!,
-      unitProduk: '$_selectedSatuan ($konverter)',
-      qtyStok: int.tryParse(_qtyStokCtrl.text.trim()) ?? 0,
-      qtyTahan: int.tryParse(_qtyTahanCtrl.text.trim()) ?? 0,
-      imageUrl: null,
-    );
-    widget.provider.addItem(item);
-
     final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Berhasil menambahkan ke Stok Gudang'),
-        backgroundColor: AppColors.tertiary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
+    final navigator = Navigator.of(context);
+    // Catatan: foto belum disimpan (BE belum punya endpoint upload gambar),
+    // dan "konverter" hanya tampilan FE — tidak dikirim ke server.
+    final ok = await widget.provider.createItem(
+      namaBahan: _namaCtrl.text.trim(),
+      satuan: _selectedSatuan!,
+      stok: int.tryParse(_qtyStokCtrl.text.trim()) ?? 0,
+      stokMinimum: int.tryParse(_qtyTahanCtrl.text.trim()) ?? 0,
+      kategori: _selectedKategori,
     );
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Berhasil menambahkan ke Stok Gudang'),
+          backgroundColor: AppColors.tertiary,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(widget.provider.error ?? 'Gagal menambahkan stok'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 
