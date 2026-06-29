@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/router/app_routes.dart';
-import '../../domain/entities/inventori_item.dart';
+import '../../domain/entities/create_menu_params.dart';
 import '../providers/inventori_provider.dart';
 import '../widgets/inventori/inventori_app_bar.dart';
 import '../widgets/inventori/inventori_filter_bar.dart';
@@ -35,12 +35,22 @@ class _InventoriView extends StatefulWidget {
 
 class _InventoriViewState extends State<_InventoriView> {
   Future<void> _onTambah() async {
-    final item = await context.push<InventoriItem>(
+    final params = await context.push<CreateMenuParams>(
       AppRoutes.inventoriTambahProduk,
     );
-    if (item != null && mounted) {
-      context.read<InventoriProvider>().addItem(item);
-    }
+    if (params == null || !mounted) return;
+
+    final provider = context.read<InventoriProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await provider.tambahProduk(params);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? 'Produk ditambahkan' : (provider.submitError ?? 'Gagal menambah produk'),
+        ),
+      ),
+    );
   }
 
   @override

@@ -17,7 +17,7 @@ class CustomerNameRow extends StatelessWidget {
     final provider = context.watch<OrderProvider>();
     final name = provider.customerName;
     final label = name.isEmpty ? 'Name Customer' : name;
-    final orderType = provider.orderType;
+    final orderType = provider.effectiveOrderType;
     final memberPoints = provider.memberPoints;
 
     return ColoredBox(
@@ -96,26 +96,29 @@ class CustomerNameRow extends StatelessWidget {
                             size: 14,
                             color: AppColors.primary,
                           ),
-                          if (orderType != null) ...[
-                            const SizedBox(width: AppSpacing.x2),
-                            Text(
-                              '(${orderType.label})',
-                              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          const SizedBox(width: AppSpacing.x2),
+                          Text(
+                            '(${orderType.label})',
+                            style: AppTypography.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
+                          ),
                         ],
                       ),
               ),
             ),
             GestureDetector(
-              onTap: () => _showSavePendingDialog(context),
-              child: const Icon(
+              // "+" hanya aktif bila ada minimal 1 item.
+              onTap: provider.isEmpty
+                  ? null
+                  : () => _showSavePendingDialog(context),
+              child: Icon(
                 Icons.add,
                 size: 22,
-                color: AppColors.primary,
+                color: provider.isEmpty
+                    ? AppColors.onSurfaceVariant
+                    : AppColors.primary,
               ),
             ),
           ],
@@ -127,16 +130,26 @@ class CustomerNameRow extends StatelessWidget {
   void _showSavePendingDialog(BuildContext context) {
     final provider = context.read<OrderProvider>();
     if (provider.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
     showDialog<String>(
       context: context,
       builder: (_) => _SavePendingDialog(initialName: provider.customerName),
-    ).then((name) {
+    ).then((name) async {
       if (name == null) return;
-      addOrderToPending(
-        customerName: name,
-        items: provider.items.toList(),
-      );
-      provider.clear();
+      final ok = await provider.holdOrder(name);
+      if (ok) {
+        provider.clear();
+        await refreshPendingOrders();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Pesanan disimpan ke Pending')),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(provider.submitError ?? 'Gagal menyimpan ke Pending'),
+          ),
+        );
+      }
     });
   }
 

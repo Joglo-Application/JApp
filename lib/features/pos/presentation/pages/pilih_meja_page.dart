@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/checkout_remote_datasource.dart';
+import '../../data/datasources/meja_remote_datasource.dart';
+import '../providers/order_provider.dart';
 import '../widgets/shared/pin_supervisor_dialog.dart';
+
+// ── Public result type ──────────────────────────────────────────────────────
+// Dikembalikan ke pemanggil saat sebuah meja dipilih untuk pesanan.
+class SelectedMeja {
+  const SelectedMeja({required this.mejaId, required this.nomor});
+  final int mejaId;
+  final String nomor;
+}
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -47,28 +59,15 @@ class _Meja {
       );
 }
 
-const _zones = [
-  _Zone(id: 'l1', name: 'Lantai 1'),
-  _Zone(id: 'l2', name: 'Lantai 2'),
-  _Zone(id: 'l3', name: 'Lantai 3'),
-  _Zone(id: 'out', name: 'Outdoor'),
-];
+const _kTanpaZona = 'Tanpa Zona';
 
-const _seedTables = [
-  _Meja(id: '01', name: '01', zoneId: 'l1'),
-  _Meja(id: '02', name: '02', zoneId: 'l1'),
-  _Meja(id: '03', name: '03', zoneId: 'l1'),
-  _Meja(id: '04', name: '04', zoneId: 'l1'),
-  _Meja(id: '05', name: '05', zoneId: 'l1'),
-  _Meja(id: '06', name: '06', zoneId: 'l1'),
-  _Meja(id: 'lesehan01', name: 'Lesehan 01', status: _MejaStatus.occupied, transactionCount: 2, zoneId: 'l1'),
-  _Meja(id: 'taman01', name: 'Taman 01', zoneId: 'l1'),
-  _Meja(id: 'l2-01', name: '01', zoneId: 'l2'),
-  _Meja(id: 'l2-02', name: '02', zoneId: 'l2'),
-  _Meja(id: 'l3-01', name: '01', zoneId: 'l3'),
-  _Meja(id: 'out-01', name: 'Garden 01', status: _MejaStatus.occupied, transactionCount: 1, zoneId: 'out'),
-  _Meja(id: 'out-02', name: 'Garden 02', zoneId: 'out'),
-];
+/// Memetakan `meja.status` dari backend ke status lokal halaman.
+/// Backend tidak punya status `blocked` — itu hanya aksi lokal di FE.
+_MejaStatus _mapMejaStatus(String s) => switch (s) {
+      'occupied' => _MejaStatus.occupied,
+      'reserved' => _MejaStatus.reserved,
+      _ => _MejaStatus.free,
+    };
 
 // ── Mock transaction data ─────────────────────────────────────────────────────
 
@@ -134,21 +133,144 @@ class PilihMejaPage extends StatefulWidget {
 }
 
 class _PilihMejaPageState extends State<PilihMejaPage> {
+  final _datasource = MejaRemoteDatasourceImpl();
+  final _checkoutDatasource = CheckoutRemoteDatasourceImpl();
+
   int _tabIndex = 0;
   int _zoneIndex = 0;
   _Meja? _selectedMeja;
   bool _isGantiMejaMode = false;
-  late List<_Meja> _tables = List.of(_seedTables);
+  List<_Meja> _tables = [];
+  List<_Zone> _zones = [];
+  bool _loading = true;
+  String? _error;
 
-  List<_Meja> get _filteredTables =>
-      _tables.where((m) => m.zoneId == _zones[_zoneIndex].id).toList();
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Memuat meja dari backend (GET /meja); zona tab dibangun dari nilai `zona`.
+  Future<void> _load() async {
+    try {
+      final models = await _datasource.fetchMeja();
+      if (!mounted) return;
+      final zonaNames = <String>{for (final m in models) m.zona ?? _kTanpaZona};
+      setState(() {
+        _zones = zonaNames.map((z) => _Zone(id: z, name: z)).toList();
+        _tables = models
+            .map((m) => _Meja(
+                  id: m.mejaId.toString(),
+                  name: m.nomor,
+                  status: _mapMejaStatus(m.status),
+                  zoneId: m.zona ?? _kTanpaZona,
+                ))
+            .toList();
+        if (_zoneIndex >= _zones.length) _zoneIndex = 0;
+        _loading = false;
+      });
+      _loadTransactionCounts();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Gagal memuat meja.';
+      });
+    }
+  }
+
+  /// Isi jumlah pesanan aktif per meja (badge "N Transaksi Meja") DAN samakan
+  /// warna meja dengan kenyataan: merah (occupied) hanya bila ada order aktif.
+  /// Status manual (reserved/blokir) tetap dihormati.
+  Future<void> _loadTransactionCounts() async {
+    try {
+      final counts = await _checkoutDatasource.fetchPendingCountByMeja();
+      if (!mounted) return;
+      setState(() {
+        _tables = _tables.map((t) {
+          final count = counts[int.tryParse(t.id)] ?? 0;
+          var status = t.status;
+          if (count > 0) {
+            // Ada order aktif → terisi (kecuali sedang reserved/blokir).
+            if (status == _MejaStatus.free) status = _MejaStatus.occupied;
+          } else if (status == _MejaStatus.occupied) {
+            // Tidak ada order aktif tapi masih ditandai terisi → bebaskan.
+            status = _MejaStatus.free;
+          }
+          return t.copyWith(transactionCount: count, status: status);
+        }).toList();
+      });
+    } catch (_) {
+      // Non-kritis: badge transaksi gagal dimuat — biarkan default.
+    }
+  }
+
+  List<_Meja> get _filteredTables => _zones.isEmpty
+      ? const []
+      : _tables.where((m) => m.zoneId == _zones[_zoneIndex].id).toList();
+
+  String _apiStatus(_MejaStatus s) => switch (s) {
+        _MejaStatus.free => 'available',
+        _MejaStatus.occupied => 'occupied',
+        _MejaStatus.reserved => 'reserved',
+        _MejaStatus.blocked => 'blocked',
+      };
 
   void _updateTableStatus(String id, _MejaStatus status) {
+    // Update lokal dulu (optimistic), lalu persist ke backend.
     setState(() {
       _tables = _tables
           .map((t) => t.id == id ? t.copyWith(status: status) : t)
           .toList();
     });
+    _persistStatus(id, status);
+  }
+
+  /// Simpan perubahan status meja ke backend (PATCH /meja/:id/status).
+  Future<void> _persistStatus(String id, _MejaStatus status) async {
+    final mejaId = int.tryParse(id);
+    if (mejaId == null) return; // id non-numerik (data lama/mock) — abaikan
+    try {
+      await _datasource.updateStatus(mejaId, _apiStatus(status));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menyimpan status meja ke server')),
+      );
+    }
+  }
+
+  /// Hasil pilih meja untuk dikembalikan ke pemanggil (ditaut ke pesanan).
+  SelectedMeja? _selectedResult(_Meja meja) {
+    final id = int.tryParse(meja.id);
+    return id == null ? null : SelectedMeja(mejaId: id, nomor: meja.name);
+  }
+
+  /// "Lihat Pesanan": muat pesanan pending milik meja ke POS, lalu kembali ke
+  /// halaman POS agar kasir bisa membayar.
+  Future<void> _onLihatPesanan() async {
+    final meja = _selectedMeja;
+    if (meja == null) return;
+    final mejaId = int.tryParse(meja.id);
+    if (mejaId == null) return;
+    try {
+      final loaded = await _checkoutDatasource.fetchActivePesananForMeja(mejaId);
+      if (!mounted) return;
+      if (loaded == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Belum ada pesanan aktif di meja ini')),
+        );
+        return;
+      }
+      context.read<OrderProvider>().loadExistingOrder(loaded);
+      Navigator.of(context).pop(); // kembali ke POS dengan pesanan termuat
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal memuat pesanan meja')),
+      );
+    }
   }
 
   Future<void> _onTableTap(_Meja meja) async {
@@ -174,6 +296,9 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
           _isGantiMejaMode = false;
           _tabIndex = 1;
         });
+        // Persist: meja lama jadi kosong, meja baru jadi terisi.
+        _persistStatus(oldMeja.id, _MejaStatus.free);
+        _persistStatus(newMejaId, _MejaStatus.occupied);
       }
       return;
     }
@@ -192,7 +317,7 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
         );
         if (!mounted) return;
         if (action == _ReservasiAction.lanjutkan) {
-          Navigator.of(context).pop(meja);
+          Navigator.of(context).pop(_selectedResult(meja));
         } else if (action == _ReservasiAction.batalkan) {
           _updateTableStatus(meja.id, _MejaStatus.free);
         }
@@ -221,7 +346,9 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
         );
         if (!mounted) return;
         if (action == _MejaAction.pilih) {
-          Navigator.of(context).pop(meja);
+          // Meja dipilih untuk pesanan → tandai terisi + simpan ke backend.
+          _persistStatus(meja.id, _MejaStatus.occupied);
+          Navigator.of(context).pop(_selectedResult(meja));
         } else if (action == _MejaAction.reservasi) {
           _updateTableStatus(meja.id, _MejaStatus.reserved);
         } else if (action == _MejaAction.blokir) {
@@ -266,7 +393,17 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
               },
             ),
             Expanded(
-              child: _tabIndex == 0
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        style: AppTypography.textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                    )
+                  : _tabIndex == 0
                   ? _TableGrid(
                       tables: _filteredTables,
                       onTableTap: _onTableTap,
@@ -274,9 +411,25 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
                   : _TransaksiMejaContent(
                       meja: _selectedMeja,
                       onKosongkanMeja: () {
-                        if (_selectedMeja != null) {
-                          _updateTableStatus(_selectedMeja!.id, _MejaStatus.free);
+                        final meja = _selectedMeja;
+                        if (meja == null) return;
+                        // Tidak boleh dikosongkan paksa selama masih ada pesanan
+                        // aktif (belum dibayar). Meja bebas otomatis setelah
+                        // pembayaran ("Lihat Transaksi"), atau dipindah via
+                        // "Ganti Meja".
+                        if (meja.transactionCount > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Meja masih punya pesanan aktif. Selesaikan '
+                                'pembayaran lewat "Lihat Transaksi" dulu, atau '
+                                'pindahkan via "Ganti Meja".',
+                              ),
+                            ),
+                          );
+                          return;
                         }
+                        _updateTableStatus(meja.id, _MejaStatus.free);
                         setState(() {
                           _selectedMeja = null;
                           _tabIndex = 0;
@@ -286,13 +439,7 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
                         _isGantiMejaMode = true;
                         _tabIndex = 0;
                       }),
-                      onLihatTransaksi: () {
-                        if (_selectedMeja == null) return;
-                        showDialog<void>(
-                          context: context,
-                          builder: (_) => _LihatTransaksiDialog(meja: _selectedMeja!),
-                        );
-                      },
+                      onLihatTransaksi: _onLihatPesanan,
                     ),
             ),
             if (_tabIndex == 0)

@@ -1,3 +1,4 @@
+import '../entities/create_menu_params.dart';
 import '../entities/product.dart';
 import '../repositories/menu_repository.dart';
 
@@ -6,16 +7,6 @@ class CreateMenuUseCase {
 
   final MenuRepository _repository;
 
-  Future<Product> call({
-    required String namaMenu,
-    required String kategori,
-    required int harga,
-    bool isActive = true,
-  }) =>
-      _repository.createMenu(
-        namaMenu: namaMenu,
-        kategori: kategori,
-        harga: harga,
-        isActive: isActive,
-      );
+  Future<Product> call(CreateMenuParams params) =>
+      _repository.createMenu(params);
 }
