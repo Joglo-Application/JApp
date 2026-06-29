@@ -12,7 +12,7 @@ class TransaksiAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.shellBackground,
+        color: Colors.grey.shade700,
         border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
       ),
       child: SafeArea(

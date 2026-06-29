@@ -30,45 +30,57 @@ class _LaporanActionBarState extends State<LaporanActionBar> {
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x2,
+          vertical: AppSpacing.x3,
         ),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded,
-                size: 22, color: AppColors.onSurfaceVariant),
+            const Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: AppColors.onSurfaceVariant,
+            ),
             const SizedBox(width: AppSpacing.x2),
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.x3,
-                  vertical: AppSpacing.x1,
+              child: TextField(
+                controller: _controller,
+                onChanged: widget.onSearch,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurface,
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: AppRadius.sm,
-                ),
-                child: TextField(
-                  controller: _controller,
-                  onChanged: widget.onSearch,
-                  style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onSurface,
+                decoration: InputDecoration(
+                  hintText: 'Cari',
+                  hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'Cari',
-                    hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerHighest,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x3,
+                    vertical: AppSpacing.x2 + 2,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.sm,
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
-            const Icon(Icons.sort_rounded,
-                size: 22, color: AppColors.onSurfaceVariant),
-            const SizedBox(width: AppSpacing.x3),
+            const Icon(
+              Icons.sort_rounded,
+              size: 22,
+              color: AppColors.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpacing.x2),
             _IconButton(
               icon: Icons.calendar_today_rounded,
               onTap: () {},

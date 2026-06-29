@@ -11,27 +11,42 @@ class LaporanRingkasanView extends StatelessWidget {
     ('Ringkasan Loyalty Point', 34),
     ('Pesanan Diterima', 225),
     ('Pesanan Dibatalkan', 62),
-    ('Pesanan Pending', 62),
+    ('Pesanan Diretur', 21),
   ];
 
-  static const _topGroupItems = [
-    _GroupRow('Makanan', 167, 'IDR 4.588.000'),
-    _GroupRow('Minuman', 85, 'IDR 1.054.000'),
+  static const _pencatatanItems = [
+    ('Pendapatan', 'Rp 1.270.600'),
+    ('Pengeluaran', 'Rp 200.000'),
+    ('Pengembalian Penjualan', 'Rp 280.700'),
+  ];
+
+  static const _penjualanItems = [
+    ('Total Penjualan', 'Rp 989.900'),
+    ('Penjualan Kotor', 'Rp 949.300'),
+    ('Penerimaan', 'Rp 989.000'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        ..._summaryItems.map((item) => _SummaryRow(label: item.$1, total: item.$2)),
-        const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
-        _SectionHeader('Top Group Produk'),
-        _GroupHeader(),
-        ..._topGroupItems.map((item) => _GroupDataRow(item: item)),
+        ..._summaryItems.map(
+          (item) => _SummaryRow(label: item.$1, total: item.$2),
+        ),
+        const _SectionHeader('Ringkasan Pencatatan Resto'),
+        ..._pencatatanItems.map(
+          (item) => _KeyValueRow(label: item.$1, value: item.$2),
+        ),
+        const _SectionHeader('Ringkasan Penjualan'),
+        ..._penjualanItems.map(
+          (item) => _KeyValueRow(label: item.$1, value: item.$2),
+        ),
       ],
     );
   }
 }
+
+// ── Rows ──────────────────────────────────────────────────────────────────────
 
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({required this.label, required this.total});
@@ -76,6 +91,49 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+class _KeyValueRow extends StatelessWidget {
+  const _KeyValueRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ColoredBox(
+          color: AppColors.surface,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x4,
+              vertical: AppSpacing.x3,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                ),
+                Text(
+                  value,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
+      ],
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.label);
 
@@ -101,116 +159,4 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
   }
-}
-
-class _GroupHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.outline,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Text(
-                'Nama',
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                'Qty',
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                'Jumlah',
-                textAlign: TextAlign.right,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupDataRow extends StatelessWidget {
-  const _GroupDataRow({required this.item});
-
-  final _GroupRow item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ColoredBox(
-          color: AppColors.surface,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x3,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    item.nama,
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '${item.qty}',
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    item.jumlah,
-                    textAlign: TextAlign.right,
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
-      ],
-    );
-  }
-}
-
-class _GroupRow {
-  const _GroupRow(this.nama, this.qty, this.jumlah);
-
-  final String nama;
-  final int qty;
-  final String jumlah;
 }
