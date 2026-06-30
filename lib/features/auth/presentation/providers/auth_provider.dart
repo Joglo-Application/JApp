@@ -26,7 +26,8 @@ class AuthProvider extends ChangeNotifier {
     switch (_user?.role) {
       case 'owner':
       case 'admin':
-        return AppRoutes.ownerDashboard;
+        // return AppRoutes.ownerDashboard;
+        return AppRoutes.kitchenDapur;
       case 'kasir':
         return AppRoutes.home;
       case 'dapur':

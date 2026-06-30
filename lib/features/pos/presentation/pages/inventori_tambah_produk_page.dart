@@ -42,6 +42,7 @@ class _InventoriTambahProdukPageState
   XFile? _pickedImage;
   String? _kategori;
   bool _produkKhusus = false;
+  bool _tampilkanDiPos = false;
   DateTimeRange? _tanggalKhusus;
   final List<_ResepEntry> _resepEntries = [];
 
@@ -116,6 +117,8 @@ class _InventoriTambahProdukPageState
                     _buildRoyaltySection(),
                     _sectionDivider(),
                     _buildProdukKhususSection(),
+                    _sectionDivider(),
+                    _buildTampilkanDiPosSection(),
                     _sectionDivider(),
                     _buildCatatanSection(),
                     const SizedBox(height: AppSpacing.x8),
@@ -206,7 +209,7 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Nama'),
+        const _SectionLabel('Nama', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         _OutlinedInput(controller: _namaCtrl),
       ],
@@ -217,7 +220,7 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Kategori'),
+        const _SectionLabel('Kategori', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         GestureDetector(
           onTap: _pickKategori,
@@ -255,7 +258,7 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Harga jual toko'),
+        const _SectionLabel('Harga jual toko', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         _OutlinedInput(
           controller: _hargaCtrl,
@@ -271,7 +274,7 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Lacak inventori'),
+        const _SectionLabel('Lacak inventori', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         _SubLabel('Jumlah stok tersedia saat ini'),
         const SizedBox(height: AppSpacing.x2),
@@ -298,7 +301,7 @@ class _InventoriTambahProdukPageState
       children: [
         Row(
           children: [
-            const _SectionLabel('Resep Makanan'),
+            const _SectionLabel('Resep Makanan', isRequired: true),
             const Spacer(),
             _TambahSmallButton(onTap: _pilihBahan),
           ],
@@ -325,7 +328,7 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Royalty Point'),
+        const _SectionLabel('Royalty Point', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         _OutlinedInput(
           controller: _royaltyCtrl,
@@ -400,6 +403,40 @@ class _InventoriTambahProdukPageState
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTampilkanDiPosSection() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tampilkan di POS',
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x1),
+              Text(
+                'Pesanan Secara tidak Langsung akan Tampil di POS',
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: _tampilkanDiPos,
+          onChanged: (v) => setState(() => _tampilkanDiPos = v),
+          activeTrackColor: AppColors.primary,
+          activeThumbColor: AppColors.onPrimary,
         ),
       ],
     );
@@ -489,16 +526,34 @@ class _InventoriTambahProdukPageState
 // ── Shared label widgets ──────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
+  const _SectionLabel(this.text, {this.isRequired = false});
   final String text;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTypography.textTheme.bodyMedium?.copyWith(
-        color: AppColors.onSurface,
-        fontWeight: FontWeight.w600,
+    if (!isRequired) {
+      return Text(
+        text,
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          color: AppColors.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+    return RichText(
+      text: TextSpan(
+        text: text,
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          color: AppColors.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
