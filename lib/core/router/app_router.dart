@@ -31,6 +31,7 @@ import '../../features/kitchen/presentation/pages/kitchen_dapur_page.dart';
 import '../../features/kitchen/presentation/pages/kitchen_transaksi_page.dart';
 import '../../features/kitchen/presentation/widgets/navigation/kitchen_drawer.dart';
 import '../../features/owner/presentation/widgets/navigation/owner_drawer.dart';
+import '../../features/pos/presentation/pages/inventori_edit_item_page.dart';
 import '../../features/pos/presentation/pages/inventori_page.dart';
 import '../../features/pos/presentation/pages/inventori_pilih_bahan_page.dart';
 import '../../features/pos/presentation/pages/inventori_tambah_produk_page.dart';
@@ -251,6 +252,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.inventoriTambahProduk,
       builder: (context, state) => const InventoriTambahProdukPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.inventoriEditItem,
+      builder: (context, state) {
+        final args = state.extra as InventoriEditItemArgs;
+        return InventoriEditItemPage(item: args.item, menu: args.menu);
+      },
     ),
     GoRoute(
       path: AppRoutes.inventoriPilihBahan,

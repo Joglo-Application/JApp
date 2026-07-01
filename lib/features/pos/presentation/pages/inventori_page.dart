@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 
 import '../../../../../core/router/app_routes.dart';
 import '../../domain/entities/create_menu_params.dart';
+import '../../domain/entities/inventori_item.dart';
+import '../../domain/entities/update_menu_params.dart';
 import '../providers/inventori_provider.dart';
 import '../widgets/inventori/inventori_app_bar.dart';
 import '../widgets/inventori/inventori_filter_bar.dart';
 import '../widgets/inventori/inventori_table.dart';
 import '../widgets/navigation/pos_drawer.dart';
+import 'inventori_edit_item_page.dart';
 
 class InventoriPage extends StatelessWidget {
   const InventoriPage({super.key, this.drawer});
@@ -53,6 +56,26 @@ class _InventoriViewState extends State<_InventoriView> {
     );
   }
 
+  Future<void> _onEditItem(InventoriItem item) async {
+    final provider = context.read<InventoriProvider>();
+    final params = await context.push<UpdateMenuParams>(
+      AppRoutes.inventoriEditItem,
+      extra: InventoriEditItemArgs(item: item, menu: provider.menuFor(item.id)),
+    );
+    if (params == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await provider.editProduk(params);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? 'Perubahan disimpan' : (provider.submitError ?? 'Gagal menyimpan perubahan'),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,7 +85,7 @@ class _InventoriViewState extends State<_InventoriView> {
         children: [
           InventoriAppBar(onTambah: _onTambah),
           const InventoriFilterBar(),
-          const Expanded(child: InventoriTable()),
+          Expanded(child: InventoriTable(onTapItem: _onEditItem)),
         ],
       ),
     );

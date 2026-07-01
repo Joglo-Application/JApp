@@ -10,7 +10,9 @@ import '../../../domain/entities/inventori_item.dart';
 import '../../providers/inventori_provider.dart';
 
 class InventoriTable extends StatelessWidget {
-  const InventoriTable({super.key});
+  const InventoriTable({super.key, this.onTapItem});
+
+  final ValueChanged<InventoriItem>? onTapItem;
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +53,10 @@ class InventoriTable extends StatelessWidget {
                     thickness: 1,
                     color: AppColors.outlineVariant,
                   ),
-                  itemBuilder: (context, index) =>
-                      _InventoriRow(item: items[index]),
+                  itemBuilder: (context, index) => _InventoriRow(
+                    item: items[index],
+                    onTap: onTapItem,
+                  ),
                 ),
         ),
       ],
@@ -124,68 +128,72 @@ class _HeaderCell extends StatelessWidget {
 // ── Row ────────────────────────────────────────────────────────────────────────
 
 class _InventoriRow extends StatelessWidget {
-  const _InventoriRow({required this.item});
+  const _InventoriRow({required this.item, this.onTap});
 
   final InventoriItem item;
+  final ValueChanged<InventoriItem>? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            _ProductAvatar(item: item),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              flex: 3,
-              child: Text(
-                item.nama,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: onTap == null ? null : () => onTap!(item),
+      child: ColoredBox(
+        color: AppColors.surface,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              _ProductAvatar(item: item),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  item.nama,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                item.kategori,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                flex: 2,
+                child: Text(
+                  item.kategori,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${item.qtyStok}',
-                textAlign: TextAlign.right,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                child: Text(
+                  '${item.qtyStok}',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${item.qtyTahan}',
-                textAlign: TextAlign.right,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                child: Text(
+                  '${item.qtyTahan}',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            SizedBox(
-              width: 64,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _StatusIndicator(status: item.status),
+              SizedBox(
+                width: 64,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _StatusIndicator(status: item.status),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

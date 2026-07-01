@@ -1,11 +1,14 @@
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/create_menu_params.dart';
+import '../../domain/entities/update_menu_params.dart';
 import '../models/menu_model.dart';
 
 abstract class MenuRemoteDatasource {
   Future<List<MenuModel>> fetchMenus();
 
   Future<MenuModel> createMenu(CreateMenuParams params);
+
+  Future<MenuModel> updateMenu(UpdateMenuParams params);
 }
 
 class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
@@ -57,6 +60,40 @@ class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
           'isActive': params.isActive,
           'stok': params.stok,
           'stokMinimum': params.stokMinimum,
+          'isProdukKhusus': params.isProdukKhusus,
+          if (params.royaltyPoint != null) 'royaltyPoint': params.royaltyPoint,
+          if (params.isProdukKhusus && params.produkKhususMulai != null)
+            'produkKhususMulai': params.produkKhususMulai,
+          if (params.isProdukKhusus && params.produkKhususSelesai != null)
+            'produkKhususSelesai': params.produkKhususSelesai,
+          if (params.catatan != null && params.catatan!.isNotEmpty)
+            'catatan': params.catatan,
+          if (params.resep.isNotEmpty)
+            'resep': params.resep
+                .map((r) => {
+                      'bahanId': r.bahanId,
+                      'jumlahPakai': r.jumlahPakai,
+                    })
+                .toList(),
+        },
+      );
+      final data = res.data!['data'] as Map<String, dynamic>;
+      return MenuModel.fromJson(data);
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<MenuModel> updateMenu(UpdateMenuParams params) async {
+    try {
+      final res = await _client.dio.patch<Map<String, dynamic>>(
+        '/menus/${params.id}',
+        data: {
+          'namaMenu': params.namaMenu,
+          'kategori': params.kategori,
+          'harga': params.harga,
+          'isActive': params.isActive,
           'isProdukKhusus': params.isProdukKhusus,
           if (params.royaltyPoint != null) 'royaltyPoint': params.royaltyPoint,
           if (params.isProdukKhusus && params.produkKhususMulai != null)

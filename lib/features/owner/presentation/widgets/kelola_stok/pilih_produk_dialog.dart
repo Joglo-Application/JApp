@@ -59,13 +59,6 @@ class PilihProdukDialog extends StatelessWidget {
               onTap: () => Navigator.of(context).pop(ProdukSource.inventori),
             ),
             const Divider(height: 1),
-            _PilihTile(
-              icon: Icons.groups_rounded,
-              iconColor: AppColors.primary,
-              label: 'Stok Gudang',
-              onTap: () => Navigator.of(context).pop(ProdukSource.stokGudang),
-            ),
-            const Divider(height: 1),
           ],
         ),
       ),

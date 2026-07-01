@@ -11,33 +11,63 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../owner/domain/entities/stok_gudang_item.dart';
-import '../../domain/entities/create_menu_params.dart';
+import '../../domain/entities/inventori_item.dart';
 import '../../domain/entities/menu_resep_input.dart';
+import '../../domain/entities/product.dart';
+import '../../domain/entities/update_menu_params.dart';
 import '../widgets/inventori/inventori_form_widgets.dart';
 
-class InventoriTambahProdukPage extends StatefulWidget {
-  const InventoriTambahProdukPage({super.key});
+/// Navigation payload for [AppRoutes.inventoriEditItem] (passed via
+/// `GoRouterState.extra`, following the pattern used by `VoucherEditArgs`).
+class InventoriEditItemArgs {
+  const InventoriEditItemArgs({required this.item, this.menu});
 
-  @override
-  State<InventoriTambahProdukPage> createState() =>
-      _InventoriTambahProdukPageState();
+  final InventoriItem item;
+
+  /// Richer `GET /menus` record (harga, isActive) for [item], when available.
+  final Product? menu;
 }
 
-class _InventoriTambahProdukPageState
-    extends State<InventoriTambahProdukPage> {
-  final _namaCtrl = TextEditingController();
-  final _hargaCtrl = TextEditingController();
-  final _stokCtrl = TextEditingController();
-  final _peringatanStokCtrl = TextEditingController();
+/// Edit screen for an existing inventori/menu item.
+///
+/// Nama, Kategori, Harga jual toko and Royalty Point are locked by default
+/// and unlock one at a time via their pencil button; the top-level Simpan
+/// button is the only thing that actually persists changes (`PATCH
+/// /menus/{id}`), matching the flow in the design handoff.
+class InventoriEditItemPage extends StatefulWidget {
+  const InventoriEditItemPage({super.key, required this.item, this.menu});
+
+  final InventoriItem item;
+
+  /// Richer `GET /menus` record (harga, isActive) for [item], when available.
+  final Product? menu;
+
+  @override
+  State<InventoriEditItemPage> createState() => _InventoriEditItemPageState();
+}
+
+class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
+  late final _namaCtrl = TextEditingController(text: widget.item.nama);
+  late final _hargaCtrl = TextEditingController(
+    text: widget.menu != null ? widget.menu!.price.toInt().toString() : '',
+  );
+  late final _stokCtrl =
+      TextEditingController(text: widget.item.qtyStok.toString());
+  late final _peringatanStokCtrl =
+      TextEditingController(text: widget.item.qtyTahan.toString());
   final _royaltyCtrl = TextEditingController();
-  final _catatanCtrl = TextEditingController();
 
   XFile? _pickedImage;
-  String? _kategori;
+  late String? _kategori = widget.item.kategori;
   bool _produkKhusus = false;
-  bool _tampilkanDiPos = false;
+  late bool _tampilkanDiPos = widget.menu?.isAvailable ?? true;
   DateTimeRange? _tanggalKhusus;
   final List<ResepEntry> _resepEntries = [];
+
+  bool _editNama = false;
+  bool _editKategori = false;
+  bool _editHarga = false;
+  bool _editRoyalty = false;
 
   final _picker = ImagePicker();
 
@@ -49,7 +79,6 @@ class _InventoriTambahProdukPageState
     'Lainnya',
   ];
 
-  // POST /menus needs nama, kategori and harga, so all three are required.
   bool get _canSave =>
       _namaCtrl.text.trim().isNotEmpty &&
       _kategori != null &&
@@ -69,7 +98,6 @@ class _InventoriTambahProdukPageState
     _stokCtrl.dispose();
     _peringatanStokCtrl.dispose();
     _royaltyCtrl.dispose();
-    _catatanCtrl.dispose();
     for (final e in _resepEntries) {
       e.dispose();
     }
@@ -112,8 +140,6 @@ class _InventoriTambahProdukPageState
                     _buildProdukKhususSection(),
                     _sectionDivider(),
                     _buildTampilkanDiPosSection(),
-                    _sectionDivider(),
-                    _buildCatatanSection(),
                     const SizedBox(height: AppSpacing.x8),
                   ],
                 ),
@@ -142,7 +168,7 @@ class _InventoriTambahProdukPageState
           SimpanButton(enabled: _canSave, onTap: _onSimpan),
           const Spacer(),
           Text(
-            'Tambahkan Produk',
+            'Edit Item',
             style: AppTypography.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: AppColors.onSurface,
@@ -180,16 +206,27 @@ class _InventoriTambahProdukPageState
               border: Border.all(color: AppColors.outline),
             ),
             clipBehavior: Clip.antiAlias,
-            child: _pickedImage != null
-                ? Image.file(File(_pickedImage!.path), fit: BoxFit.cover)
-                : const Icon(
-                    Icons.add_photo_alternate_rounded,
-                    color: AppColors.onSurfaceVariant,
-                    size: 32,
-                  ),
+            child: _buildFotoPreview(),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFotoPreview() {
+    if (_pickedImage != null) {
+      return Image.file(File(_pickedImage!.path), fit: BoxFit.cover);
+    }
+    if (widget.item.localImagePath != null) {
+      return Image.file(File(widget.item.localImagePath!), fit: BoxFit.cover);
+    }
+    if (widget.item.imageUrl != null) {
+      return Image.network(widget.item.imageUrl!, fit: BoxFit.cover);
+    }
+    return const Icon(
+      Icons.add_photo_alternate_rounded,
+      color: AppColors.onSurfaceVariant,
+      size: 32,
     );
   }
 
@@ -202,9 +239,14 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Nama', isRequired: true),
+        _EditableFieldHeader(
+          label: 'Nama',
+          isRequired: true,
+          editing: _editNama,
+          onToggle: () => setState(() => _editNama = !_editNama),
+        ),
         const SizedBox(height: AppSpacing.x3),
-        OutlinedInput(controller: _namaCtrl),
+        OutlinedInput(controller: _namaCtrl, enabled: _editNama),
       ],
     );
   }
@@ -213,22 +255,32 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Kategori', isRequired: true),
+        _EditableFieldHeader(
+          label: 'Kategori',
+          isRequired: true,
+          editing: _editKategori,
+          onToggle: () => setState(() => _editKategori = !_editKategori),
+        ),
         const SizedBox(height: AppSpacing.x3),
         GestureDetector(
-          onTap: _pickKategori,
+          onTap: _editKategori ? _pickKategori : null,
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.x4,
               vertical: AppSpacing.x3,
             ),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.outline),
+              border: Border.all(
+                color: _editKategori
+                    ? AppColors.outline
+                    : AppColors.outlineVariant,
+              ),
               borderRadius: AppRadius.sm,
+              color: _editKategori ? null : AppColors.surfaceContainerHighest,
             ),
             child: Row(
               children: [
-                const Icon(Icons.keyboard_arrow_down_rounded,
+                Icon(Icons.keyboard_arrow_down_rounded,
                     color: AppColors.onSurfaceVariant, size: 20),
                 const SizedBox(width: AppSpacing.x2),
                 Text(
@@ -251,13 +303,19 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Harga jual toko', isRequired: true),
+        _EditableFieldHeader(
+          label: 'Harga jual toko',
+          isRequired: true,
+          editing: _editHarga,
+          onToggle: () => setState(() => _editHarga = !_editHarga),
+        ),
         const SizedBox(height: AppSpacing.x3),
         OutlinedInput(
           controller: _hargaCtrl,
           keyboardType: TextInputType.number,
           prefix: 'IDR  ',
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          enabled: _editHarga,
         ),
       ],
     );
@@ -267,22 +325,36 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Lacak inventori', isRequired: true),
+        Row(
+          children: [
+            const SectionLabel('Lacak inventori', isRequired: true),
+            const Spacer(),
+            Text(
+              '* Tidak dapat di Edit',
+              style: AppTypography.textTheme.labelMedium?.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: AppSpacing.x3),
-        SubLabel('Jumlah stok tersedia saat ini'),
+        const SubLabel('Jumlah stok tersedia saat ini'),
         const SizedBox(height: AppSpacing.x2),
         OutlinedInput(
           controller: _stokCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          enabled: false,
         ),
         const SizedBox(height: AppSpacing.x3),
-        SubLabel('Peringatan sisa stok'),
+        const SubLabel('Peringatan sisa stok'),
         const SizedBox(height: AppSpacing.x2),
         OutlinedInput(
           controller: _peringatanStokCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          enabled: false,
         ),
       ],
     );
@@ -321,12 +393,18 @@ class _InventoriTambahProdukPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Royalty Point', isRequired: true),
+        _EditableFieldHeader(
+          label: 'Royalty Point',
+          isRequired: true,
+          editing: _editRoyalty,
+          onToggle: () => setState(() => _editRoyalty = !_editRoyalty),
+        ),
         const SizedBox(height: AppSpacing.x3),
         OutlinedInput(
           controller: _royaltyCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          enabled: _editRoyalty,
         ),
       ],
     );
@@ -435,17 +513,6 @@ class _InventoriTambahProdukPageState
     );
   }
 
-  Widget _buildCatatanSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionLabel('Catatan'),
-        const SizedBox(height: AppSpacing.x3),
-        OutlinedInput(controller: _catatanCtrl, maxLines: 3),
-      ],
-    );
-  }
-
   Future<void> _pilihBahan() async {
     final item = await context.push<StokGudangItem>(
       AppRoutes.inventoriPilihBahan,
@@ -479,9 +546,6 @@ class _InventoriTambahProdukPageState
 
   void _onSimpan() {
     if (!_canSave) return;
-    // Sent to POST /menus: nama, kategori, harga, lacak inventori
-    // (stok/stokMinimum), resep, royalty point, produk khusus + tanggal, and
-    // catatan. (Foto has no backend field yet and is not sent.)
     final resep = _resepEntries
         .map((e) => MenuResepInput(
               bahanId: e.item.bahanId,
@@ -490,23 +554,20 @@ class _InventoriTambahProdukPageState
         .where((r) => r.jumlahPakai > 0)
         .toList();
 
-    // Produk khusus only counts when a date range is set (backend requires it).
     final isKhusus = _produkKhusus && _tanggalKhusus != null;
-    final catatan = _catatanCtrl.text.trim();
 
     context.pop(
-      CreateMenuParams(
+      UpdateMenuParams(
+        id: widget.item.id,
         namaMenu: _namaCtrl.text.trim(),
         kategori: _kategori!,
         harga: int.tryParse(_hargaCtrl.text) ?? 0,
-        stok: int.tryParse(_stokCtrl.text) ?? 0,
-        stokMinimum: int.tryParse(_peringatanStokCtrl.text) ?? 0,
+        isActive: _tampilkanDiPos,
         resep: resep,
         royaltyPoint: int.tryParse(_royaltyCtrl.text.trim()),
         isProdukKhusus: isKhusus,
         produkKhususMulai: isKhusus ? _apiDate(_tanggalKhusus!.start) : null,
         produkKhususSelesai: isKhusus ? _apiDate(_tanggalKhusus!.end) : null,
-        catatan: catatan.isEmpty ? null : catatan,
       ),
     );
   }
@@ -516,3 +577,31 @@ class _InventoriTambahProdukPageState
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
+/// Section label with a pencil (locked) / Simpan (editing) toggle on the
+/// right, matching the per-field inline-edit affordance in the design.
+class _EditableFieldHeader extends StatelessWidget {
+  const _EditableFieldHeader({
+    required this.label,
+    required this.editing,
+    required this.onToggle,
+    this.isRequired = false,
+  });
+
+  final String label;
+  final bool editing;
+  final bool isRequired;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SectionLabel(label, isRequired: isRequired),
+        const Spacer(),
+        editing
+            ? SmallSimpanButton(onTap: onToggle)
+            : EditPencilButton(onTap: onToggle),
+      ],
+    );
+  }
+}

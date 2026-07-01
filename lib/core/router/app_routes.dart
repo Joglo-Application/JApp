@@ -56,5 +56,6 @@ abstract final class AppRoutes {
 
   // ── Shared ────────────────────────────────────────────────────────────────
   static const String inventoriTambahProduk = '/inventori/tambah-produk';
+  static const String inventoriEditItem = '/inventori/edit-item';
   static const String inventoriPilihBahan = '/inventori/pilih-bahan';
 }

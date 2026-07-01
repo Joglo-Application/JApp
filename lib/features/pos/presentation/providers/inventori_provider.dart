@@ -5,10 +5,13 @@ import '../../data/repositories/inventori_repository_impl.dart';
 import '../../data/repositories/menu_repository_impl.dart';
 import '../../domain/entities/create_menu_params.dart';
 import '../../domain/entities/inventori_item.dart';
+import '../../domain/entities/product.dart';
+import '../../domain/entities/update_menu_params.dart';
 import '../../domain/repositories/inventori_repository.dart';
 import '../../domain/repositories/menu_repository.dart';
 import '../../domain/usecases/create_menu_usecase.dart';
 import '../../domain/usecases/fetch_inventori_usecase.dart';
+import '../../domain/usecases/update_menu_usecase.dart';
 
 enum InventoriStatusFilter { peringatanStok, tidakAdaStok }
 
@@ -17,13 +20,18 @@ class InventoriProvider extends ChangeNotifier {
     InventoriRepository? repository,
     MenuRepository? menuRepository,
   }) {
+    final menuRepo = menuRepository ?? MenuRepositoryImpl();
     _fetchInventori =
         FetchInventoriUseCase(repository ?? InventoriRepositoryImpl());
-    _createMenu = CreateMenuUseCase(menuRepository ?? MenuRepositoryImpl());
+    _createMenu = CreateMenuUseCase(menuRepo);
+    _updateMenu = UpdateMenuUseCase(menuRepo);
+    _menuRepository = menuRepo;
   }
 
   late final FetchInventoriUseCase _fetchInventori;
   late final CreateMenuUseCase _createMenu;
+  late final UpdateMenuUseCase _updateMenu;
+  late final MenuRepository _menuRepository;
 
   // ── State ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +40,7 @@ class InventoriProvider extends ChangeNotifier {
   String? _error;
   String? _submitError;
   List<InventoriItem> _all = const [];
+  List<Product> _menus = const [];
   String? _kategoriFilter;
   InventoriStatusFilter? _statusFilter;
   String _searchQuery = '';
@@ -47,6 +56,17 @@ class InventoriProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
 
   Set<String> get availableKategori => _all.map((i) => i.kategori).toSet();
+
+  /// Looks up the richer `GET /menus` record (harga, isActive) for an
+  /// inventori item, used to prefill the edit form. Null if not found —
+  /// `GET /menus` has no royalty/resep/produk-khusus fields yet, so those
+  /// stay blank on edit.
+  Product? menuFor(String id) {
+    for (final menu in _menus) {
+      if (menu.id == id) return menu;
+    }
+    return null;
+  }
 
   /// Returns the image path (local file or network URL) of the first item
   /// in [kategori] that has an image, or null if none found.
@@ -87,6 +107,13 @@ class InventoriProvider extends ChangeNotifier {
 
     try {
       _all = await _fetchInventori();
+      // Best-effort: enriches the edit form with harga/isActive from
+      // `GET /menus`. Inventori list still loads fine if this fails.
+      try {
+        _menus = await _menuRepository.fetchMenus();
+      } catch (_) {
+        _menus = const [];
+      }
     } on ApiException catch (e) {
       _error = e.message;
     } catch (_) {
@@ -134,6 +161,29 @@ class InventoriProvider extends ChangeNotifier {
       return false;
     } catch (_) {
       _submitError = 'Gagal menambah produk.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Updates an existing menu product (`PATCH /menus/{id}`) then refreshes
+  /// the list. Returns `true` on success; see [submitError] on failure.
+  Future<bool> editProduk(UpdateMenuParams params) async {
+    if (_isSubmitting) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      await _updateMenu(params);
+      await load();
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal menyimpan perubahan.';
       return false;
     } finally {
       _isSubmitting = false;
