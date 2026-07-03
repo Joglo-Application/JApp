@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../widgets/navigation/pos_drawer.dart';
 
 class PengaturanPage extends StatelessWidget {
   const PengaturanPage({super.key});
@@ -15,56 +16,100 @@ class PengaturanPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.secondary,
-        foregroundColor: AppColors.onSecondary,
-        title: Text(
-          'Pengaturan',
-          style: AppTypography.textTheme.titleMedium?.copyWith(
-            color: AppColors.onSecondary,
-            fontWeight: FontWeight.w600,
-          ),
+      drawer: const PosDrawer(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const _AppBar(),
+            Expanded(
+              child: ListView(
+                children: [
+                  const _Section(title: 'Printer'),
+                  _AddDeviceTile(
+                    label: 'Tambahkan Printer',
+                    subtitle: 'Tambahkan Printer disini',
+                    onTap: () {},
+                  ),
+                  const _Section(title: 'Perangkat EDC'),
+                  _EdcTile(
+                    name: 'EDC BCA',
+                    tipeKoneksi: 'Tipe koneksi',
+                    alamat: 'Alamat',
+                    onTap: () {},
+                  ),
+                  const _Section(title: 'Support'),
+                  _SupportTile(
+                    label: 'Hubungi Kami',
+                    onTap: () {},
+                  ),
+                  _SupportTile(
+                    label: 'Versi Aplikasi',
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+            _LogoutButton(
+              onTap: () async {
+                final auth = context.read<AuthProvider>();
+                final router = GoRouter.of(context);
+                await auth.logout();
+                router.go(AppRoutes.login);
+              },
+            ),
+          ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              children: [
-                const _Section(title: 'Printer'),
-                _AddDeviceTile(
-                  label: 'Tambahkan Printer',
-                  subtitle: 'Tambahkan Printer disini',
-                  onTap: () {},
+    );
+  }
+}
+
+// ── App Bar ─────────────────────────────────────────────────────────────────
+
+class _AppBar extends StatelessWidget {
+  const _AppBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        child: Row(
+          children: [
+            Material(
+              color: AppColors.primary,
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              child: InkWell(
+                onTap: () => Scaffold.of(context).openDrawer(),
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                child: const SizedBox(
+                  width: 45,
+                  height: 45,
+                  child: Icon(
+                    Icons.menu_rounded,
+                    color: AppColors.onPrimary,
+                    size: 28,
+                  ),
                 ),
-                const _Section(title: 'Perangkat EDC'),
-                _EdcTile(
-                  name: 'EDC BCA',
-                  tipeKoneksi: 'Tipe koneksi',
-                  alamat: 'Alamat',
-                  onTap: () {},
-                ),
-                const _Section(title: 'Support'),
-                _SupportTile(
-                  label: 'Hubungi Kami',
-                  onTap: () {},
-                ),
-                _SupportTile(
-                  label: 'Versi Aplikasi',
-                  onTap: () {},
-                ),
-              ],
+              ),
             ),
-          ),
-          _LogoutButton(
-            onTap: () async {
-              final auth = context.read<AuthProvider>();
-              final router = GoRouter.of(context);
-              await auth.logout();
-              router.go(AppRoutes.login);
-            },
-          ),
-        ],
+            const SizedBox(width: AppSpacing.x3),
+            Text(
+              'Pengaturan',
+              style: AppTypography.textTheme.headlineSmall?.copyWith(
+                color: AppColors.onSecondary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
