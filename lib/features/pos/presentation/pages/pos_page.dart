@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../providers/order_provider.dart';
 import '../widgets/order_panel/order_panel.dart';
 import '../widgets/navigation/pos_drawer.dart';
@@ -30,7 +34,7 @@ class PosPage extends StatelessWidget {
   }
 }
 
-void _goToPayment(BuildContext context) {
+Future<void> _goToPayment(BuildContext context) async {
   final order = context.read<OrderProvider>();
   if (order.isEmpty) return;
 
@@ -58,9 +62,139 @@ void _goToPayment(BuildContext context) {
     return;
   }
 
+  // Kalau pesanan sudah dikirim ke dapur, minta konfirmasi dulu sebelum
+  // lanjut bayar — item sudah diproses/keluar dari dapur jadi kasir perlu
+  // memastikan tidak ada perubahan pesanan lagi.
+  if (order.isSentToKitchen) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ConfirmPaymentDialog(),
+    );
+    if (confirmed != true) return;
+  }
+
+  if (!context.mounted) return;
   Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => const PaymentPage()),
   );
+}
+
+// ── Confirm payment dialog ────────────────────────────────────────────────
+
+class _ConfirmPaymentDialog extends StatelessWidget {
+  const _ConfirmPaymentDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+      child: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x6,
+                AppSpacing.x6,
+                AppSpacing.x4,
+                AppSpacing.x4,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.warning_rounded,
+                            color: AppColors.onPrimary,
+                            size: 32,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.x4),
+                        Text(
+                          'Apakah kamu yakin?',
+                          style: AppTypography.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        Text(
+                          'Semua pesanan sudah keluar dari dapur?',
+                          style: AppTypography.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pop(false),
+                    child: Container(
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Tidak',
+                        style: AppTypography.textTheme.labelLarge?.copyWith(
+                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pop(true),
+                    child: Container(
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.only(
+                          bottomRight: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Ya',
+                        style: AppTypography.textTheme.labelLarge?.copyWith(
+                          color: AppColors.onPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ExpandedLayout extends StatelessWidget {
