@@ -177,7 +177,7 @@ class _ActionBar extends StatelessWidget {
             SnackBar(
               content: Text(
                 ok
-                    ? 'Berhasil kirim ke Dapur'
+                    ? 'Pesanan dikirim ke dapur'
                     : (order.submitError ?? 'Gagal kirim ke Dapur'),
                 style: TextStyle(
                   color: ok ? AppColors.onTertiary : AppColors.onError,
@@ -187,11 +187,9 @@ class _ActionBar extends StatelessWidget {
               behavior: SnackBarBehavior.floating,
             ),
           );
-          // Dine-In: pesanan terparkir di meja → bersihkan cart untuk transaksi
-          // berikutnya; pembayaran nanti lewat "Lihat Pesanan" di meja.
-          // Non-Dine-In: tak ada meja sebagai jangkar, jadi biarkan pesanan tetap
-          // di POS agar kasir bisa langsung menekan Bayar.
-          if (ok && order.effectiveOrderType == OrderType.dineIn) {
+          // Panel dikosongkan setelah berhasil dikirim ke dapur, baik untuk
+          // Dine-In maupun Take-Away/online, agar siap untuk pesanan berikutnya.
+          if (ok) {
             order.clear();
           }
         },
