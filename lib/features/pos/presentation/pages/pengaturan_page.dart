@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/navigation/pos_drawer.dart';
+import '../widgets/shared/printer_settings_dialog.dart';
 
 class PengaturanPage extends StatelessWidget {
   const PengaturanPage({super.key});
@@ -28,7 +29,7 @@ class PengaturanPage extends StatelessWidget {
                   _AddDeviceTile(
                     label: 'Tambahkan Printer',
                     subtitle: 'Tambahkan Printer disini',
-                    onTap: () {},
+                    onTap: () => PrinterSettingsDialog.show(context),
                   ),
                   const _Section(title: 'Perangkat EDC'),
                   _EdcTile(
