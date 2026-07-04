@@ -21,13 +21,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _user != null;
 
   /// Halaman awal sesuai role user yang login.
-  /// admin/owner → dashboard owner; kasir (atau lainnya) → POS.
   String get landingRoute {
     switch (_user?.role) {
       case 'owner':
       case 'admin':
-        // return AppRoutes.ownerDashboard;
-        return AppRoutes.home;
+        return AppRoutes.ownerDashboard;
       case 'kasir':
         return AppRoutes.home;
       case 'dapur':

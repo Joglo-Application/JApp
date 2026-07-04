@@ -59,7 +59,7 @@ class PosDrawer extends StatelessWidget {
                   active: activePage == PosDrawerPage.shiftKas,
                   onTap: () => _navigateTo(context, PosDrawerPage.shiftKas),
                 ),
-                //# ADD VALUE ROLE FROM DATABASE
+                //#SPV - ADD FLAG HIDDEN OR NO from Return LOGIN
                 AppDrawerItem(
                   icon: Icons.bar_chart_rounded,
                   label: 'Laporan',
