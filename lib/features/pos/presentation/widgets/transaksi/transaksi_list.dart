@@ -35,6 +35,15 @@ class TransaksiList extends StatelessWidget {
     }
 
     if (items.isEmpty) {
+      final searchQuery = context.select<TransaksiProvider, String>(
+        (p) => p.searchQuery.trim(),
+      );
+      if (searchQuery.isNotEmpty) {
+        return EmptyStateWidget(
+          message: 'Transaksi dengan kode "$searchQuery" tidak ditemukan',
+          icon: Icons.search_off_rounded,
+        );
+      }
       return const EmptyStateWidget(
         message: 'Tidak ada transaksi pada hari ini',
         icon: Icons.receipt_long_rounded,

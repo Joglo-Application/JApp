@@ -21,6 +21,7 @@ class TransaksiProvider extends ChangeNotifier {
   List<Transaksi> _all = const [];
   Transaksi? _selected;
   String? _paymentTypeFilter;
+  String _searchQuery = '';
   DateTime _selectedDate = DateTime.now();
 
   // Weekly dashboard data
@@ -34,6 +35,7 @@ class TransaksiProvider extends ChangeNotifier {
   String? get error => _error;
   Transaksi? get selected => _selected;
   String? get paymentTypeFilter => _paymentTypeFilter;
+  String get searchQuery => _searchQuery;
   DateTime get selectedDate => _selectedDate;
   bool get isLoadingWeekly => _isLoadingWeekly;
 
@@ -41,8 +43,12 @@ class TransaksiProvider extends ChangeNotifier {
       _all.map((t) => t.tipePembayaran).toSet();
 
   List<Transaksi> get filtered {
+    final query = _searchQuery.trim().toLowerCase();
     return _all.where((t) {
       if (_paymentTypeFilter != null && t.tipePembayaran != _paymentTypeFilter) {
+        return false;
+      }
+      if (query.isNotEmpty && !t.kode.toLowerCase().contains(query)) {
         return false;
       }
       return true;
@@ -166,6 +172,16 @@ class TransaksiProvider extends ChangeNotifier {
     if (_paymentTypeFilter == type) return;
     _paymentTypeFilter = type;
     _selected = null;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String query) {
+    if (_searchQuery == query) return;
+    _searchQuery = query;
+    // Lepas seleksi hanya jika transaksinya ikut tersaring keluar.
+    if (_selected != null && !filtered.contains(_selected)) {
+      _selected = null;
+    }
     notifyListeners();
   }
 

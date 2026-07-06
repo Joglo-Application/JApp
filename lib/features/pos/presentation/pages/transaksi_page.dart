@@ -9,24 +9,28 @@ import '../widgets/transaksi/transaksi_filter_bar.dart';
 import '../widgets/transaksi/transaksi_list.dart';
 
 class TransaksiPage extends StatelessWidget {
-  const TransaksiPage({super.key});
+  const TransaksiPage({super.key, this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => TransaksiProvider()..load(),
-      child: const _TransaksiView(),
+      child: _TransaksiView(drawer: drawer),
     );
   }
 }
 
 class _TransaksiView extends StatelessWidget {
-  const _TransaksiView();
+  const _TransaksiView({this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const PosDrawer(activePage: PosDrawerPage.transaksi),
+      drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.transaksi),
       body: SafeArea(
         child: Column(
           children: [
