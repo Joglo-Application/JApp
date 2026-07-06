@@ -10,24 +10,28 @@ import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/shift_kas/shift_kas_app_bar.dart';
 
 class ShiftKasKasirPage extends StatelessWidget {
-  const ShiftKasKasirPage({super.key});
+  const ShiftKasKasirPage({super.key, this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => ShiftKasProvider(),
-      child: const _ShiftKasView(),
+      child: _ShiftKasView(drawer: drawer),
     );
   }
 }
 
 class _ShiftKasView extends StatelessWidget {
-  const _ShiftKasView();
+  const _ShiftKasView({this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const PosDrawer(activePage: PosDrawerPage.shiftKas),
+      drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.shiftKas),
       floatingActionButton: _AddEntryFab(),
       body: SafeArea(
         child: Column(

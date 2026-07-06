@@ -24,16 +24,17 @@ class AuthProvider extends ChangeNotifier {
   String get landingRoute {
     switch (_user?.role) {
       case 'owner':
-      case 'admin':
         return AppRoutes.ownerDashboard;
+      case 'supervisor':
+        return AppRoutes.spvTransaksi;
       case 'kasir':
-        return AppRoutes.home;
+        return AppRoutes.pos;
       case 'dapur':
         return AppRoutes.kitchenDapur;
       case 'gudang':
         return AppRoutes.supplierGudang;
       default:
-        return AppRoutes.home;
+        return AppRoutes.pos;
     }
   }
 

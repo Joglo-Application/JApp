@@ -11,9 +11,17 @@ import 'ganti_role_sheet.dart';
 /// Role-agnostic bottom section shown in every app drawer.
 /// Includes: Absensi · Pengaturan · Ganti Role · Keluar.
 class AppDrawerSharedFooter extends StatelessWidget {
-  const AppDrawerSharedFooter({super.key, this.absensiActive = false});
+  const AppDrawerSharedFooter({
+    super.key,
+    this.absensiActive = false,
+    this.leadingItems = const [],
+  });
 
   final bool absensiActive;
+
+  /// Role-specific items rendered between the divider and Absensi
+  /// (e.g. SPV's "Absensi Karyawan").
+  final List<Widget> leadingItems;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +29,7 @@ class AppDrawerSharedFooter extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const AppDrawerDivider(),
+        ...leadingItems,
         AppDrawerItem(
           icon: Icons.face_retouching_natural_rounded,
           label: 'Absensi',
@@ -74,12 +83,12 @@ class AppDrawerSharedFooter extends StatelessWidget {
 
   void _navigatePengaturan(BuildContext context) {
     Navigator.of(context).pop();
-    context.push(AppRoutes.pengaturan);
+    context.go(AppRoutes.pengaturan);
   }
 
   void _navigateAbsensi(BuildContext context) {
     Navigator.of(context).pop();
-    if (!absensiActive) context.push(AppRoutes.absensi);
+    if (!absensiActive) context.go(AppRoutes.absensi);
   }
 
   Future<void> _logout(BuildContext context) async {

@@ -9,6 +9,14 @@ abstract final class AppRoutes {
   static const String absensi = '/absensi';
   static const String pengaturan = '/pengaturan';
 
+  // ── SPV ───────────────────────────────────────────────────────────────────
+  static const String spvTransaksi = '/spv/transaksi';
+  static const String spvInventori = '/spv/inventori';
+  static const String spvStokGudang = '/spv/stok-gudang';
+  static const String spvShiftKas = '/spv/shift-kas';
+  static const String spvLaporan = '/spv/laporan';
+  static const String spvAbsensiKaryawan = '/spv/absensi-karyawan';
+
   // ── Owner ─────────────────────────────────────────────────────────────────
   static const String ownerDashboard = '/owner/dashboard';
   static const String ownerInventori = '/owner/inventori';

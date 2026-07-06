@@ -7,15 +7,33 @@ import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../providers/transaksi_provider.dart';
 
-class TransaksiFilterBar extends StatelessWidget {
+class TransaksiFilterBar extends StatefulWidget {
   const TransaksiFilterBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final activeFilter = context.select<TransaksiProvider, String?>(
-      (p) => p.paymentTypeFilter,
-    );
+  State<TransaksiFilterBar> createState() => _TransaksiFilterBarState();
+}
 
+class _TransaksiFilterBarState extends State<TransaksiFilterBar> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _openSearch() => setState(() => _searching = true);
+
+  void _closeSearch() {
+    _searchCtrl.clear();
+    context.read<TransaksiProvider>().setSearchQuery('');
+    setState(() => _searching = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ColoredBox(
       color: AppColors.primary,
       child: Padding(
@@ -23,25 +41,77 @@ class TransaksiFilterBar extends StatelessWidget {
           horizontal: AppSpacing.x4,
           vertical: AppSpacing.x2,
         ),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: AppColors.onPrimary, size: 22),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _showPaymentTypeFilter(context),
-                child: Text(
-                  activeFilter ?? 'Semua Tipe Pembayaran',
-                  style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            const Icon(Icons.sort_rounded, color: AppColors.onPrimary, size: 22),
-          ],
-        ),
+        child: _searching ? _buildSearchRow() : _buildFilterRow(),
       ),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    final activeFilter = context.select<TransaksiProvider, String?>(
+      (p) => p.paymentTypeFilter,
+    );
+
+    return Row(
+      children: [
+        InkWell(
+          onTap: _openSearch,
+          child: const Icon(
+            Icons.search_rounded,
+            color: AppColors.onPrimary,
+            size: 22,
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _showPaymentTypeFilter(context),
+            child: Text(
+              activeFilter ?? 'Semua Tipe Pembayaran',
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        const Icon(Icons.sort_rounded, color: AppColors.onPrimary, size: 22),
+      ],
+    );
+  }
+
+  Widget _buildSearchRow() {
+    return Row(
+      children: [
+        const Icon(Icons.search_rounded, color: AppColors.onPrimary, size: 22),
+        const SizedBox(width: AppSpacing.x3),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onPrimary,
+            ),
+            cursorColor: AppColors.onPrimary,
+            decoration: InputDecoration(
+              hintText: 'Cari Kode Transaksi…',
+              hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onPrimary.withValues(alpha: 0.6),
+              ),
+              isDense: true,
+              border: InputBorder.none,
+            ),
+            onChanged: (q) =>
+                context.read<TransaksiProvider>().setSearchQuery(q),
+          ),
+        ),
+        InkWell(
+          onTap: _closeSearch,
+          child: const Icon(
+            Icons.close_rounded,
+            color: AppColors.onPrimary,
+            size: 22,
+          ),
+        ),
+      ],
     );
   }
 

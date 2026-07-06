@@ -129,23 +129,23 @@ class OwnerDrawer extends StatelessWidget {
       case OwnerDrawerPage.dashboard:
         context.go(AppRoutes.ownerDashboard);
       case OwnerDrawerPage.inventori:
-        context.push(AppRoutes.ownerInventori);
+        context.go(AppRoutes.ownerInventori);
       case OwnerDrawerPage.stokGudang:
-        context.push(AppRoutes.ownerStokGudang);
+        context.go(AppRoutes.ownerStokGudang);
       case OwnerDrawerPage.kelolaStok:
-        context.push(AppRoutes.ownerKelolaStok);
+        context.go(AppRoutes.ownerKelolaStok);
       case OwnerDrawerPage.laporan:
-        context.push(AppRoutes.ownerLaporan);
+        context.go(AppRoutes.ownerLaporan);
       case OwnerDrawerPage.transaksi:
-        context.push(AppRoutes.ownerTransaksi);
+        context.go(AppRoutes.ownerTransaksi);
       case OwnerDrawerPage.pegawai:
-        context.push(AppRoutes.ownerPegawai);
+        context.go(AppRoutes.ownerPegawai);
     }
   }
 
   void _navigatePengaturan(BuildContext context) {
     Navigator.of(context).pop();
-    context.push(AppRoutes.ownerPengaturan);
+    context.go(AppRoutes.ownerPengaturan);
   }
 
   void _showGantiRole(BuildContext context) {

@@ -84,11 +84,11 @@ class SupplierDrawer extends StatelessWidget {
       case SupplierDrawerPage.gudangSupplier:
         context.go(AppRoutes.supplierGudang);
       case SupplierDrawerPage.inventori:
-        context.push(AppRoutes.supplierInventori);
+        context.go(AppRoutes.supplierInventori);
       case SupplierDrawerPage.stokGudang:
-        context.push(AppRoutes.supplierStokGudang);
+        context.go(AppRoutes.supplierStokGudang);
       case SupplierDrawerPage.kategoriStokGudang:
-        context.push(AppRoutes.supplierKategoriStokGudang);
+        context.go(AppRoutes.supplierKategoriStokGudang);
     }
   }
 }

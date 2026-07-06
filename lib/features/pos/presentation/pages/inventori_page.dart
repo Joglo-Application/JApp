@@ -14,23 +14,27 @@ import '../widgets/navigation/pos_drawer.dart';
 import 'inventori_edit_item_page.dart';
 
 class InventoriPage extends StatelessWidget {
-  const InventoriPage({super.key, this.drawer});
+  const InventoriPage({super.key, this.drawer, this.canTambah = false});
 
   final Widget? drawer;
+
+  /// Tombol "+ Tambah" hanya untuk role Dapur & Gudang/Supplier.
+  final bool canTambah;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => InventoriProvider()..load(),
-      child: _InventoriView(drawer: drawer),
+      child: _InventoriView(drawer: drawer, canTambah: canTambah),
     );
   }
 }
 
 class _InventoriView extends StatefulWidget {
-  const _InventoriView({this.drawer});
+  const _InventoriView({this.drawer, this.canTambah = false});
 
   final Widget? drawer;
+  final bool canTambah;
 
   @override
   State<_InventoriView> createState() => _InventoriViewState();
@@ -83,7 +87,7 @@ class _InventoriViewState extends State<_InventoriView> {
           const PosDrawer(activePage: PosDrawerPage.inventori),
       body: Column(
         children: [
-          InventoriAppBar(onTambah: _onTambah),
+          InventoriAppBar(onTambah: widget.canTambah ? _onTambah : null),
           const InventoriFilterBar(),
           Expanded(child: InventoriTable(onTapItem: _onEditItem)),
         ],

@@ -5,10 +5,14 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../pages/owner_log_gudang_page.dart';
 import '../../providers/stok_gudang_provider.dart';
 
 class StokGudangAppBar extends StatelessWidget {
-  const StokGudangAppBar({super.key});
+  const StokGudangAppBar({super.key, this.showLogGudang = false});
+
+  /// Hanya SPV dan owner yang melihat tombol Log Gudang.
+  final bool showLogGudang;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +44,16 @@ class StokGudangAppBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (showLogGudang) ...[
+                _LogGudangButton(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const OwnerLogGudangPage(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x4),
+              ],
               _KategoriButton(
                 label: kategoriFilter ?? 'Semua Produk',
                 onTap: () => _showKategoriPicker(context),
@@ -76,6 +90,37 @@ class _HamburgerButton extends StatelessWidget {
           width: 45,
           height: 45,
           child: Icon(Icons.menu_rounded, color: AppColors.onPrimary, size: 28),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogGudangButton extends StatelessWidget {
+  const _LogGudangButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.md,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x2,
+          ),
+          child: Text(
+            'Log Gudang',
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ),
     );

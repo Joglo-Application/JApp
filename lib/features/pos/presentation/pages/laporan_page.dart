@@ -12,7 +12,9 @@ import '../widgets/transaksi/transaksi_penutupan_tab.dart';
 import '../widgets/transaksi/transaksi_penjualan_produk_tab.dart';
 
 class LaporanPage extends StatelessWidget {
-  const LaporanPage({super.key});
+  const LaporanPage({super.key, this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
@@ -27,20 +29,22 @@ class LaporanPage extends StatelessWidget {
           create: (_) => LogTransaksiProvider()..load(),
         ),
       ],
-      child: const _LaporanView(),
+      child: _LaporanView(drawer: drawer),
     );
   }
 }
 
 class _LaporanView extends StatelessWidget {
-  const _LaporanView();
+  const _LaporanView({this.drawer});
+
+  final Widget? drawer;
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        drawer: const PosDrawer(activePage: PosDrawerPage.laporan),
+        drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.laporan),
         body: SafeArea(
           child: Column(
             children: const [

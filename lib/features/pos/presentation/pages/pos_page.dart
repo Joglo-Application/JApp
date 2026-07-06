@@ -5,6 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../spv/presentation/widgets/navigation/spv_drawer.dart';
 import '../providers/order_provider.dart';
 import '../widgets/order_panel/order_panel.dart';
 import '../widgets/navigation/pos_drawer.dart';
@@ -18,8 +20,13 @@ class PosPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kasir & SPV sama-sama landing di POS, tapi menu drawer-nya beda per role.
+    final isSupervisor = context.select<AuthProvider, bool>(
+      (a) => a.user?.role == 'supervisor',
+    );
+
     return Scaffold(
-      drawer: const PosDrawer(),
+      drawer: isSupervisor ? const SpvDrawer() : const PosDrawer(),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

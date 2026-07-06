@@ -41,6 +41,8 @@ import '../../features/pos/presentation/pages/absensi_page.dart';
 import '../../features/pos/presentation/pages/laporan_page.dart';
 import '../../features/pos/presentation/pages/pengaturan_page.dart';
 import '../../features/pos/presentation/pages/transaksi_page.dart';
+import '../../features/spv/presentation/pages/spv_absensi_karyawan_page.dart';
+import '../../features/spv/presentation/widgets/navigation/spv_drawer.dart';
 import '../../features/supplier/presentation/pages/supplier_main_page.dart';
 import '../../features/supplier/presentation/pages/supplier_kategori_stok_gudang_page.dart';
 import '../../features/supplier/presentation/widgets/navigation/supplier_drawer.dart';
@@ -86,6 +88,43 @@ final appRouter = GoRouter(
       builder: (context, state) => const PengaturanPage(),
     ),
 
+    // ── SPV ──────────────────────────────────────────────────────────────────
+    GoRoute(
+      path: AppRoutes.spvTransaksi,
+      builder: (context, state) => const TransaksiPage(
+        drawer: SpvDrawer(activePage: SpvDrawerPage.transaksi),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.spvInventori,
+      builder: (context, state) => const InventoriPage(
+        drawer: SpvDrawer(activePage: SpvDrawerPage.inventori),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.spvStokGudang,
+      builder: (context, state) => const OwnerStokGudangPage(
+        drawer: SpvDrawer(activePage: SpvDrawerPage.stokGudang),
+        showLogGudang: true,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.spvShiftKas,
+      builder: (context, state) => const ShiftKasKasirPage(
+        drawer: SpvDrawer(activePage: SpvDrawerPage.shiftKas),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.spvLaporan,
+      builder: (context, state) => const LaporanPage(
+        drawer: SpvDrawer(activePage: SpvDrawerPage.laporan),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.spvAbsensiKaryawan,
+      builder: (context, state) => const SpvAbsensiKaryawanPage(),
+    ),
+
     // ── Owner ────────────────────────────────────────────────────────────────
     GoRoute(
       path: AppRoutes.ownerDashboard,
@@ -99,7 +138,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.ownerStokGudang,
-      builder: (context, state) => const OwnerStokGudangPage(),
+      builder: (context, state) => const OwnerStokGudangPage(showLogGudang: true),
     ),
     GoRoute(
       path: AppRoutes.ownerKelolaStok,
@@ -207,6 +246,7 @@ final appRouter = GoRouter(
       path: AppRoutes.supplierInventori,
       builder: (context, state) => const InventoriPage(
         drawer: SupplierDrawer(activePage: SupplierDrawerPage.inventori),
+        canTambah: true,
       ),
     ),
     GoRoute(
@@ -233,6 +273,7 @@ final appRouter = GoRouter(
       path: AppRoutes.kitchenInventori,
       builder: (context, state) => const InventoriPage(
         drawer: KitchenDrawer(activePage: KitchenDrawerPage.inventori),
+        canTambah: true,
       ),
     ),
     GoRoute(

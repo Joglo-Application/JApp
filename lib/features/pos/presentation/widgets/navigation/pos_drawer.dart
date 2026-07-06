@@ -83,15 +83,15 @@ class PosDrawer extends StatelessWidget {
 
     switch (destination) {
       case PosDrawerPage.pos:
-        context.pop(); // go back to home in GoRouter stack
+        context.go(AppRoutes.pos);
       case PosDrawerPage.transaksi:
-        context.push(AppRoutes.transaksi);
+        context.go(AppRoutes.transaksi);
       case PosDrawerPage.inventori:
-        context.push(AppRoutes.inventori);
+        context.go(AppRoutes.inventori);
       case PosDrawerPage.shiftKas:
-        context.push(AppRoutes.shiftKas);
+        context.go(AppRoutes.shiftKas);
       case PosDrawerPage.laporan:
-        context.push(AppRoutes.laporan);
+        context.go(AppRoutes.laporan);
       case PosDrawerPage.absensi:
         // handled by AppDrawerSharedFooter
         break;
