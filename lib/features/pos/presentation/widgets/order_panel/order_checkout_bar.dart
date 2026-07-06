@@ -5,11 +5,26 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/utils/currency_formatter.dart';
 import '../../providers/order_provider.dart';
+import '../shared/pin_supervisor_dialog.dart';
+import 'cancel_order_dialog.dart';
 
 class OrderCheckoutBar extends StatelessWidget {
   const OrderCheckoutBar({super.key, this.onCheckout});
 
   final VoidCallback? onCheckout;
+
+  Future<void> _handleCancel(BuildContext context) async {
+    final alasan = await CancelOrderDialog.show(context);
+    if (alasan == null || !context.mounted) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => const PinSupervisorDialog(),
+    );
+    if (ok == true && context.mounted) {
+      context.read<OrderProvider>().clear();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +38,7 @@ class OrderCheckoutBar extends StatelessWidget {
             child: _BarButton(
               label: 'CANCEL',
               color: AppColors.error,
-              onPressed: order.isEmpty ? null : () => order.clear(),
+              onPressed: order.isEmpty ? null : () => _handleCancel(context),
             ),
           ),
           Expanded(

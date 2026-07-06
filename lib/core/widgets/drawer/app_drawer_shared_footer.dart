@@ -61,7 +61,7 @@ class AppDrawerSharedFooter extends StatelessWidget {
       ],
       onSelect: (account) {
         final route = switch (account.roleCode) {
-          'SPV1' || 'KASIR01' => AppRoutes.home,
+          'SPV1' || 'KASIR01' => AppRoutes.pos,
           'DAPUR01' => AppRoutes.kitchenDapur,
           'OWNER01' => AppRoutes.ownerDashboard,
           'GUDANG01' => AppRoutes.supplierGudang,

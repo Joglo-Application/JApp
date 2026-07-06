@@ -58,7 +58,7 @@ final appRouter = GoRouter(
       builder: (context, state) => const LoginPage(),
     ),
     GoRoute(
-      path: AppRoutes.home,
+      path: AppRoutes.pos,
       builder: (context, state) => const PosPage(),
     ),
     GoRoute(
