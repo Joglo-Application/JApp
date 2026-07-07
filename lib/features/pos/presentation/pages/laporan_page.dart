@@ -45,22 +45,20 @@ class _LaporanView extends StatelessWidget {
       length: 3,
       child: Scaffold(
         drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.laporan),
-        body: SafeArea(
-          child: Column(
-            children: const [
-              LaporanAppBar(),
-              Expanded(
-                child: TabBarView(
-                  physics: NeverScrollableScrollPhysics(),
-                  children: [
-                    TransaksiPenutupanTab(),
-                    TransaksiPenjualanProdukTab(),
-                    _LogTransaksiTab(),
-                  ],
-                ),
+        body: Column(
+          children: const [
+            LaporanAppBar(),
+            Expanded(
+              child: TabBarView(
+                physics: NeverScrollableScrollPhysics(),
+                children: [
+                  TransaksiPenutupanTab(),
+                  TransaksiPenjualanProdukTab(),
+                  _LogTransaksiTab(),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -14,6 +14,7 @@ class OwnerTransaksiPage extends StatelessWidget {
       backgroundColor: AppColors.background,
       drawer: const OwnerDrawer(activePage: OwnerDrawerPage.transaksi),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             const TransaksiAppBar(),

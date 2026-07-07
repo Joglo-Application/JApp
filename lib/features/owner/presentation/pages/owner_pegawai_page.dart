@@ -95,6 +95,7 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
       backgroundColor: AppColors.surface,
       drawer: const OwnerDrawer(activePage: OwnerDrawerPage.pegawai),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             _buildAppBar(context),
@@ -123,52 +124,39 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
         color: Colors.grey.shade700,
         border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            Material(
-              color: AppColors.primary,
-              borderRadius: AppRadius.md,
-              child: InkWell(
-                onTap: () => Scaffold.of(context).openDrawer(),
-                borderRadius: AppRadius.md,
-                child: const SizedBox(
-                  width: 45,
-                  height: 45,
-                  child: Icon(
-                    Icons.menu_rounded,
-                    color: AppColors.onPrimary,
-                    size: 28,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              _HamburgerButton(),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: Text(
+                  'Pegawai',
+                  style: AppTypography.textTheme.headlineSmall?.copyWith(
+                    color: AppColors.onSecondary,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: Text(
-                'Pegawai',
-                style: AppTypography.textTheme.headlineSmall?.copyWith(
-                  color: AppColors.onSecondary,
-                  fontWeight: FontWeight.bold,
-                ),
+              _AppBarButton(
+                label: 'Kehadiran',
+                icon: Icons.co_present_rounded,
+                filled: true,
+                onTap: () => _showKehadiranSheet(context),
               ),
-            ),
-            _AppBarButton(
-              label: 'Kehadiran',
-              icon: Icons.co_present_rounded,
-              filled: true,
-              onTap: () => _showKehadiranSheet(context),
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            _AppBarButton(
-              label: 'Pengaturan',
-              onTap: () => _showPengaturanSheet(context),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.x2),
+              _AppBarButton(
+                label: 'Pengaturan',
+                onTap: () => _showPengaturanSheet(context),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -292,6 +280,25 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
 }
 
 // ── AppBar buttons ────────────────────────────────────────────────────────────
+
+class _HamburgerButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: () => Scaffold.of(context).openDrawer(),
+        borderRadius: AppRadius.md,
+        child: const SizedBox(
+          width: 45,
+          height: 45,
+          child: Icon(Icons.menu_rounded, color: AppColors.onPrimary, size: 28),
+        ),
+      ),
+    );
+  }
+}
 
 class _AppBarButton extends StatelessWidget {
   const _AppBarButton({

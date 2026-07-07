@@ -6,8 +6,8 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/drawer/role_drawer.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/shared/printer_settings_dialog.dart';
 
 class PengaturanPage extends StatelessWidget {
@@ -17,7 +17,7 @@ class PengaturanPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      drawer: const PosDrawer(),
+      drawer: roleDrawer(context),
       body: SafeArea(
         child: Column(
           children: [

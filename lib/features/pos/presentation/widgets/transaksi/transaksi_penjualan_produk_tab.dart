@@ -73,6 +73,7 @@ class _ProdukPanel extends StatelessWidget {
                   ),
                 )
               : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
                   itemCount: grouped.length,
                   itemBuilder: (context, i) => grouped[i],
                 ),
@@ -123,13 +124,15 @@ class _ProdukPanel extends StatelessWidget {
 
     final widgets = <Widget>[];
     for (final catEntry in sortedCats) {
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(height: AppSpacing.x4));
+      }
       final catName = categoryDisplayName[catEntry.key] ?? _capitalize(catEntry.key);
       widgets.add(_CategoryRow(
         name: catName,
         qty: catEntry.value.qty,
         revenue: catEntry.value.revenue,
       ));
-      widgets.add(const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant));
 
       final sortedProducts = catEntry.value.products.entries.toList()
         ..sort((a, b) => b.value.revenue.compareTo(a.value.revenue));
@@ -140,7 +143,6 @@ class _ProdukPanel extends StatelessWidget {
           qty: prodEntry.value.qty,
           revenue: prodEntry.value.revenue,
         ));
-        widgets.add(const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant));
       }
     }
 
@@ -161,60 +163,62 @@ class _ProdukHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.tertiary,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$totalQty',
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+    return SizedBox(
+      height: LaporanDatePanel.headerHeight,
+      child: ColoredBox(
+        color: AppColors.tertiary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+          child: Row(
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$totalQty',
+                    style: AppTypography.textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    NumberFormat('#,###', 'id_ID').format(totalRevenue),
+                    style: AppTypography.textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: () => ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(const SnackBar(content: Text('Fitur cetak belum tersedia'))),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.onSurface,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                    vertical: AppSpacing.x2,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                Text(
-                  NumberFormat('#,###', 'id_ID').format(totalRevenue),
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                icon: const Icon(Icons.print_rounded, size: 16),
+                label: Text(
+                  'Cetak',
+                  style: AppTypography.textTheme.labelMedium?.copyWith(
+                    color: AppColors.onSurface,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            OutlinedButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(const SnackBar(content: Text('Fitur cetak belum tersedia'))),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white70),
-                backgroundColor: Colors.white12,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.x3,
-                  vertical: AppSpacing.x2,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              icon: const Icon(Icons.print_rounded, size: 16),
-              label: Text(
-                'Cetak',
-                style: AppTypography.textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -237,7 +241,7 @@ class _CategoryRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
+        vertical: AppSpacing.x2,
       ),
       child: Row(
         children: [
@@ -260,9 +264,8 @@ class _CategoryRow extends StatelessWidget {
               ),
               Text(
                 NumberFormat('#,###', 'id_ID').format(revenue),
-                style: AppTypography.textTheme.bodySmall?.copyWith(
+                style: AppTypography.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.onSurfaceVariant,
                 ),
               ),
             ],
@@ -289,7 +292,7 @@ class _ProductRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
+        vertical: AppSpacing.x2,
       ),
       child: Row(
         children: [
@@ -308,9 +311,7 @@ class _ProductRow extends StatelessWidget {
               ),
               Text(
                 NumberFormat('#,###', 'id_ID').format(revenue),
-                style: AppTypography.textTheme.bodySmall?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
+                style: AppTypography.textTheme.bodyMedium,
               ),
             ],
           ),

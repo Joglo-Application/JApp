@@ -31,27 +31,25 @@ class _TransaksiView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.transaksi),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const TransaksiAppBar(),
-            const TransaksiFilterBar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const TransaksiList(),
-                    ),
+      body: Column(
+        children: [
+          const TransaksiAppBar(),
+          const TransaksiFilterBar(),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ColoredBox(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: const TransaksiList(),
                   ),
-                  const TransaksiDetailPanel(),
-                ],
-              ),
+                ),
+                const TransaksiDetailPanel(),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

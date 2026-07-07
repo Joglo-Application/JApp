@@ -7,6 +7,7 @@ import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../domain/entities/log_transaksi_entry.dart';
 import '../../providers/log_transaksi_provider.dart';
+import 'laporan_date_panel.dart';
 
 class LaporanLogPanel extends StatelessWidget {
   const LaporanLogPanel({super.key});
@@ -34,13 +35,11 @@ class LaporanLogPanel extends StatelessWidget {
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      itemCount: provider.filtered.length,
-                      separatorBuilder: (_, _) => const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AppColors.outlineVariant,
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.x2,
                       ),
+                      itemCount: provider.filtered.length,
                       itemBuilder: (context, i) =>
                           _LogEntryTile(entry: provider.filtered[i]),
                     ),
@@ -63,37 +62,45 @@ class _LogHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.tertiary,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => _showTipeFilter(context),
-              child: const Icon(
-                Icons.swap_vert_rounded,
+    return SizedBox(
+      height: LaporanDatePanel.headerHeight,
+      child: ColoredBox(
+        color: AppColors.tertiary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+          child: Row(
+            children: [
+              Material(
                 color: Colors.white,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _showTipeFilter(context),
-                child: Text(
-                  tipeFilter ?? 'Tipe Log Transaksi',
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () => _showTipeFilter(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.all(AppSpacing.x2),
+                    child: Icon(
+                      Icons.sort_rounded,
+                      color: AppColors.onSurface,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showTipeFilter(context),
+                  child: Text(
+                    tipeFilter ?? 'Tipe Log Transaksi',
+                    style: AppTypography.textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -256,19 +263,15 @@ class _LogEntryTile extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.x1),
                 Text(
                   '${entry.kodeTransaksi} - ${entry.namaKasir}',
-                  style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
+                  style: AppTypography.textTheme.bodySmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.x1),
                 Text(
                   entry.deskripsi,
-                  style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
+                  style: AppTypography.textTheme.bodySmall,
                 ),
               ],
             ),
@@ -276,9 +279,7 @@ class _LogEntryTile extends StatelessWidget {
           const SizedBox(width: AppSpacing.x3),
           Text(
             _formatWaktu(entry.waktu),
-            style: AppTypography.textTheme.bodySmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
+            style: AppTypography.textTheme.titleSmall,
           ),
         ],
       ),

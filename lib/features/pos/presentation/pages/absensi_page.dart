@@ -7,8 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/drawer/role_drawer.dart';
 import '../providers/absensi_provider.dart';
-import '../widgets/navigation/pos_drawer.dart';
 
 class AbsensiPage extends StatelessWidget {
   const AbsensiPage({super.key});
@@ -50,7 +50,7 @@ class _AbsensiViewState extends State<_AbsensiView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const PosDrawer(activePage: PosDrawerPage.absensi),
+      drawer: roleDrawer(context, absensiActive: true),
       body: SafeArea(
         child: Column(
           children: [

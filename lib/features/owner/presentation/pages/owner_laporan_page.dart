@@ -26,6 +26,7 @@ class _OwnerLaporanPageState extends State<OwnerLaporanPage> {
       backgroundColor: AppColors.background,
       drawer: const OwnerDrawer(activePage: OwnerDrawerPage.laporan),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             const LaporanAppBar(),

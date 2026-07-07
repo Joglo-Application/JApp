@@ -9,6 +9,10 @@ import '../../providers/transaksi_provider.dart';
 class LaporanDatePanel extends StatelessWidget {
   const LaporanDatePanel({super.key});
 
+  /// Shared with the right-panel headers so the green strip reads as one
+  /// continuous bar across both panels.
+  static const double headerHeight = 64;
+
   static const _days = [
     'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
   ];
@@ -32,18 +36,21 @@ class LaporanDatePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ColoredBox(
-          color: AppColors.tertiary,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x4,
-            ),
-            child: Text(
-              'Tanggal',
-              style: AppTypography.textTheme.titleSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+        SizedBox(
+          height: headerHeight,
+          child: ColoredBox(
+            color: AppColors.tertiary,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+                child: Text(
+                  'Tanggal',
+                  style: AppTypography.textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),

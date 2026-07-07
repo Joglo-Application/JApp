@@ -33,27 +33,25 @@ class _ShiftKasView extends StatelessWidget {
     return Scaffold(
       drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.shiftKas),
       floatingActionButton: _AddEntryFab(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const ShiftKasAppBar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ColoredBox(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const _EntriesList(),
-                    ),
+      body: Column(
+        children: [
+          const ShiftKasAppBar(),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ColoredBox(
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: const _EntriesList(),
                   ),
-                  const _DetailPanel(),
-                ],
-              ),
+                ),
+                const _DetailPanel(),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

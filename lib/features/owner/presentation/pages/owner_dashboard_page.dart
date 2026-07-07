@@ -31,6 +31,7 @@ class _DashboardView extends StatelessWidget {
       backgroundColor: AppColors.surface,
       drawer: const OwnerDrawer(activePage: OwnerDrawerPage.dashboard),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             const _AppBar(),
@@ -54,39 +55,42 @@ class _AppBar extends StatelessWidget {
         color: Colors.grey.shade700,
         border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            Material(
-              color: AppColors.primary,
-              borderRadius: AppRadius.md,
-              child: InkWell(
-                onTap: () => Scaffold.of(context).openDrawer(),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              Material(
+                color: AppColors.primary,
                 borderRadius: AppRadius.md,
-                child: const SizedBox(
-                  width: 45,
-                  height: 45,
-                  child: Icon(
-                    Icons.menu_rounded,
-                    color: AppColors.onPrimary,
-                    size: 28,
+                child: InkWell(
+                  onTap: () => Scaffold.of(context).openDrawer(),
+                  borderRadius: AppRadius.md,
+                  child: const SizedBox(
+                    width: 45,
+                    height: 45,
+                    child: Icon(
+                      Icons.menu_rounded,
+                      color: AppColors.onPrimary,
+                      size: 28,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Text(
-              'Dashboard',
-              style: AppTypography.textTheme.headlineSmall?.copyWith(
-                color: AppColors.onSecondary,
-                fontWeight: FontWeight.bold,
+              const SizedBox(width: AppSpacing.x3),
+              Text(
+                'Dashboard',
+                style: AppTypography.textTheme.headlineSmall?.copyWith(
+                  color: AppColors.onSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
