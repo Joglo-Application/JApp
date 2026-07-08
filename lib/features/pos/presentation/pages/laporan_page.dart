@@ -7,7 +7,6 @@ import '../providers/transaksi_provider.dart';
 import '../widgets/laporan/laporan_app_bar.dart';
 import '../widgets/laporan/laporan_date_panel.dart';
 import '../widgets/laporan/laporan_log_panel.dart';
-import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/transaksi/transaksi_penutupan_tab.dart';
 import '../widgets/transaksi/transaksi_penjualan_produk_tab.dart';
 
@@ -44,7 +43,7 @@ class _LaporanView extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        drawer: drawer ?? const PosDrawer(activePage: PosDrawerPage.laporan),
+        drawer: drawer,
         body: Column(
           children: const [
             LaporanAppBar(),

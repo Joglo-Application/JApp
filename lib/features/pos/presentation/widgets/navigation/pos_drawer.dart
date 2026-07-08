@@ -10,7 +10,7 @@ import '../../../../../core/widgets/drawer/app_drawer_shared_footer.dart';
 import '../../../../../core/widgets/drawer/app_drawer_user_header.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 
-enum PosDrawerPage { pos, transaksi, inventori, shiftKas, laporan, absensi }
+enum PosDrawerPage { pos, transaksi, inventori, shiftKas, absensi }
 
 class PosDrawer extends StatelessWidget {
   const PosDrawer({super.key, this.activePage = PosDrawerPage.pos});
@@ -59,13 +59,6 @@ class PosDrawer extends StatelessWidget {
                   active: activePage == PosDrawerPage.shiftKas,
                   onTap: () => _navigateTo(context, PosDrawerPage.shiftKas),
                 ),
-                //#SPV - ADD FLAG HIDDEN OR NO from Return LOGIN
-                AppDrawerItem(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Laporan',
-                  active: activePage == PosDrawerPage.laporan,
-                  onTap: () => _navigateTo(context, PosDrawerPage.laporan),
-                ),
                 AppDrawerSharedFooter(
                   absensiActive: activePage == PosDrawerPage.absensi,
                 ),
@@ -90,8 +83,6 @@ class PosDrawer extends StatelessWidget {
         context.go(AppRoutes.inventori);
       case PosDrawerPage.shiftKas:
         context.go(AppRoutes.shiftKas);
-      case PosDrawerPage.laporan:
-        context.go(AppRoutes.laporan);
       case PosDrawerPage.absensi:
         // handled by AppDrawerSharedFooter
         break;

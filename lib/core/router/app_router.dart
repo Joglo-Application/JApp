@@ -76,10 +76,6 @@ final appRouter = GoRouter(
       builder: (context, state) => const ShiftKasKasirPage(),
     ),
     GoRoute(
-      path: AppRoutes.laporan,
-      builder: (context, state) => const LaporanPage(),
-    ),
-    GoRoute(
       path: AppRoutes.absensi,
       builder: (context, state) => const AbsensiPage(),
     ),
@@ -246,7 +242,6 @@ final appRouter = GoRouter(
       path: AppRoutes.supplierInventori,
       builder: (context, state) => const InventoriPage(
         drawer: SupplierDrawer(activePage: SupplierDrawerPage.inventori),
-        canTambah: true,
       ),
     ),
     GoRoute(
