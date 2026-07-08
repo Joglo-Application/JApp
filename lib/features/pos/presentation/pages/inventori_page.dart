@@ -18,7 +18,7 @@ class InventoriPage extends StatelessWidget {
 
   final Widget? drawer;
 
-  /// Tombol "+ Tambah" hanya untuk role Dapur & Gudang/Supplier.
+  /// Tombol "+ Tambah" hanya untuk role Dapur.
   final bool canTambah;
 
   @override
