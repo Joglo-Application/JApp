@@ -8,7 +8,6 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/widgets/drawer/app_drawer_divider.dart';
 import '../../../../../core/widgets/drawer/app_drawer_item.dart';
 import '../../../../../core/widgets/drawer/app_drawer_user_header.dart';
-import '../../../../../core/widgets/drawer/ganti_role_sheet.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 
 enum OwnerDrawerPage {
@@ -93,11 +92,6 @@ class OwnerDrawer extends StatelessWidget {
                   onTap: () => _navigatePengaturan(context),
                 ),
                 AppDrawerItem(
-                  icon: Icons.switch_account_rounded,
-                  label: 'Ganti Role',
-                  onTap: () => _showGantiRole(context),
-                ),
-                AppDrawerItem(
                   icon: Icons.help_outline_rounded,
                   label: 'Pusat Bantuan',
                   onTap: () {},
@@ -146,19 +140,6 @@ class OwnerDrawer extends StatelessWidget {
   void _navigatePengaturan(BuildContext context) {
     Navigator.of(context).pop();
     context.go(AppRoutes.ownerPengaturan);
-  }
-
-  void _showGantiRole(BuildContext context) {
-    Navigator.of(context).pop();
-    GantiRoleSheet.show(
-      context,
-      accounts: const [
-        GantiRoleAccount(namaUser: 'Supervisor01', roleCode: 'SPV1'),
-        GantiRoleAccount(namaUser: 'Kasir01', roleCode: 'KASIR01'),
-        GantiRoleAccount(namaUser: 'Dapur01', roleCode: 'DAPUR01'),
-        GantiRoleAccount(namaUser: 'Gudang01', roleCode: 'GUDANG01'),
-      ],
-    );
   }
 
   Future<void> _logout(BuildContext context) async {
