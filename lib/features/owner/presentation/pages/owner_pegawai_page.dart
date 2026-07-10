@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/pegawai_remote_datasource.dart';
 import '../widgets/navigation/owner_drawer.dart';
 
 enum _StaffRole { supervisor, pointOfSale, dapur, gudang }
@@ -30,10 +31,12 @@ class _StaffData {
     required this.nama,
     required this.idAkses,
     required this.role,
+    this.userId,
     this.email = '',
     this.kataSandi = '',
   });
 
+  int? userId;
   String nama;
   String idAkses;
   _StaffRole role;
@@ -58,36 +61,73 @@ class OwnerPegawaiPage extends StatefulWidget {
 }
 
 class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
+  final _datasource = PegawaiRemoteDatasourceImpl();
   final Map<_StaffRole, List<_StaffData>> _staffByRole = {
-    _StaffRole.supervisor: [
-      _StaffData(
-        nama: 'Supervisor01',
-        idAkses: 'SPV1',
-        role: _StaffRole.supervisor,
-      ),
-    ],
-    _StaffRole.pointOfSale: [
-      _StaffData(
-        nama: 'Kasir01',
-        idAkses: 'KASIR01',
-        role: _StaffRole.pointOfSale,
-      ),
-    ],
-    _StaffRole.dapur: [
-      _StaffData(
-        nama: 'Dapur01',
-        idAkses: 'DAPUR01',
-        role: _StaffRole.dapur,
-      ),
-    ],
-    _StaffRole.gudang: [
-      _StaffData(
-        nama: 'Gudang01',
-        idAkses: 'GUDANG01',
-        role: _StaffRole.gudang,
-      ),
-    ],
+    _StaffRole.supervisor: [],
+    _StaffRole.pointOfSale: [],
+    _StaffRole.dapur: [],
+    _StaffRole.gudang: [],
   };
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStaff();
+  }
+
+  static _StaffRole? _roleFromApi(String r) => switch (r) {
+        'supervisor' => _StaffRole.supervisor,
+        'kasir' => _StaffRole.pointOfSale,
+        'dapur' => _StaffRole.dapur,
+        'gudang' => _StaffRole.gudang,
+        // admin/owner tak ditampilkan di daftar pegawai operasional.
+        _ => null,
+      };
+
+  static String _roleToApi(_StaffRole r) => switch (r) {
+        _StaffRole.supervisor => 'supervisor',
+        _StaffRole.pointOfSale => 'kasir',
+        _StaffRole.dapur => 'dapur',
+        _StaffRole.gudang => 'gudang',
+      };
+
+  Future<void> _loadStaff() async {
+    setState(() => _loading = true);
+    try {
+      final users = await _datasource.fetchAll();
+      final map = {
+        _StaffRole.supervisor: <_StaffData>[],
+        _StaffRole.pointOfSale: <_StaffData>[],
+        _StaffRole.dapur: <_StaffData>[],
+        _StaffRole.gudang: <_StaffData>[],
+      };
+      for (final u in users) {
+        final role = _roleFromApi(u.role);
+        if (role == null) continue;
+        map[role]!.add(_StaffData(
+          userId: u.userId,
+          nama: u.namaUser,
+          idAkses: u.username,
+          role: role,
+        ));
+      }
+      if (!mounted) return;
+      setState(() {
+        _staffByRole
+          ..clear()
+          ..addAll(map);
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,17 +140,19 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
           children: [
             _buildAppBar(context),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.x4,
-                  0,
-                  AppSpacing.x4,
-                  AppSpacing.x6,
-                ),
-                children: _StaffRole.values
-                    .map((role) => _buildRoleSection(context, role))
-                    .toList(),
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.x4,
+                        0,
+                        AppSpacing.x4,
+                        AppSpacing.x6,
+                      ),
+                      children: _StaffRole.values
+                          .map((role) => _buildRoleSection(context, role))
+                          .toList(),
+                    ),
             ),
           ],
         ),
@@ -199,8 +241,15 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
     );
   }
 
-  void _onDelete(_StaffRole role, int index) {
-    setState(() => _staffByRole[role]!.removeAt(index));
+  Future<void> _onDelete(_StaffRole role, int index) async {
+    final id = _staffByRole[role]![index].userId;
+    if (id == null) return;
+    try {
+      await _datasource.delete(id);
+      await _loadStaff();
+    } catch (_) {
+      if (mounted) _snack('Gagal menghapus pegawai');
+    }
   }
 
   Future<void> _showTambahSheet(
@@ -216,8 +265,18 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
       ),
       builder: (_) => _TambahStaffSheet(
         preselectedRole: preselectedRole,
-        onTambah: (staff) {
-          setState(() => _staffByRole[staff.role]!.add(staff));
+        onTambah: (staff) async {
+          try {
+            await _datasource.create(
+              namaUser: staff.nama,
+              username: staff.idAkses,
+              password: staff.kataSandi,
+              role: _roleToApi(staff.role),
+            );
+            await _loadStaff();
+          } catch (_) {
+            if (mounted) _snack('Gagal menambah pegawai');
+          }
         },
       ),
     );
@@ -263,19 +322,25 @@ class _OwnerPegawaiPageState extends State<OwnerPegawaiPage> {
       builder: (_) => _EditStaffSheet(staff: staff),
     );
     if (result == null || !mounted) return;
-    setState(() {
+    final id = staff.userId;
+    if (id == null) return;
+    try {
       if (result.deleted) {
-        _staffByRole[role]!.removeAt(index);
+        await _datasource.delete(id);
       } else {
         final updated = result.staff!;
-        if (updated.role == role) {
-          _staffByRole[role]![index] = updated;
-        } else {
-          _staffByRole[role]!.removeAt(index);
-          _staffByRole[updated.role]!.add(updated);
-        }
+        await _datasource.update(
+          id,
+          namaUser: updated.nama,
+          username: updated.idAkses,
+          role: _roleToApi(updated.role),
+          password: updated.kataSandi.isEmpty ? null : updated.kataSandi,
+        );
       }
-    });
+      await _loadStaff();
+    } catch (_) {
+      if (mounted) _snack('Gagal menyimpan perubahan');
+    }
   }
 }
 

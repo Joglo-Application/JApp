@@ -3,85 +3,51 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/log_gudang_remote_datasource.dart';
 import '../../domain/entities/log_gudang_entry.dart';
 
-class OwnerLogGudangPage extends StatelessWidget {
+class OwnerLogGudangPage extends StatefulWidget {
   const OwnerLogGudangPage({super.key});
 
-  //# API LOG GUDANG - ganti dummy dengan data dari backend
-  static final List<LogGudangEntry> _dummyEntries = [
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 9, 0),
-      jenis: 'UPDATE_Foto',
-      author: 'gudang1',
-      logs: 'Menambahkan Foto',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 9, 10),
-      jenis: 'UPDATE_Nama',
-      author: 'gudang1',
-      logs: 'cabe hiaju → cabe hijau',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 9, 20),
-      jenis: 'UPDATE_Kategori',
-      author: 'gudang1',
-      logs: 'Frozen Food → Saos',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 10, 0),
-      jenis: 'UPDATE_Stok',
-      author: 'gudang1',
-      logs: 'Liter → Gram',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 10, 0),
-      jenis: 'UPDATE_Stok',
-      author: 'gudang1',
-      logs: '0 → 10, Update Konverter satuan',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 10, 0),
-      jenis: 'UPDATE_Stok',
-      author: 'gudang1',
-      logs: '1000 → 100, Update Qty stok',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 10, 0),
-      jenis: 'UPDATE_Stok',
-      author: 'gudang1',
-      logs: '25 → 10, Update Qty tahan',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 17, 25),
-      jenis: 'DELETE_ITEM',
-      author: 'gudang1',
-      logs: '→ cabe hijau',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 17, 25),
-      jenis: 'UPDATE_ITEM',
-      author: 'gudang1',
-      logs: 'Update stok cabe hijau',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 17, 25),
-      jenis: 'ADD_STOK',
-      author: 'gudang1',
-      logs: 'Menambahkan cabe merah',
-    ),
-    LogGudangEntry(
-      tanggal: DateTime(2025, 8, 15, 17, 25),
-      jenis: 'ADD_QTY_STOK',
-      author: 'gudang1',
-      logs: '+1000 → cabe hijau',
-    ),
-  ];
+  @override
+  State<OwnerLogGudangPage> createState() => _OwnerLogGudangPageState();
+}
+
+class _OwnerLogGudangPageState extends State<OwnerLogGudangPage> {
+  final _datasource = LogGudangRemoteDatasourceImpl();
+  List<LogGudangEntry> _entries = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await _datasource.fetchLogs();
+      if (!mounted) return;
+      setState(() {
+        _entries = data;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Gagal memuat log gudang.';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final entries = _dummyEntries;
-
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
@@ -91,24 +57,35 @@ class OwnerLogGudangPage extends StatelessWidget {
             _buildTitleRow(context),
             const _TableHeader(),
             Expanded(
-              child: entries.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Belum ada log gudang.',
-                        style: AppTypography.textTheme.bodyMedium
-                            ?.copyWith(color: AppColors.onSurfaceVariant),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AppColors.outlineVariant,
-                      ),
-                      itemBuilder: (context, index) =>
-                          _LogGudangRow(entry: entries[index]),
-                    ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Text(
+                            _error!,
+                            style: AppTypography.textTheme.bodyMedium
+                                ?.copyWith(color: AppColors.onSurfaceVariant),
+                          ),
+                        )
+                      : _entries.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Belum ada log gudang.',
+                                style: AppTypography.textTheme.bodyMedium
+                                    ?.copyWith(
+                                        color: AppColors.onSurfaceVariant),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: _entries.length,
+                              separatorBuilder: (_, _) => const Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: AppColors.outlineVariant,
+                              ),
+                              itemBuilder: (context, index) =>
+                                  _LogGudangRow(entry: _entries[index]),
+                            ),
             ),
           ],
         ),
@@ -124,6 +101,12 @@ class OwnerLogGudangPage extends StatelessWidget {
       ),
       child: Row(
         children: [
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+            iconSize: 22,
+            tooltip: 'Muat ulang',
+          ),
           const Spacer(),
           Text(
             'Log Gudang',

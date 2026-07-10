@@ -4,21 +4,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/absensi_remote_datasource.dart';
+import '../../domain/entities/absensi_record.dart';
 import '../widgets/navigation/spv_drawer.dart';
-
-class _AbsensiRecord {
-  const _AbsensiRecord({
-    required this.nama,
-    required this.tanggal,
-    required this.jamMasuk,
-    required this.jamKeluar,
-  });
-
-  final String nama;
-  final DateTime tanggal;
-  final String jamMasuk;
-  final String jamKeluar;
-}
 
 class SpvAbsensiKaryawanPage extends StatefulWidget {
   const SpvAbsensiKaryawanPage({super.key});
@@ -30,32 +18,37 @@ class SpvAbsensiKaryawanPage extends StatefulWidget {
 
 class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
   final _searchCtrl = TextEditingController();
+  final _datasource = AbsensiRemoteDatasourceImpl();
   String _searchQuery = '';
   DateTime? _selectedDate;
+  List<AbsensiRecord> _records = const [];
+  bool _loading = true;
 
-  //# API ABSENSI KARYAWAN - ganti dummy dengan data dari backend
-  static final List<_AbsensiRecord> _records = [
-    _AbsensiRecord(
-      nama: 'Kasir01',
-      tanggal: DateTime(2025, 8, 14),
-      jamMasuk: '12:32:02',
-      jamKeluar: '18:40:32',
-    ),
-    _AbsensiRecord(
-      nama: 'Dapur01',
-      tanggal: DateTime(2025, 8, 14),
-      jamMasuk: '12:11:12',
-      jamKeluar: '21:08:16',
-    ),
-    _AbsensiRecord(
-      nama: 'Gudang01',
-      tanggal: DateTime(2025, 8, 14),
-      jamMasuk: '12:11:12',
-      jamKeluar: '21:08:16',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  List<_AbsensiRecord> get _filtered {
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await _datasource.fetchAbsensi(date: _selectedDate);
+      if (!mounted) return;
+      setState(() {
+        _records = data;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _records = const [];
+        _loading = false;
+      });
+    }
+  }
+
+  List<AbsensiRecord> get _filtered {
     if (_searchQuery.isEmpty) return _records;
     return _records
         .where((r) =>
@@ -76,7 +69,10 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+      await _load();
+    }
   }
 
   void _exportExcel() {
@@ -107,9 +103,11 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
             const _AbsensiKaryawanAppBar(),
             _buildFilterBar(),
             Expanded(
-              child: records.isEmpty
-                  ? const _EmptyState()
-                  : _AbsensiList(records: records),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : records.isEmpty
+                      ? const _EmptyState()
+                      : _AbsensiList(records: records),
             ),
           ],
         ),
@@ -275,7 +273,7 @@ class _AbsensiKaryawanAppBar extends StatelessWidget {
 class _AbsensiList extends StatelessWidget {
   const _AbsensiList({required this.records});
 
-  final List<_AbsensiRecord> records;
+  final List<AbsensiRecord> records;
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +303,7 @@ class _AbsensiList extends StatelessWidget {
 class _AbsensiRow extends StatelessWidget {
   const _AbsensiRow({required this.record});
 
-  final _AbsensiRecord record;
+  final AbsensiRecord record;
 
   static String _formatTanggal(DateTime d) {
     const bulan = [
