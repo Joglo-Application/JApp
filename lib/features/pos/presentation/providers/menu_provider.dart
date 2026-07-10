@@ -50,13 +50,16 @@ class MenuProvider extends ChangeNotifier {
   }
 
   List<Product> get filteredProducts {
-    return _products.where((p) {
+    final list = _products.where((p) {
       final matchesCategory =
           _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+    // Selalu urutkan hasil yang ditampilkan berdasarkan nama (A-Z), termasuk
+    // saat sudah difilter per kategori/pencarian.
+    return _sortByName(list);
   }
 
   Future<void> loadMenus() async {
@@ -119,6 +122,16 @@ class MenuProvider extends ChangeNotifier {
   void search(String query) {
     _searchQuery = query;
     notifyListeners();
+  }
+
+  // Menu selalu diurutkan berdasarkan nama (A-Z, case-insensitive) begitu data
+  // diterima dari GET /menus, jadi grid produk & daftar lain tampil terurut.
+  List<Product> _sortByName(List<Product> items) {
+    final sorted = [...items];
+    sorted.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return sorted;
   }
 
   String _label(String raw) => raw
