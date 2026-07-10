@@ -1,63 +1,123 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-enum ShiftKasJenis { setoran, penarikan }
+import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/shift_kas_remote_datasource.dart';
+import '../../data/models/shift_kas_model.dart';
+import '../../domain/entities/shift_kas_entry.dart';
 
-class ShiftKasEntry {
-  const ShiftKasEntry({
-    required this.id,
-    required this.jenis,
-    required this.namaTransaksi,
-    required this.jumlah,
-    required this.waktu,
-    this.catatan = '',
-  });
-
-  final String id;
-  final ShiftKasJenis jenis;
-  final String namaTransaksi;
-  final String catatan;
-  final double jumlah;
-  final DateTime waktu;
-}
+// Re-export agar halaman yang meng-import provider tetap mendapat tipe ini.
+export '../../domain/entities/shift_kas_entry.dart';
 
 class ShiftKasProvider extends ChangeNotifier {
+  ShiftKasProvider({ShiftKasRemoteDatasource? datasource})
+      : _ds = datasource ?? ShiftKasRemoteDatasourceImpl();
+
+  final ShiftKasRemoteDatasource _ds;
+
+  ShiftKasModel? _shift;
   DateTime _selectedDate = DateTime.now();
-  DateTime get selectedDate => _selectedDate;
-
-  double _kasAwal = 0;
-  DateTime? _shiftStartTime;
-  double get kasAwal => _kasAwal;
-  DateTime? get shiftStartTime => _shiftStartTime;
-  bool get shiftStarted => _shiftStartTime != null;
-
-  final List<ShiftKasEntry> _entries = [];
-  List<ShiftKasEntry> get entries => List.unmodifiable(_entries);
-
   ShiftKasEntry? _selected;
+  bool _isLoading = false;
+  bool _isSubmitting = false;
+  String? _error;
+
+  // ── Getters (kompatibel dengan halaman) ─────────────────────────────────────
+  DateTime get selectedDate => _selectedDate;
+  bool get shiftStarted => _shift?.isOpen ?? false;
+  double get kasAwal => (_shift?.kasAwal ?? 0).toDouble();
+  DateTime? get shiftStartTime => _shift?.waktuMulai;
+  double get totalKeluar => (_shift?.totalKeluar ?? 0).toDouble();
+  double get totalKas => (_shift?.totalKas ?? 0).toDouble();
+  List<ShiftKasEntry> get entries =>
+      List.unmodifiable(_shift?.entries ?? const <ShiftKasEntry>[]);
   ShiftKasEntry? get selected => _selected;
+  bool get isLoading => _isLoading;
+  bool get isSubmitting => _isSubmitting;
+  String? get error => _error;
 
-  double get totalKeluar => _entries
-      .where((e) => e.jenis == ShiftKasJenis.penarikan)
-      .fold(0.0, (s, e) => s + e.jumlah);
-
-  double get totalKas => _kasAwal + _entries.fold(
-        0.0,
-        (sum, e) =>
-            e.jenis == ShiftKasJenis.setoran ? sum + e.jumlah : sum - e.jumlah,
-      );
-
-  void mulaiShift(double kasAwal) {
-    _kasAwal = kasAwal;
-    _shiftStartTime = DateTime.now();
+  // ── Load ────────────────────────────────────────────────────────────────────
+  /// Muat shift `open` milik kasir (dipanggil saat halaman dibuka).
+  Future<void> load() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _selectedDate = DateTime.now();
+      _setShift(await _ds.fetchActive());
+    } on ApiException catch (e) {
+      _error = e.message;
+    } catch (_) {
+      _error = 'Gagal memuat shift.';
+    }
+    _isLoading = false;
     notifyListeners();
   }
 
-  void changeDate(DateTime date) {
+  Future<void> changeDate(DateTime date) async {
     _selectedDate = date;
     _selected = null;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _setShift(await _ds.fetchByDate(date));
+    } catch (_) {
+      _setShift(null);
+    }
+    _isLoading = false;
     notifyListeners();
   }
 
+  // ── Aksi (mutasi via API, lalu refresh dari respons) ────────────────────────
+  Future<void> mulaiShift(double kasAwal) =>
+      _run(() => _ds.startShift(kasAwal.round()));
+
+  Future<void> addEntry({
+    required ShiftKasJenis jenis,
+    required String namaTransaksi,
+    required double jumlah,
+    String catatan = '',
+  }) {
+    final id = _shift?.shiftId;
+    if (id == null) return Future.value();
+    return _run(() => _ds.addEntry(
+          id,
+          jenis: jenis,
+          namaTransaksi: namaTransaksi,
+          jumlah: jumlah.round(),
+          catatan: catatan.isEmpty ? null : catatan,
+        ));
+  }
+
+  Future<void> updateEntry(
+    String id, {
+    required String namaTransaksi,
+    required double jumlah,
+    String catatan = '',
+  }) {
+    final entryId = int.tryParse(id);
+    if (entryId == null) return Future.value();
+    return _run(() => _ds.updateEntry(
+          entryId,
+          namaTransaksi: namaTransaksi,
+          jumlah: jumlah.round(),
+          catatan: catatan.isEmpty ? null : catatan,
+        ));
+  }
+
+  Future<void> deleteEntry(String id) {
+    final entryId = int.tryParse(id);
+    if (entryId == null) return Future.value();
+    return _run(() => _ds.deleteEntry(entryId));
+  }
+
+  /// Tutup shift (bila nanti ada tombolnya di UI).
+  Future<void> berakhirShift() {
+    final id = _shift?.shiftId;
+    if (id == null) return Future.value();
+    return _run(() => _ds.closeShift(id));
+  }
+
+  // ── Selection (state UI lokal) ──────────────────────────────────────────────
   void select(ShiftKasEntry entry) {
     _selected = entry;
     notifyListeners();
@@ -68,54 +128,30 @@ class ShiftKasProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addEntry({
-    required ShiftKasJenis jenis,
-    required String namaTransaksi,
-    required double jumlah,
-    String catatan = '',
-  }) {
-    _entries.add(ShiftKasEntry(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      jenis: jenis,
-      namaTransaksi: namaTransaksi,
-      catatan: catatan,
-      jumlah: jumlah,
-      waktu: DateTime.now(),
-    ));
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  Future<void> _run(Future<ShiftKasModel> Function() action) async {
+    if (_isSubmitting) return;
+    _isSubmitting = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _setShift(await action());
+    } on ApiException catch (e) {
+      _error = e.message;
+    } catch (_) {
+      _error = 'Operasi shift kas gagal.';
+    }
+    _isSubmitting = false;
     notifyListeners();
   }
 
-  void updateEntry(
-    String id, {
-    required String namaTransaksi,
-    required double jumlah,
-    String catatan = '',
-  }) {
-    final idx = _entries.indexWhere((e) => e.id == id);
-    if (idx == -1) return;
-    final old = _entries[idx];
-    _entries[idx] = ShiftKasEntry(
-      id: old.id,
-      jenis: old.jenis,
-      namaTransaksi: namaTransaksi,
-      catatan: catatan,
-      jumlah: jumlah,
-      waktu: old.waktu,
-    );
-    notifyListeners();
-  }
-
-  void berakhirShift() {
-    _kasAwal = 0;
-    _shiftStartTime = null;
-    _entries.clear();
-    _selected = null;
-    notifyListeners();
-  }
-
-  void deleteEntry(String id) {
-    _entries.removeWhere((e) => e.id == id);
-    if (_selected?.id == id) _selected = null;
-    notifyListeners();
+  void _setShift(ShiftKasModel? shift) {
+    _shift = shift;
+    // Sinkronkan entri terpilih dengan objek baru (identity berubah tiap reload).
+    if (_selected != null) {
+      final id = _selected!.id;
+      final matches = shift?.entries.where((e) => e.id == id).toList();
+      _selected = (matches != null && matches.isNotEmpty) ? matches.first : null;
+    }
   }
 }

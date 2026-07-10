@@ -17,7 +17,7 @@ class ShiftKasKasirPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ShiftKasProvider(),
+      create: (_) => ShiftKasProvider()..load(),
       child: _ShiftKasView(drawer: drawer),
     );
   }
