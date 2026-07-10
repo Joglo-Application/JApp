@@ -29,4 +29,8 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     );
     return model.toEntity();
   }
+
+  @override
+  Future<void> cancelPesanan(int pesananId) =>
+      _datasource.cancelPesanan(pesananId);
 }

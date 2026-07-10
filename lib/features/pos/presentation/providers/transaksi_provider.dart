@@ -117,6 +117,18 @@ class TransaksiProvider extends ChangeNotifier {
     await Future.wait([load(), loadWeeklyData()]);
   }
 
+  /// Selects a day WITHIN the already-loaded week (from the date panel).
+  /// Reloads only that day's transactions and keeps the weekly list stable, so
+  /// the panel doesn't flicker or reshuffle the clicked date to the bottom.
+  Future<void> selectDate(DateTime date) async {
+    if (_isSameDay(date, _selectedDate)) return;
+    _selectedDate = date;
+    _selected = null;
+    _all = const [];
+    notifyListeners();
+    await load();
+  }
+
   Future<void> loadWeeklyData() async {
     if (_isLoadingWeekly) return;
     _isLoadingWeekly = true;

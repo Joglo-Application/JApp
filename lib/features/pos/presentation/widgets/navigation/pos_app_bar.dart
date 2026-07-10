@@ -6,6 +6,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../pages/payment_page.dart';
 import '../../pages/pesanan_pending_page.dart';
 import '../../pages/pilih_meja_page.dart';
 import '../../../domain/entities/order_item.dart';
@@ -173,24 +174,41 @@ class _ActionBar extends StatelessWidget {
           if (confirmed != true) return;
 
           final ok = await order.kirimDapur();
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                ok
-                    ? 'Pesanan dikirim ke dapur'
-                    : (order.submitError ?? 'Gagal kirim ke Dapur'),
-                style: TextStyle(
-                  color: ok ? AppColors.onTertiary : AppColors.onError,
+          if (!ok) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  order.submitError ?? 'Gagal kirim ke Dapur',
+                  style: const TextStyle(color: AppColors.onError),
                 ),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
               ),
-              backgroundColor: ok ? AppColors.tertiary : AppColors.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          // Panel dikosongkan setelah berhasil dikirim ke dapur, baik untuk
-          // Dine-In maupun Take-Away/online, agar siap untuk pesanan berikutnya.
-          if (ok) {
+            );
+            return;
+          }
+
+          if (!context.mounted) return;
+          if (order.effectiveOrderType == OrderType.dineIn) {
+            // Dine-In: pesanan diparkir di meja, dibayar nanti lewat "Lihat
+            // Pesanan" → panel dikosongkan.
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Pesanan dikirim ke dapur',
+                  style: TextStyle(color: AppColors.onTertiary),
+                ),
+                backgroundColor: AppColors.tertiary,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
             order.clear();
+          } else {
+            // Take-Away/online: pesanan sudah dibuat & masuk dapur → langsung
+            // ke pembayaran (memakai pesananId yang sama, tidak dibuat ulang).
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const PaymentPage()),
+            );
           }
         },
       ),
