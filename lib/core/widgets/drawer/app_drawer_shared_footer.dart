@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../network/api_client.dart';
 import '../../router/app_routes.dart';
 import 'app_drawer_divider.dart';
 import 'app_drawer_item.dart';
@@ -36,6 +37,16 @@ class AppDrawerSharedFooter extends StatelessWidget {
           onTap: () => _navigateAbsensi(context),
         ),
         AppDrawerItem(
+          icon: Icons.login_rounded,
+          label: 'Absen Masuk',
+          onTap: () => _absen(context, masuk: true),
+        ),
+        AppDrawerItem(
+          icon: Icons.exit_to_app_rounded,
+          label: 'Absen Keluar',
+          onTap: () => _absen(context, masuk: false),
+        ),
+        AppDrawerItem(
           icon: Icons.settings_rounded,
           label: 'Pengaturan',
           onTap: () => _navigatePengaturan(context),
@@ -57,6 +68,26 @@ class AppDrawerSharedFooter extends StatelessWidget {
   void _navigateAbsensi(BuildContext context) {
     Navigator.of(context).pop();
     if (!absensiActive) context.go(AppRoutes.absensi);
+  }
+
+  Future<void> _absen(BuildContext context, {required bool masuk}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    final client = ApiClient.instance;
+    try {
+      await client.dio.post<Map<String, dynamic>>(
+        masuk ? '/absensi/masuk' : '/absensi/keluar',
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(masuk ? 'Absen masuk tercatat' : 'Absen keluar tercatat'),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(client.toApiException(e).message)),
+      );
+    }
   }
 
   Future<void> _logout(BuildContext context) async {

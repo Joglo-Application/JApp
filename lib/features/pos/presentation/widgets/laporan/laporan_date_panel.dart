@@ -70,7 +70,7 @@ class LaporanDatePanel extends StatelessWidget {
                     final isSelected = _isSameDay(date, selected);
 
                     return InkWell(
-                      onTap: () => provider.changeDate(date),
+                      onTap: () => provider.selectDate(date),
                       child: ColoredBox(
                         color: isSelected
                             ? AppColors.primaryContainer
