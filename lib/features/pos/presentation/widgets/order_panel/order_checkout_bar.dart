@@ -21,8 +21,20 @@ class OrderCheckoutBar extends StatelessWidget {
       context: context,
       builder: (_) => const PinSupervisorDialog(),
     );
-    if (ok == true && context.mounted) {
-      context.read<OrderProvider>().clear();
+    if (ok != true || !context.mounted) return;
+
+    final order = context.read<OrderProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    // Bila pesanan sudah dikirim ke dapur, ini membatalkannya di server
+    // (kembalikan stok + hapus dari dapur). Bila belum, cukup bersihkan cart.
+    final success = await order.cancelOrder(alasan: alasan);
+    if (!context.mounted) return;
+    if (!success) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(order.submitError ?? 'Gagal membatalkan pesanan'),
+        ),
+      );
     }
   }
 

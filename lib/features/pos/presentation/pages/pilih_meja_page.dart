@@ -281,25 +281,52 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
         builder: (_) => _GantiMejaConfirmDialog(mejaNama: meja.name),
       );
       if (!mounted) return;
-      if (confirmed == true && _selectedMeja != null) {
-        final oldMeja = _selectedMeja!;
-        final newMejaId = meja.id;
-        final transferred = oldMeja.transactionCount;
-        final updatedTables = _tables.map((t) {
-          if (t.id == oldMeja.id) return t.copyWith(status: _MejaStatus.free, transactionCount: 0);
-          if (t.id == newMejaId) return t.copyWith(status: _MejaStatus.occupied, transactionCount: transferred);
-          return t;
-        }).toList();
-        setState(() {
-          _tables = updatedTables;
-          _selectedMeja = updatedTables.firstWhere((t) => t.id == newMejaId);
-          _isGantiMejaMode = false;
-          _tabIndex = 1;
-        });
-        // Persist: meja lama jadi kosong, meja baru jadi terisi.
-        _persistStatus(oldMeja.id, _MejaStatus.free);
-        _persistStatus(newMejaId, _MejaStatus.occupied);
+      if (confirmed != true || _selectedMeja == null) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      final oldMejaId = int.tryParse(_selectedMeja!.id);
+      final newMejaId = int.tryParse(meja.id);
+      if (oldMejaId == null || newMejaId == null) return;
+
+      try {
+        // Pindahkan pesanan aktif dari meja lama ke meja baru di backend.
+        final loaded =
+            await _checkoutDatasource.fetchActivePesananForMeja(oldMejaId);
+        if (loaded == null) {
+          if (!mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Tidak ada pesanan aktif di meja ini'),
+            ),
+          );
+          return;
+        }
+        await _checkoutDatasource.pindahMeja(
+          pesananId: loaded.pesananId,
+          mejaId: newMejaId,
+        );
+      } catch (_) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Gagal pindah meja')),
+        );
+        return;
       }
+
+      if (!mounted) return;
+      setState(() {
+        _isGantiMejaMode = false;
+        _tabIndex = 1;
+      });
+      // Muat ulang dari backend: meja tujuan occupied, meja asal available.
+      await _load();
+      await _loadTransactionCounts();
+      if (!mounted) return;
+      final moved = _tables.where((t) => t.id == meja.id).toList();
+      if (moved.isNotEmpty) setState(() => _selectedMeja = moved.first);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Pesanan dipindahkan ke meja ${meja.name}')),
+      );
       return;
     }
 

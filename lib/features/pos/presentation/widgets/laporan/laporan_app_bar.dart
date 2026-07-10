@@ -5,6 +5,7 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../providers/log_transaksi_provider.dart';
 import '../../providers/transaksi_provider.dart';
 
 class LaporanAppBar extends StatelessWidget {
@@ -49,6 +50,7 @@ class LaporanAppBar extends StatelessWidget {
                 vertical: AppSpacing.x3,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _HamburgerButton(),
                   const SizedBox(width: AppSpacing.x3),
@@ -61,15 +63,28 @@ class LaporanAppBar extends StatelessWidget {
                     ),
                   ],
                   const Spacer(),
-                  Text(
-                    _formatDate(date),
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _formatDate(date),
+                            style: AppTypography.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.onSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.x2),
+                          _DatePickerButton(currentDate: date),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      const _RefreshButton(),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.x2),
-                  _DatePickerButton(currentDate: date),
                 ],
               ),
             ),
@@ -132,6 +147,41 @@ class _TabButton extends StatelessWidget {
           style: AppTypography.textTheme.labelLarge?.copyWith(
             color: active ? AppColors.onPrimary : Colors.white,
             fontWeight: active ? FontWeight.bold : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: () {
+          // Refetch data sesuai tab aktif.
+          final tab = DefaultTabController.of(context).index;
+          if (tab == 2) {
+            context.read<LogTransaksiProvider>().load();
+          } else {
+            context.read<TransaksiProvider>()
+              ..load()
+              ..loadWeeklyData();
+          }
+        },
+        borderRadius: AppRadius.md,
+        child: const SizedBox(
+          width: 45,
+          height: 45,
+          child: Icon(
+            Icons.refresh_rounded,
+            color: AppColors.onPrimary,
+            size: 24,
           ),
         ),
       ),

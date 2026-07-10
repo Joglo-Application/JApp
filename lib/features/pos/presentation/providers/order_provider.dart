@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
@@ -5,11 +6,14 @@ import '../../../../core/network/api_exception.dart';
 import '../../data/datasources/meja_remote_datasource.dart';
 import '../../data/models/loaded_pesanan_model.dart';
 import '../../data/repositories/checkout_repository_impl.dart';
+import '../../data/repositories/log_transaksi_repository_impl.dart';
 import '../../domain/entities/create_pesanan_params.dart';
 import '../../domain/entities/order_item.dart';
 import '../../domain/entities/payment_method.dart';
 import '../../domain/entities/pembayaran.dart';
 import '../../domain/repositories/checkout_repository.dart';
+import '../../domain/repositories/log_transaksi_repository.dart';
+import '../../domain/usecases/cancel_pesanan_usecase.dart';
 import '../../domain/usecases/create_pembayaran_usecase.dart';
 import '../../domain/usecases/create_pesanan_usecase.dart';
 
@@ -18,16 +22,24 @@ class OrderProvider extends ChangeNotifier {
     this.taxRate = 0.10,
     CheckoutRepository? checkoutRepository,
     MejaRemoteDatasource? mejaDatasource,
+    LogTransaksiRepository? logRepository,
   }) {
     final repo = checkoutRepository ?? CheckoutRepositoryImpl();
     _createPesanan = CreatePesananUseCase(repo);
     _createPembayaran = CreatePembayaranUseCase(repo);
+    _cancelPesanan = CancelPesananUseCase(repo);
     _mejaDatasource = mejaDatasource ?? MejaRemoteDatasourceImpl();
+    _logRepo = logRepository ?? LogTransaksiRepositoryImpl();
   }
 
   late final CreatePesananUseCase _createPesanan;
   late final CreatePembayaranUseCase _createPembayaran;
+  late final CancelPesananUseCase _cancelPesanan;
   late final MejaRemoteDatasource _mejaDatasource;
+  late final LogTransaksiRepository _logRepo;
+
+  // Kode sesi audit-log untuk order berjalan (dibuat lazily, direset saat clear).
+  String? _kodeTransaksi;
 
   final double taxRate;
   final List<OrderItem> _items = [];
@@ -163,9 +175,15 @@ class OrderProvider extends ChangeNotifier {
       };
 
   void setOrderDiscount(double discount, DiscountType type, {String? promoName}) {
+    final oldVal = _orderDiscount;
+    final oldType = _orderDiscountType;
     _orderDiscount = discount;
     _orderDiscountType = type;
     _orderPromoName = promoName;
+    if (discount > 0) {
+      final tipe = type == DiscountType.percent ? 'DISC_PCT' : 'DISC_AMT';
+      _log(tipe, '${_fmtDisc(oldVal, oldType)} -> ${_fmtDisc(discount, type)} (pesanan)');
+    }
     notifyListeners();
   }
 
@@ -246,21 +264,57 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Audit log POS (fire-and-forget; tak boleh mengganggu alur POS) ──────────
+  String _ensureKode() =>
+      _kodeTransaksi ??= 'POS-${DateTime.now().millisecondsSinceEpoch}';
+
+  static String _labelFor(String tipe) => switch (tipe) {
+        'ADD_QTY' || 'REDUCE_QTY' => 'Update jumlah item',
+        'VOID_ITEM' => 'Hapus item',
+        'DISC_AMT' || 'DISC_AMT_ITEM' => 'Update jumlah diskon',
+        'DISC_PCT' || 'DISC_PCT_ITEM' => 'Update persen diskon',
+        'UPDATE_PRICE' => 'Update harga',
+        'SEND_KITCHEN' => 'Kirim ke dapur',
+        _ => '',
+      };
+
+  static String _fmtDisc(double v, DiscountType t) => t == DiscountType.percent
+      ? '${v.toStringAsFixed(0)}%'
+      : v.toStringAsFixed(0);
+
+  void _log(String tipe, String change) {
+    final label = _labelFor(tipe);
+    unawaited(
+      _logRepo
+          .createLog(
+            tipe: tipe,
+            kodeTransaksi: _ensureKode(),
+            deskripsi: label.isEmpty ? change : '$change\n$label',
+          )
+          .catchError((_) {}),
+    );
+  }
+
   void addOrIncrement(OrderItem item) {
     final idx = _items.indexWhere((e) => e.productId == item.productId);
     if (idx >= 0) {
-      _items[idx] = _items[idx].copyWith(quantity: _items[idx].quantity + 1);
+      final old = _items[idx].quantity;
+      _items[idx] = _items[idx].copyWith(quantity: old + 1);
+      _log('ADD_QTY', '$old -> ${old + 1}, ${item.name}');
     } else {
       _items.add(item);
+      _log('ADD_QTY', '0 -> ${item.quantity}, ${item.name}');
     }
     notifyListeners();
   }
 
   void addFromForm(OrderItem item) {
     final idx = _items.indexWhere((e) => e.productId == item.productId);
+    final oldQty = idx >= 0 ? _items[idx].quantity : 0;
+    final oldDisc = idx >= 0 ? _items[idx].discount : 0.0;
     if (idx >= 0) {
       _items[idx] = _items[idx].copyWith(
-        quantity: _items[idx].quantity + item.quantity,
+        quantity: oldQty + item.quantity,
         discount: item.discount,
         discountType: item.discountType,
         note: item.note,
@@ -268,23 +322,35 @@ class OrderProvider extends ChangeNotifier {
     } else {
       _items.add(item);
     }
+    _log('ADD_QTY', '$oldQty -> ${oldQty + item.quantity}, ${item.name}');
+    if (item.discount > 0 && item.discount != oldDisc) {
+      final tipe =
+          item.discountType == DiscountType.percent ? 'DISC_PCT_ITEM' : 'DISC_AMT_ITEM';
+      _log(tipe,
+          '${_fmtDisc(oldDisc, item.discountType)} -> ${_fmtDisc(item.discount, item.discountType)}, ${item.quantity}x ${item.name}');
+    }
     notifyListeners();
   }
 
   void increment(String productId) {
     final idx = _items.indexWhere((e) => e.productId == productId);
     if (idx < 0) return;
-    _items[idx] = _items[idx].copyWith(quantity: _items[idx].quantity + 1);
+    final old = _items[idx].quantity;
+    _items[idx] = _items[idx].copyWith(quantity: old + 1);
+    _log('ADD_QTY', '$old -> ${old + 1}, ${_items[idx].name}');
     notifyListeners();
   }
 
   void decrement(String productId) {
     final idx = _items.indexWhere((e) => e.productId == productId);
     if (idx < 0) return;
-    if (_items[idx].quantity <= 1) {
+    final item = _items[idx];
+    if (item.quantity <= 1) {
       _items.removeAt(idx);
+      _log('VOID_ITEM', '${item.name} dihapus');
     } else {
-      _items[idx] = _items[idx].copyWith(quantity: _items[idx].quantity - 1);
+      _items[idx] = item.copyWith(quantity: item.quantity - 1);
+      _log('REDUCE_QTY', '${item.quantity} -> ${item.quantity - 1}, ${item.name}');
     }
     notifyListeners();
   }
@@ -292,7 +358,28 @@ class OrderProvider extends ChangeNotifier {
   void replaceItem(OrderItem item) {
     final idx = _items.indexWhere((e) => e.productId == item.productId);
     if (idx < 0) return;
+    final old = _items[idx];
     _items[idx] = item;
+    // Log perubahan qty saat edit item lewat form.
+    if (item.quantity != old.quantity) {
+      final tipe = item.quantity > old.quantity ? 'ADD_QTY' : 'REDUCE_QTY';
+      _log(tipe, '${old.quantity} -> ${item.quantity}, ${item.name}');
+    }
+    // Log perubahan diskon item.
+    if ((item.discount != old.discount ||
+            item.discountType != old.discountType) &&
+        (item.discount > 0 || old.discount > 0)) {
+      final tipe = item.discountType == DiscountType.percent
+          ? 'DISC_PCT_ITEM'
+          : 'DISC_AMT_ITEM';
+      _log(tipe,
+          '${_fmtDisc(old.discount, old.discountType)} -> ${_fmtDisc(item.discount, item.discountType)}, ${item.quantity}x ${item.name}');
+    }
+    // Log perubahan harga satuan.
+    if (item.unitPrice != old.unitPrice) {
+      _log('UPDATE_PRICE',
+          '${old.unitPrice.toStringAsFixed(0)} -> ${item.unitPrice.toStringAsFixed(0)}, ${item.name}');
+    }
     notifyListeners();
   }
 
@@ -301,7 +388,10 @@ class OrderProvider extends ChangeNotifier {
       _memberPoints = (_memberPoints ?? 0) + (_redeemedPointCost ?? 0);
       _clearRedemptionState();
     } else {
+      final idx = _items.indexWhere((e) => e.productId == productId);
+      final name = idx >= 0 ? _items[idx].name : '';
       _items.removeWhere((e) => e.productId == productId);
+      if (name.isNotEmpty) _log('VOID_ITEM', '$name dihapus');
     }
     notifyListeners();
   }
@@ -317,9 +407,11 @@ class OrderProvider extends ChangeNotifier {
     _submitError = null;
     notifyListeners();
     try {
+      final totalItem = totalQty;
       final pesanan = await _createPesanan(_buildPesananParams());
       _pesananId = pesanan.pesananId;
       _serverTotal = pesanan.total;
+      _log('SEND_KITCHEN', 'Kirim $totalItem item ke dapur');
       return true;
     } on ApiException catch (e) {
       _submitError = e.message;
@@ -422,6 +514,40 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  /// Membatalkan pesanan (tombol CANCEL). Bila sudah dikirim ke dapur (punya
+  /// [pesananId]), batalkan di BE (`POST /pesanan/:id/cancel` → kembalikan stok
+  /// & hapus dari dapur) lalu bersihkan cart. Bila belum dikirim, cukup
+  /// bersihkan lokal. Selalu mencatat log `VOID_ORDER`.
+  /// Mengembalikan `false` bila pembatalan di server gagal (cart tak dibersihkan).
+  Future<bool> cancelOrder({String? alasan}) async {
+    final id = _pesananId;
+    final reason = (alasan != null && alasan.trim().isNotEmpty)
+        ? alasan.trim()
+        : null;
+    _log('VOID_ORDER', reason != null ? 'Batal: $reason' : 'Pesanan dibatalkan');
+
+    if (id != null) {
+      if (_isSubmitting) return false;
+      _isSubmitting = true;
+      _submitError = null;
+      notifyListeners();
+      try {
+        await _cancelPesanan(id);
+      } on ApiException catch (e) {
+        _submitError = e.message;
+        return false;
+      } catch (_) {
+        _submitError = 'Gagal membatalkan pesanan.';
+        return false;
+      } finally {
+        _isSubmitting = false;
+        notifyListeners();
+      }
+    }
+    clear();
+    return true;
+  }
+
   CreatePesananItemParams _toItemParams(OrderItem it) {
     final menuId = int.tryParse(it.productId);
     final isCustom = menuId == null;
@@ -486,9 +612,11 @@ class OrderProvider extends ChangeNotifier {
     if (_items.isEmpty && _orderDiscount == 0 && _orderNote.isEmpty &&
         _customerName.isEmpty &&
         _memberPoints == null && _redeemedPointCost == null &&
-        _pesananId == null && _mejaId == null) {
+        _pesananId == null && _mejaId == null && _kodeTransaksi == null) {
       return;
     }
+    // Mulai sesi audit-log baru untuk transaksi berikutnya.
+    _kodeTransaksi = null;
     _pesananId = null;
     _serverTotal = null;
     _submitError = null;

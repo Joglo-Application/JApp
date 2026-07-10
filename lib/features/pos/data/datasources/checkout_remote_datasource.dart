@@ -25,6 +25,13 @@ abstract class CheckoutRemoteDatasource {
 
   /// Hapus draft held (saat di-Pilih/Gabung kembali ke POS).
   Future<void> deleteHeldOrder(int pesananId);
+
+  /// Pindah pesanan aktif ke meja lain (PATCH /pesanan/:id/meja).
+  Future<void> pindahMeja({required int pesananId, required int mejaId});
+
+  /// Batalkan pesanan aktif (POST /pesanan/:id/cancel): kembalikan stok &
+  /// hilangkan dari layar dapur.
+  Future<void> cancelPesanan(int pesananId);
 }
 
 class CheckoutRemoteDatasourceImpl implements CheckoutRemoteDatasource {
@@ -168,6 +175,30 @@ class CheckoutRemoteDatasourceImpl implements CheckoutRemoteDatasource {
   Future<void> deleteHeldOrder(int pesananId) async {
     try {
       await _client.dio.delete<Map<String, dynamic>>('/pesanan/$pesananId');
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<void> pindahMeja({
+    required int pesananId,
+    required int mejaId,
+  }) async {
+    try {
+      await _client.dio.patch<Map<String, dynamic>>(
+        '/pesanan/$pesananId/meja',
+        data: {'mejaId': mejaId},
+      );
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<void> cancelPesanan(int pesananId) async {
+    try {
+      await _client.dio.post<Map<String, dynamic>>('/pesanan/$pesananId/cancel');
     } catch (e) {
       throw _client.toApiException(e);
     }

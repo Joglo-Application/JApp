@@ -1,8 +1,16 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/network/api_exception.dart';
+import '../../data/repositories/log_transaksi_repository_impl.dart';
 import '../../domain/entities/log_transaksi_entry.dart';
+import '../../domain/repositories/log_transaksi_repository.dart';
 
 class LogTransaksiProvider extends ChangeNotifier {
+  LogTransaksiProvider({LogTransaksiRepository? repository})
+      : _repository = repository ?? LogTransaksiRepositoryImpl();
+
+  final LogTransaksiRepository _repository;
+
   bool _isLoading = false;
   String? _error;
   List<LogTransaksiEntry> _entries = const [];
@@ -22,7 +30,6 @@ class LogTransaksiProvider extends ChangeNotifier {
     return _entries.where((e) => e.tipe == _tipeFilter).toList();
   }
 
-  // TODO: replace with actual repository/use-case call when API is ready
   Future<void> load({DateTime? date}) async {
     _selectedDate = date ?? _selectedDate;
     _tipeFilter = null;
@@ -30,8 +37,15 @@ class LogTransaksiProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 200));
-    _entries = const [];
+    try {
+      _entries = await _repository.fetchLogs(date: _selectedDate);
+    } on ApiException catch (e) {
+      _error = e.message;
+      _entries = const [];
+    } catch (_) {
+      _error = 'Gagal memuat log transaksi.';
+      _entries = const [];
+    }
     _isLoading = false;
     notifyListeners();
   }

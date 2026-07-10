@@ -12,4 +12,7 @@ abstract class CheckoutRepository {
     required String metode,
     required int jumlahBayar,
   });
+
+  /// Batalkan pesanan aktif (kembalikan stok, hapus dari dapur).
+  Future<void> cancelPesanan(int pesananId);
 }

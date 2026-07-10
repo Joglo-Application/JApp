@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../providers/log_transaksi_provider.dart';
+import '../providers/menu_provider.dart';
 import '../providers/transaksi_provider.dart';
 import '../widgets/laporan/laporan_app_bar.dart';
 import '../widgets/laporan/laporan_date_panel.dart';
@@ -33,17 +34,35 @@ class LaporanPage extends StatelessWidget {
   }
 }
 
-class _LaporanView extends StatelessWidget {
+class _LaporanView extends StatefulWidget {
   const _LaporanView({this.drawer});
 
   final Widget? drawer;
+
+  @override
+  State<_LaporanView> createState() => _LaporanViewState();
+}
+
+class _LaporanViewState extends State<_LaporanView> {
+  @override
+  void initState() {
+    super.initState();
+    // The "Penjualan Produk" tab groups sold items by their menu category
+    // (Makanan/Minuman/Snack). That mapping comes from the menu list, which is
+    // otherwise lazy-loaded only on the POS product screen — so ensure it's
+    // loaded here too, or every product collapses into "Lainnya".
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<MenuProvider>().loadMenus();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        drawer: drawer,
+        drawer: widget.drawer,
         body: Column(
           children: const [
             LaporanAppBar(),
