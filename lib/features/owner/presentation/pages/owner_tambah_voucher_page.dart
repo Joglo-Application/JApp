@@ -13,12 +13,28 @@ class TambahVoucherResult {
     required this.nama,
     required this.diskonDisplay,
     required this.tanggalAktif,
+    required this.tipe,
+    required this.nilai,
+    required this.mulai,
+    required this.berakhir,
+    this.maxDiskon,
   });
 
   final String kode;
   final String nama;
   final String diskonDisplay;
   final String tanggalAktif;
+
+  // Nilai terstruktur untuk dikirim ke server; yang di atas hanya untuk
+  // ditampilkan.
+  /// `amount` atau `percent`.
+  final String tipe;
+  final double nilai;
+  final int? maxDiskon;
+
+  /// Format YYYY-MM-DD.
+  final String mulai;
+  final String berakhir;
 }
 
 enum _DiskonType { nominal, persen }
@@ -273,11 +289,20 @@ class _OwnerTambahVoucherPageState extends State<OwnerTambahVoucherPage> {
         ? '$jumlah%'
         : 'IDR $jumlah';
 
+    String iso(DateTime d) => d.toIso8601String().substring(0, 10);
+
     context.pop(TambahVoucherResult(
       kode: kode,
       nama: nama,
       diskonDisplay: diskonDisplay,
       tanggalAktif: _formatDateShort(_tanggalAktif),
+      tipe: _diskonType == _DiskonType.persen ? 'percent' : 'amount',
+      nilai: double.tryParse(jumlah.replaceAll('.', '').replaceAll(',', '.')) ?? 0,
+      maxDiskon: int.tryParse(
+        _maxDiskonController.text.trim().replaceAll('.', ''),
+      ),
+      mulai: iso(_tanggalAktif),
+      berakhir: iso(_tanggalKedaluwarsa),
     ));
   }
 
