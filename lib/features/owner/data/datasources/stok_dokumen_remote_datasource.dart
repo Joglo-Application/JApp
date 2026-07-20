@@ -3,11 +3,19 @@ import '../../../../core/network/api_client.dart';
 /// Pilihan produk untuk dokumen stok — membawa id supaya dokumen bisa
 /// menunjuk menu/bahan yang tepat, bukan sekadar mencocokkan nama.
 class ProdukPilihan {
-  const ProdukPilihan({required this.id, required this.nama, this.harga = 0});
+  const ProdukPilihan({
+    required this.id,
+    required this.nama,
+    this.harga = 0,
+    this.stok = 0,
+  });
 
   final int id;
   final String nama;
   final double harga;
+
+  /// Stok menurut sistem — ditampilkan sebagai pembanding saat stok opname.
+  final double stok;
 }
 
 /// Satu baris item pada dokumen yang dikirim ke server.
@@ -71,6 +79,7 @@ class StokDokumenRemoteDatasource {
           id: (m['menuId'] as num).toInt(),
           nama: (m['namaMenu'] ?? '').toString(),
           harga: (m['harga'] as num?)?.toDouble() ?? 0,
+          stok: (m['stok'] as num?)?.toDouble() ?? 0,
         );
       }).toList();
     } catch (e) {
@@ -91,6 +100,7 @@ class StokDokumenRemoteDatasource {
         return ProdukPilihan(
           id: (m['bahanId'] as num).toInt(),
           nama: (m['namaBahan'] ?? '').toString(),
+          stok: double.tryParse('${m['stok']}') ?? 0,
         );
       }).toList();
     } catch (e) {
@@ -154,6 +164,40 @@ class StokDokumenRemoteDatasource {
                 else
                   'bahanId': items[i].refId,
                 'jumlah': items[i].jumlah,
+              },
+          ],
+        },
+      );
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  /// Membuat dokumen stok opname. Satu dokumen boleh memuat bahan baku
+  /// maupun produk jadi. Stok sistem tidak dikirim — server merekamnya sendiri
+  /// saat dokumen dibuat agar selisihnya dihitung dari angka yang otoritatif.
+  Future<void> createStokOpname({
+    required List<ItemDokumen> items,
+    required List<String> sumber,
+    required List<double> stokFisik,
+    String? catatan,
+    required bool langsungPosting,
+  }) async {
+    try {
+      await _client.dio.post<Map<String, dynamic>>(
+        '/stok-opname',
+        data: {
+          if (catatan != null && catatan.isNotEmpty) 'catatan': catatan,
+          'langsungPosting': langsungPosting,
+          'items': [
+            for (var i = 0; i < items.length; i++)
+              {
+                'sumber': sumber[i],
+                if (sumber[i] == 'inventori')
+                  'menuId': items[i].refId
+                else
+                  'bahanId': items[i].refId,
+                'stokFisik': stokFisik[i],
               },
           ],
         },

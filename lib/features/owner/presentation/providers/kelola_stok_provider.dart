@@ -13,6 +13,7 @@ class KelolaStokProvider extends ChangeNotifier {
       : _datasource = datasource ?? StokDokumenRemoteDatasource() {
     loadStokMasuk();
     loadStokKeluar();
+    loadStokOpname();
   }
 
   final StokDokumenRemoteDatasource _datasource;
@@ -29,7 +30,6 @@ class KelolaStokProvider extends ChangeNotifier {
     KategoriStok(id: '5', nama: 'Kue'),
   ];
   int _produksiCounter = 0;
-  int _opnameCounter = 0;
   int _kategoriCounter = 5;
 
   List<StokMasukEntry> get stokMasukList => List.unmodifiable(_stokMasukList);
@@ -51,10 +51,8 @@ class KelolaStokProvider extends ChangeNotifier {
     return 'PS-${_produksiCounter.toString().padLeft(3, '0')}';
   }
 
-  String generateKodeOpname() {
-    _opnameCounter++;
-    return 'SO-${_opnameCounter.toString().padLeft(3, '0')}';
-  }
+  /// Kode ditentukan server saat penyimpanan.
+  String generateKodeOpname() => '(otomatis)';
 
   /// Memuat daftar dokumen stok masuk dari server.
   Future<void> loadStokMasuk() async {
@@ -200,9 +198,65 @@ class KelolaStokProvider extends ChangeNotifier {
     }
   }
 
-  void addStokOpname(StokOpnameEntry entry) {
-    _stokOpnameList.add(entry);
-    notifyListeners();
+  /// Memuat daftar dokumen stok opname dari server.
+  Future<void> loadStokOpname() async {
+    try {
+      final rows = await _datasource.fetchStokOpname();
+      _stokOpnameList
+        ..clear()
+        ..addAll(rows.map(_toStokOpnameEntry));
+      notifyListeners();
+    } on ApiException {
+      // Biarkan daftar apa adanya.
+    }
+  }
+
+  static StokOpnameStatus _statusOpname(String s) => switch (s) {
+        'posted' => StokOpnameStatus.posted,
+        'cancelled' => StokOpnameStatus.cancelled,
+        _ => StokOpnameStatus.draft,
+      };
+
+  static StokOpnameEntry _toStokOpnameEntry(DokumenStok d) => StokOpnameEntry(
+        kode: d.kode,
+        tanggal: d.tanggal,
+        createdBy: d.createdBy,
+        catatan: d.catatan,
+        status: _statusOpname(d.status),
+        produk: d.produk
+            .map((p) => StokOpnameProdukItem(
+                  refId: ((p['menuId'] ?? p['bahanId']) as num?)?.toInt() ?? 0,
+                  source: p['sumber'] == 'inventori'
+                      ? ProdukSource.inventori
+                      : ProdukSource.stokGudang,
+                  nama: (p['nama'] ?? '').toString(),
+                  qtySystem: (p['stokSistem'] as num?)?.round() ?? 0,
+                  qtyAktual: (p['stokFisik'] as num?)?.round() ?? 0,
+                ))
+            .toList(),
+      );
+
+  /// Menyimpan dokumen stok opname ke server lalu memuat ulang daftarnya.
+  /// Mengembalikan pesan galat bila gagal, atau `null` bila berhasil.
+  Future<String?> addStokOpname(StokOpnameEntry entry) async {
+    try {
+      await _datasource.createStokOpname(
+        items: entry.produk
+            .map((p) => ItemDokumen(refId: p.refId, jumlah: p.qtyAktual))
+            .toList(),
+        sumber: entry.produk
+            .map((p) =>
+                p.source == ProdukSource.inventori ? 'inventori' : 'stok_gudang')
+            .toList(),
+        stokFisik: entry.produk.map((p) => p.qtyAktual.toDouble()).toList(),
+        catatan: entry.catatan,
+        langsungPosting: entry.status == StokOpnameStatus.posted,
+      );
+    } on ApiException catch (e) {
+      return e.message;
+    }
+    await loadStokOpname();
+    return null;
   }
 
   void updateStokOpname(StokOpnameEntry entry) {
