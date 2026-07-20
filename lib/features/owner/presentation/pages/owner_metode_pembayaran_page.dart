@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../data/datasources/metode_pembayaran_remote_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -16,13 +18,41 @@ class OwnerMetodePembayaranPage extends StatefulWidget {
       _OwnerMetodePembayaranPageState();
 }
 
-class _OwnerMetodePembayaranPageState
-    extends State<OwnerMetodePembayaranPage> {
-  final List<_MetodeData> _metodes = [
-    const _MetodeData(nama: 'TUNAI', isDeletable: false),
-    const _MetodeData(nama: 'QRIS'),
-    const _MetodeData(nama: 'DEBIT CARD'),
-  ];
+class _OwnerMetodePembayaranPageState extends State<OwnerMetodePembayaranPage> {
+  final _datasource = MetodePembayaranRemoteDatasource();
+  final List<_MetodeData> _metodes = [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final rows = await _datasource.fetch();
+      if (!mounted) return;
+      setState(() {
+        _metodes
+          ..clear()
+          ..addAll(
+            rows.map(
+              (r) => _MetodeData(
+                metodeId: r.metodeId,
+                nama: r.nama,
+                // TUNAI tidak boleh dihapus: selalu ada jalur bayar tunai.
+                isDeletable: r.kode != 'cash',
+              ),
+            ),
+          );
+      });
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan metode contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +83,22 @@ class _OwnerMetodePembayaranPageState
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-                itemCount: _metodes.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.x3),
-                itemBuilder: (_, i) => _MetodeItem(
-                  metode: _metodes[i],
-                  onDelete: _metodes[i].isDeletable ? () => _onDelete(i) : null,
-                ),
-              ),
+              child: _memuat
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                      ),
+                      itemCount: _metodes.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.x3),
+                      itemBuilder: (_, i) => _MetodeItem(
+                        metode: _metodes[i],
+                        onDelete: _metodes[i].isDeletable
+                            ? () => _onDelete(i)
+                            : null,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -97,8 +133,15 @@ class _OwnerMetodePembayaranPageState
     );
   }
 
-  void _onDelete(int index) {
-    setState(() => _metodes.removeAt(index));
+  Future<void> _onDelete(int index) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.delete(_metodes[index].metodeId);
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    await _muat();
   }
 
   Future<void> _onTambah() async {
@@ -106,9 +149,18 @@ class _OwnerMetodePembayaranPageState
       AppRoutes.ownerTambahMetodePembayaran,
     );
     if (result == null || !mounted) return;
-    setState(() {
-      _metodes.add(_MetodeData(nama: result.nama));
-    });
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.create(
+        nama: result.nama,
+        kode: MetodePembayaranRemoteDatasource.tebakKode(result.nama),
+        urutan: _metodes.length,
+      );
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    await _muat();
   }
 }
 
@@ -133,7 +185,11 @@ class _TambahButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.onPrimary,
+                size: 20,
+              ),
               const SizedBox(width: AppSpacing.x1),
               Text(
                 'Tambah',
@@ -151,8 +207,13 @@ class _TambahButton extends StatelessWidget {
 }
 
 class _MetodeData {
-  const _MetodeData({required this.nama, this.isDeletable = true});
+  const _MetodeData({
+    required this.metodeId,
+    required this.nama,
+    this.isDeletable = true,
+  });
 
+  final int metodeId;
   final String nama;
   final bool isDeletable;
 }
