@@ -52,11 +52,50 @@ class LoyaltyRemoteDatasource {
 
   final ApiClient _client;
 
-  /// GET /loyalty/rewards — katalog reward yang sedang aktif.
-  Future<List<LoyaltyRewardModel>> fetchRewards() async {
+  /// POST /loyalty/rewards — menambah reward (owner/admin).
+  Future<void> createReward({
+    required String nama,
+    required String tipe,
+    required int poin,
+    String? diskonTipe,
+    double? diskonNilai,
+    int? menuId,
+  }) async {
     try {
-      final res =
-          await _client.dio.get<Map<String, dynamic>>('/loyalty/rewards');
+      await _client.dio.post<Map<String, dynamic>>(
+        '/loyalty/rewards',
+        data: {
+          'nama': nama,
+          'tipe': tipe,
+          'poin': poin,
+          'diskonTipe': ?diskonTipe,
+          'diskonNilai': ?diskonNilai,
+          'menuId': ?menuId,
+        },
+      );
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  /// DELETE /loyalty/rewards/:id
+  Future<void> deleteReward(int rewardId) async {
+    try {
+      await _client.dio
+          .delete<Map<String, dynamic>>('/loyalty/rewards/$rewardId');
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  /// GET /loyalty/rewards — katalog reward.
+  /// `semua: true` menyertakan yang nonaktif, untuk layar owner.
+  Future<List<LoyaltyRewardModel>> fetchRewards({bool semua = false}) async {
+    try {
+      final res = await _client.dio.get<Map<String, dynamic>>(
+        '/loyalty/rewards',
+        queryParameters: semua ? {'all': 'true'} : null,
+      );
       final rows = res.data?['data'] as List<dynamic>? ?? const [];
       return rows
           .map((e) => LoyaltyRewardModel.fromJson(e as Map<String, dynamic>))

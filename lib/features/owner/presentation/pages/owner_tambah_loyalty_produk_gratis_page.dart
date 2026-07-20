@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
+import '../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -13,11 +14,15 @@ class LoyaltyProdukGratisResult {
     required this.points,
     required this.productName,
     required this.qty,
+    required this.menuId,
   });
 
   final int points;
   final String productName;
   final int qty;
+
+  /// Produk gratis menunjuk menu nyata, bukan dicocokkan lewat nama.
+  final int menuId;
 }
 
 class OwnerTambahLoyaltyProdukGratisPage extends StatefulWidget {
@@ -33,6 +38,7 @@ class _OwnerTambahLoyaltyProdukGratisPageState
   final _pointController = TextEditingController();
   final _qtyController = TextEditingController(text: '1');
   final _productController = TextEditingController();
+  ProdukPilihan? _selectedProduk;
   String? _selectedProduct;
 
   @override
@@ -190,11 +196,13 @@ class _OwnerTambahLoyaltyProdukGratisPageState
   }
 
   Future<void> _onPilihProduk() async {
-    final product = await context.push<String>(AppRoutes.ownerPilihProduk);
+    final product =
+        await context.push<ProdukPilihan>(AppRoutes.ownerPilihProduk);
     if (product != null && mounted) {
       setState(() {
-        _selectedProduct = product;
-        _productController.text = product;
+        _selectedProduk = product;
+        _selectedProduct = product.nama;
+        _productController.text = product.nama;
       });
     }
   }
@@ -208,6 +216,7 @@ class _OwnerTambahLoyaltyProdukGratisPageState
     context.pop(LoyaltyProdukGratisResult(
       points: points,
       productName: product,
+      menuId: _selectedProduk?.id ?? 0,
       qty: qty,
     ));
   }

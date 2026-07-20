@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../pos/data/datasources/promo_remote_datasource.dart';
 import 'owner_edit_voucher_page.dart';
 import 'owner_tambah_voucher_page.dart';
 
@@ -17,14 +19,45 @@ class OwnerDiskonVoucherPage extends StatefulWidget {
 }
 
 class _OwnerDiskonVoucherPageState extends State<OwnerDiskonVoucherPage> {
-  final List<_VoucherData> _vouchers = [
-    const _VoucherData(
-      nama: 'PROMO MEI',
-      tanggal: '13 Agustus 2025',
-      kode: 'PROMOMEI1',
-      diskon: '5%',
-    ),
-  ];
+  final _datasource = PromoRemoteDatasource();
+  final List<_VoucherData> _vouchers = [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  /// Daftar voucher diambil dari /promo (termasuk yang sudah kedaluwarsa,
+  /// karena layar ini untuk mengelolanya).
+  Future<void> _muat() async {
+    try {
+      final rows = await _datasource.fetchPromo(semua: true);
+      if (!mounted) return;
+      setState(() {
+        _vouchers
+          ..clear()
+          ..addAll(
+            rows.map(
+              (r) => _VoucherData(
+                promoId: r.promoId,
+                nama: r.nama,
+                kode: r.kode,
+                tanggal: r.mulai ?? '-',
+                diskon: r.tipe == 'percent'
+                    ? '${r.nilai.toStringAsFixed(0)}%'
+                    : 'IDR ${r.nilai.toStringAsFixed(0)}',
+              ),
+            ),
+          );
+      });
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan voucher contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,15 +88,20 @@ class _OwnerDiskonVoucherPageState extends State<OwnerDiskonVoucherPage> {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-                itemCount: _vouchers.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.x3),
-                itemBuilder: (_, i) => _VoucherCard(
-                  voucher: _vouchers[i],
-                  onEdit: () => _onEdit(i),
-                ),
-              ),
+              child: _memuat
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                      ),
+                      itemCount: _vouchers.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.x3),
+                      itemBuilder: (_, i) => _VoucherCard(
+                        voucher: _vouchers[i],
+                        onEdit: () => _onEdit(i),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -110,9 +148,15 @@ class _OwnerDiskonVoucherPageState extends State<OwnerDiskonVoucherPage> {
         tanggal: v.tanggal,
       ),
     );
-    if (deleted == true && mounted) {
-      setState(() => _vouchers.removeAt(index));
+    if (deleted != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.deletePromo(v.promoId);
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
     }
+    await _muat();
   }
 
   Future<void> _onTambah() async {
@@ -120,14 +164,23 @@ class _OwnerDiskonVoucherPageState extends State<OwnerDiskonVoucherPage> {
       AppRoutes.ownerTambahVoucher,
     );
     if (result == null || !mounted) return;
-    setState(() {
-      _vouchers.add(_VoucherData(
-        nama: result.nama,
-        tanggal: result.tanggalAktif,
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.createPromo(
         kode: result.kode,
-        diskon: result.diskonDisplay,
-      ));
-    });
+        nama: result.nama,
+        tipe: result.tipe,
+        nilai: result.nilai,
+        maxDiskon: result.maxDiskon,
+        mulai: result.mulai,
+        berakhir: result.berakhir,
+      );
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    // Muat ulang agar id dari server ikut terbawa.
+    await _muat();
   }
 }
 
@@ -152,7 +205,11 @@ class _TambahButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.onPrimary,
+                size: 20,
+              ),
               const SizedBox(width: AppSpacing.x1),
               Text(
                 'Tambah',
@@ -171,12 +228,14 @@ class _TambahButton extends StatelessWidget {
 
 class _VoucherData {
   const _VoucherData({
+    required this.promoId,
     required this.nama,
     required this.tanggal,
     required this.kode,
     required this.diskon,
   });
 
+  final int promoId;
   final String nama;
   final String tanggal;
   final String kode;
@@ -226,7 +285,11 @@ class _VoucherCard extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.outlineVariant,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.x4,
