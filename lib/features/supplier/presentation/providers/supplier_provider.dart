@@ -55,6 +55,7 @@ class SupplierProvider extends ChangeNotifier {
     required num stok,
     required num stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) async {
     final ok = await _runWrite(() => _repo.createItem(
           namaBahan: namaBahan,
@@ -62,9 +63,22 @@ class SupplierProvider extends ChangeNotifier {
           stok: stok,
           stokMinimum: stokMinimum,
           kategori: kategori,
+          imageUrl: imageUrl,
         ));
     if (ok) _logAksi('ADD_STOK', 'Menambahkan $namaBahan');
     return ok;
+  }
+
+  /// Mengunggah foto produk dan mengembalikan URL-nya, atau null bila gagal.
+  Future<String?> uploadFoto({
+    required List<int> bytes,
+    required String namaFile,
+  }) async {
+    try {
+      return await _repo.uploadFoto(bytes: bytes, namaFile: namaFile);
+    } on ApiException {
+      return null;
+    }
   }
 
   /// Ubah bahan baku (PATCH /bahan-baku/:id) lalu muat ulang.

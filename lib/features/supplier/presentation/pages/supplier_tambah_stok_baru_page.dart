@@ -45,6 +45,7 @@ class _SupplierTambahStokBaruPageState
   final _qtyTahanCtrl = TextEditingController();
 
   String? _fotoPath;
+  XFile? _fotoFile;
   String? _selectedKategori;
   String? _selectedSatuan;
 
@@ -243,21 +244,43 @@ class _SupplierTambahStokBaruPageState
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery);
-    if (file != null && mounted) setState(() => _fotoPath = file.path);
+    if (file != null && mounted) {
+      setState(() {
+        _fotoFile = file;
+        _fotoPath = file.path;
+      });
+    }
   }
 
   Future<void> _simpan() async {
     if (!_isValid) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    // Catatan: foto belum disimpan (BE belum punya endpoint upload gambar),
-    // dan "konverter" hanya tampilan FE — tidak dikirim ke server.
+    // Foto diunggah lebih dulu; URL hasilnya yang disimpan bersama bahan.
+    // Dibaca sebagai bytes, bukan path, supaya tetap bekerja di web.
+    String? imageUrl;
+    if (_fotoFile != null) {
+      final bytes = await _fotoFile!.readAsBytes();
+      imageUrl = await widget.provider.uploadFoto(
+        bytes: bytes,
+        namaFile: _fotoFile!.name,
+      );
+      if (imageUrl == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Foto gagal diunggah, coba lagi')),
+        );
+        return;
+      }
+    }
+
+    // Catatan: "konverter" masih tampilan FE — belum dikirim ke server.
     final ok = await widget.provider.createItem(
       namaBahan: _namaCtrl.text.trim(),
       satuan: _selectedSatuan!,
       stok: int.tryParse(_qtyStokCtrl.text.trim()) ?? 0,
       stokMinimum: int.tryParse(_qtyTahanCtrl.text.trim()) ?? 0,
       kategori: _selectedKategori,
+      imageUrl: imageUrl,
     );
     if (!mounted) return;
     if (ok) {
