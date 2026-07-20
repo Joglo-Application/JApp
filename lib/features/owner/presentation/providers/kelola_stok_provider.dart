@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/kategori_remote_datasource.dart';
 import '../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../domain/entities/kategori_stok.dart';
 import '../../domain/entities/produksi_stok_entry.dart';
@@ -15,22 +16,17 @@ class KelolaStokProvider extends ChangeNotifier {
     loadStokKeluar();
     loadStokOpname();
     loadProduksiStok();
+    loadKategoriStok();
   }
 
   final StokDokumenRemoteDatasource _datasource;
+  final _kategoriDatasource = KategoriRemoteDatasource();
 
   final List<StokMasukEntry> _stokMasukList = [];
   final List<StokKeluarEntry> _stokKeluarList = [];
   final List<ProduksiStokEntry> _produksiStokList = [];
   final List<StokOpnameEntry> _stokOpnameList = [];
-  final List<KategoriStok> _kategoriStokList = [
-    KategoriStok(id: '1', nama: 'Makanan', produkCount: 2),
-    KategoriStok(id: '2', nama: 'Minuman', produkCount: 2),
-    KategoriStok(id: '3', nama: 'Snack'),
-    KategoriStok(id: '4', nama: 'Kopi'),
-    KategoriStok(id: '5', nama: 'Kue'),
-  ];
-  int _kategoriCounter = 5;
+  final List<KategoriStok> _kategoriStokList = [];
 
   List<StokMasukEntry> get stokMasukList => List.unmodifiable(_stokMasukList);
   List<StokKeluarEntry> get stokKeluarList => List.unmodifiable(_stokKeluarList);
@@ -315,33 +311,77 @@ class KelolaStokProvider extends ChangeNotifier {
     }
   }
 
-  String generateKategoriId() {
-    _kategoriCounter++;
-    return '$_kategoriCounter';
-  }
+  /// Id kategori kini ditentukan server; nilai ini hanya penanda sementara
+  /// untuk entri yang belum tersimpan.
+  String generateKategoriId() => '';
 
-  void addKategoriStok(KategoriStok entry) {
-    _kategoriStokList.add(entry);
-    notifyListeners();
-  }
-
-  void updateKategoriStok(KategoriStok updated) {
-    final i = _kategoriStokList.indexWhere((e) => e.id == updated.id);
-    if (i != -1) {
-      _kategoriStokList[i] = updated;
+  /// Memuat kategori stok dari server.
+  Future<void> loadKategoriStok() async {
+    try {
+      final rows = await _kategoriDatasource.fetch('stok');
+      _kategoriStokList
+        ..clear()
+        ..addAll(rows.map((k) => KategoriStok(
+              id: k.kategoriId.toString(),
+              nama: k.nama,
+            )));
       notifyListeners();
+    } on ApiException {
+      // Biarkan daftar apa adanya.
     }
   }
 
-  void removeKategoriStok(String id) {
-    _kategoriStokList.removeWhere((e) => e.id == id);
-    notifyListeners();
+  Future<void> addKategoriStok(KategoriStok entry) async {
+    try {
+      await _kategoriDatasource.create(
+        jenis: 'stok',
+        nama: entry.nama,
+        urutan: _kategoriStokList.length,
+      );
+    } on ApiException {
+      return;
+    }
+    await loadKategoriStok();
   }
 
-  void reorderKategoriStok(int oldIndex, int newIndex) {
+  Future<void> updateKategoriStok(KategoriStok updated) async {
+    final id = int.tryParse(updated.id);
+    if (id == null) return;
+    try {
+      await _kategoriDatasource.update(id, nama: updated.nama);
+    } on ApiException {
+      return;
+    }
+    await loadKategoriStok();
+  }
+
+  Future<void> removeKategoriStok(String id) async {
+    final numId = int.tryParse(id);
+    if (numId == null) return;
+    try {
+      await _kategoriDatasource.delete(numId);
+    } on ApiException {
+      return;
+    }
+    await loadKategoriStok();
+  }
+
+  /// Menyusun ulang urutan kategori. Urutan baru disimpan ke server supaya
+  /// tetap sama saat layar dibuka lagi.
+  Future<void> reorderKategoriStok(int oldIndex, int newIndex) async {
     if (newIndex > oldIndex) newIndex--;
     final item = _kategoriStokList.removeAt(oldIndex);
     _kategoriStokList.insert(newIndex, item);
     notifyListeners();
+
+    for (var i = 0; i < _kategoriStokList.length; i++) {
+      final id = int.tryParse(_kategoriStokList[i].id);
+      if (id == null) continue;
+      try {
+        await _kategoriDatasource.update(id, urutan: i);
+      } on ApiException {
+        return;
+      }
+    }
   }
 }
