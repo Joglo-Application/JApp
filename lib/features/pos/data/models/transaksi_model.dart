@@ -45,6 +45,7 @@ class TransaksiModel {
     required this.pajakToko,
     required this.items,
     required this.total,
+    this.isReturned = false,
   });
 
   final String kode;
@@ -60,6 +61,7 @@ class TransaksiModel {
   final double pajakToko;
   final List<TransaksiItemModel> items;
   final double total;
+  final bool isReturned;
 
   factory TransaksiModel.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>? ?? [];
@@ -79,6 +81,8 @@ class TransaksiModel {
           .map((e) => TransaksiItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
       total: (json['total'] as num?)?.toDouble() ?? 0,
+      // Status retur kini datang dari server, bukan ditandai lokal.
+      isReturned: json['isReturned'] == true,
     );
   }
 
@@ -96,5 +100,6 @@ class TransaksiModel {
         pajakToko: pajakToko,
         items: items.map((i) => i.toEntity()).toList(),
         total: total,
+        isReturned: isReturned,
       );
 }

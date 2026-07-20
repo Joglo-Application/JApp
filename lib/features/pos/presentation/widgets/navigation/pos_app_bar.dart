@@ -99,6 +99,7 @@ class _ActionBar extends StatelessWidget {
           context: context,
           builder: (_) => DiskonPesananDialog(
             title: 'Diskon Pesanan',
+            subtotal: context.read<OrderProvider>().subtotal.round(),
             onPromoSelected: (promo) => context
                 .read<OrderProvider>()
                 .setOrderDiscount(promo.discount, promo.discountType, promoName: promo.name),

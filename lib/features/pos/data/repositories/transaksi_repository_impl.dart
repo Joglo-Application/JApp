@@ -13,4 +13,13 @@ class TransaksiRepositoryImpl implements TransaksiRepository {
     final models = await _datasource.fetchTransaksi(date: date);
     return models.map((m) => m.toEntity()).toList();
   }
+
+  @override
+  Future<void> returTransaksi({
+    required String kode,
+    required String alasan,
+    required String pin,
+  }) {
+    return _datasource.returTransaksi(kode: kode, alasan: alasan, pin: pin);
+  }
 }
