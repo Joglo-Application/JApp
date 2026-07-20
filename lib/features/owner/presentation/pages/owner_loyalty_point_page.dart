@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../pos/data/datasources/loyalty_remote_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -31,11 +33,41 @@ class OwnerLoyaltyPointPage extends StatefulWidget {
 }
 
 class _OwnerLoyaltyPointPageState extends State<OwnerLoyaltyPointPage> {
-  final List<_LoyaltyItem> _items = [
-    const _LoyaltyItem(type: _LoyaltyType.diskon, title: 'Diskon IDR 25.000', points: 10),
-    const _LoyaltyItem(type: _LoyaltyType.diskon, title: 'Diskon 50%', points: 10),
-    const _LoyaltyItem(type: _LoyaltyType.produkGratis, title: 'Gratis 1 Pizza', points: 10),
-  ];
+  final _datasource = LoyaltyRemoteDatasource();
+  final List<_LoyaltyItem> _items = [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final rows = await _datasource.fetchRewards(semua: true);
+      if (!mounted) return;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(
+            rows.map(
+              (r) => _LoyaltyItem(
+                type: r.isProdukGratis
+                    ? _LoyaltyType.produkGratis
+                    : _LoyaltyType.diskon,
+                title: r.nama,
+                points: r.poin,
+              ),
+            ),
+          );
+      });
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan reward contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,15 +92,18 @@ class _OwnerLoyaltyPointPageState extends State<OwnerLoyaltyPointPage> {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-                itemCount: _items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.x3),
-                itemBuilder: (_, i) => _LoyaltyItemCard(
-                  item: _items[i],
-                  onEdit: () {},
-                ),
-              ),
+              child: _memuat
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                      ),
+                      itemCount: _items.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.x3),
+                      itemBuilder: (_, i) =>
+                          _LoyaltyItemCard(item: _items[i], onEdit: () {}),
+                    ),
             ),
             _TambahButton(onTap: _onTambah),
           ],
@@ -116,28 +151,39 @@ class _OwnerLoyaltyPointPageState extends State<OwnerLoyaltyPointPage> {
         final result = await context.push<LoyaltyDiskonResult>(
           AppRoutes.ownerTambahLoyaltyDiskon,
         );
-        if (result != null && mounted) {
-          setState(() {
-            _items.add(_LoyaltyItem(
-              type: _LoyaltyType.diskon,
-              title: 'Diskon ${result.diskonDisplay}',
-              points: result.points,
-            ));
-          });
+        if (result == null || !mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        try {
+          await _datasource.createReward(
+            nama: 'Diskon ${result.diskonDisplay}',
+            tipe: 'diskon',
+            poin: result.points,
+            diskonTipe: result.tipe,
+            diskonNilai: result.nilai,
+          );
+        } on ApiException catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text(e.message)));
+          return;
         }
+        await _muat();
       case _LoyaltyType.produkGratis:
         final result = await context.push<LoyaltyProdukGratisResult>(
           AppRoutes.ownerTambahLoyaltyProdukGratis,
         );
-        if (result != null && mounted) {
-          setState(() {
-            _items.add(_LoyaltyItem(
-              type: _LoyaltyType.produkGratis,
-              title: 'Gratis ${result.qty} ${result.productName}',
-              points: result.points,
-            ));
-          });
+        if (result == null || !mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        try {
+          await _datasource.createReward(
+            nama: 'Gratis ${result.qty} ${result.productName}',
+            tipe: 'produk_gratis',
+            poin: result.points,
+            menuId: result.menuId,
+          );
+        } on ApiException catch (e) {
+          messenger.showSnackBar(SnackBar(content: Text(e.message)));
+          return;
         }
+        await _muat();
     }
   }
 }
@@ -286,7 +332,11 @@ class _PilihJenisDialog extends StatelessWidget {
               label: 'Diskon',
               onTap: () => Navigator.of(context).pop(_LoyaltyType.diskon),
             ),
-            const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.outlineVariant,
+            ),
             _DialogOption(
               icon: Icons.card_giftcard_rounded,
               iconColor: AppColors.tertiary,
@@ -343,7 +393,10 @@ class _DialogOption extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.onSurfaceVariant),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.onSurfaceVariant,
+            ),
           ],
         ),
       ),

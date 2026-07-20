@@ -11,10 +11,16 @@ class LoyaltyDiskonResult {
   const LoyaltyDiskonResult({
     required this.points,
     required this.diskonDisplay,
+    required this.tipe,
+    required this.nilai,
   });
 
   final int points;
   final String diskonDisplay;
+
+  /// `amount` atau `percent` — nilai terstruktur untuk dikirim ke server.
+  final String tipe;
+  final double nilai;
 }
 
 enum _DiskonType { nominal, persen }
@@ -179,7 +185,12 @@ class _OwnerTambahLoyaltyDiskonPageState
     final diskonDisplay =
         _diskonType == _DiskonType.persen ? '$diskon%' : 'IDR $diskon';
 
-    context.pop(LoyaltyDiskonResult(points: points, diskonDisplay: diskonDisplay));
+    context.pop(LoyaltyDiskonResult(
+      points: points,
+      diskonDisplay: diskonDisplay,
+      tipe: _diskonType == _DiskonType.persen ? 'percent' : 'amount',
+      nilai: double.tryParse(diskon.replaceAll('.', '').replaceAll(',', '.')) ?? 0,
+    ));
   }
 }
 

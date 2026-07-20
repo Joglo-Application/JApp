@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-
-const _mockProducts = [
-  'Burger Sapi',
-  'Bakmi Udang',
-  'Lemon Squash',
-  'Americano',
-];
+import '../../data/datasources/stok_dokumen_remote_datasource.dart';
 
 class OwnerPilihProdukPage extends StatefulWidget {
   const OwnerPilihProdukPage({super.key});
@@ -22,7 +17,32 @@ class OwnerPilihProdukPage extends StatefulWidget {
 
 class _OwnerPilihProdukPageState extends State<OwnerPilihProdukPage> {
   final _searchController = TextEditingController();
-  List<String> _filtered = _mockProducts;
+  final _datasource = StokDokumenRemoteDatasource();
+
+  List<ProdukPilihan> _semua = const [];
+  List<ProdukPilihan> _filtered = const [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final items = await _datasource.fetchMenus();
+      if (!mounted) return;
+      setState(() {
+        _semua = items;
+        _filtered = items;
+      });
+    } on ApiException {
+      // Biarkan kosong daripada menawarkan produk yang tidak ada.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -33,7 +53,9 @@ class _OwnerPilihProdukPageState extends State<OwnerPilihProdukPage> {
   void _onSearch(String query) {
     final q = query.toLowerCase();
     setState(() {
-      _filtered = _mockProducts.where((p) => p.toLowerCase().contains(q)).toList();
+      _filtered = _semua
+          .where((p) => p.nama.toLowerCase().contains(q))
+          .toList();
     });
   }
 
@@ -87,27 +109,29 @@ class _OwnerPilihProdukPageState extends State<OwnerPilihProdukPage> {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                itemCount: _filtered.length,
-                separatorBuilder: (_, _) => const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppColors.outlineVariant,
-                ),
-                itemBuilder: (_, i) => ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x4,
-                    vertical: AppSpacing.x2,
-                  ),
-                  title: Text(
-                    _filtered[i],
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurface,
+              child: _memuat
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.separated(
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, _) => const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.outlineVariant,
+                      ),
+                      itemBuilder: (_, i) => ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x4,
+                          vertical: AppSpacing.x2,
+                        ),
+                        title: Text(
+                          _filtered[i].nama,
+                          style: AppTypography.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        onTap: () => context.pop(_filtered[i]),
+                      ),
                     ),
-                  ),
-                  onTap: () => context.pop(_filtered[i]),
-                ),
-              ),
             ),
           ],
         ),
