@@ -13,16 +13,20 @@ class KitchenOrderItem {
   const KitchenOrderItem({
     required this.nama,
     required this.qty,
+    this.detailId = 0,
     this.catatan = '',
     this.isDone = false,
   });
 
+  /// Id baris pesanan di server; dipakai untuk mencentang item ini.
+  final int detailId;
   final String nama;
   final int qty;
   final String catatan;
   final bool isDone;
 
   KitchenOrderItem copyWith({bool? isDone}) => KitchenOrderItem(
+        detailId: detailId,
         nama: nama,
         qty: qty,
         catatan: catatan,

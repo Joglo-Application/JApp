@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/datasources/member_remote_datasource.dart';
+import '../../data/models/member_model.dart';
 
 // ── Public result type ────────────────────────────────────────────────────────
 
@@ -13,20 +15,25 @@ class SelectedMember {
   final int points;
 }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Model tampilan ────────────────────────────────────────────────────────────
 
 class _Member {
   const _Member({
     required this.name,
     required this.phone,
     required this.role,
+    this.id,
     this.points = 0,
     this.fullName,
     this.gender,
     this.email,
     this.address,
     this.birthDate,
+    this.birthDateIso,
   });
+
+  /// Id dari server; null hanya untuk member yang belum tersimpan.
+  final int? id;
   final String name;
   final String phone;
   final String role;
@@ -35,13 +42,18 @@ class _Member {
   final String? gender;
   final String? email;
   final String? address;
+
+  /// Tanggal lahir untuk ditampilkan (mis. "20 Apr 1992").
   final String? birthDate;
+
+  /// Tanggal lahir format YYYY-MM-DD untuk dikirim ke server.
+  final String? birthDateIso;
 
   String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
 }
 
-class _MockTransaction {
-  const _MockTransaction({
+class _MemberTransaction {
+  const _MemberTransaction({
     required this.code,
     required this.items,
     required this.date,
@@ -59,37 +71,34 @@ class _MockTransaction {
   final String customerName;
 }
 
-const _seedMembers = [
-  _Member(
-    name: 'Owner 01',
-    phone: '+6282275641556',
-    role: 'Guest',
-    points: 50,
-    fullName: 'Anggun',
-    gender: 'Female',
-    birthDate: '20 Apr 1992',
-  ),
-  _Member(
-    name: 'Budi S',
-    phone: '+6281234567890',
-    role: 'Guest',
-    points: 120,
-    fullName: 'Budi Santoso',
-    gender: 'Male',
-    email: 'budi@example.com',
-    address: 'Jl. Sudirman No. 10',
-    birthDate: '15 Jun 1990',
-  ),
-];
+// Cache daftar member selama sesi; diisi dari GET /member.
+final List<_Member> _membersList = [];
 
-// Module-level list — persists across navigations within the session.
-final List<_Member> _membersList = List.of(_seedMembers);
-
-void updateMemberPoints(String name, int newPoints) {
+/// Menyimpan perubahan poin member ke server (`POST /member/:id/poin`).
+///
+/// Sebelumnya poin hanya diubah di list dalam memori sehingga hilang saat
+/// aplikasi ditutup. Selisih terhadap poin lama dikirim sebagai `earn` atau
+/// `redeem` agar server ikut mencatat riwayat poinnya.
+Future<void> updateMemberPoints(String name, int newPoints) async {
   final idx = _membersList.indexWhere((m) => m.name == name);
   if (idx < 0) return;
   final m = _membersList[idx];
+  final selisih = newPoints - m.points;
+  if (selisih == 0 || m.id == null) return;
+
+  try {
+    await MemberRemoteDatasourceImpl().adjustPoin(
+      memberId: m.id!,
+      tipe: selisih > 0 ? 'earn' : 'redeem',
+      poin: selisih.abs(),
+    );
+  } on ApiException {
+    // Poin gagal disimpan; biarkan nilai lama agar tampilan tidak berbohong.
+    return;
+  }
+
   _membersList[idx] = _Member(
+    id: m.id,
     name: m.name,
     phone: m.phone,
     role: m.role,
@@ -99,22 +108,9 @@ void updateMemberPoints(String name, int newPoints) {
     email: m.email,
     address: m.address,
     birthDate: m.birthDate,
+    birthDateIso: m.birthDateIso,
   );
 }
-
-final _mockTransactionsByMember = <String, List<_MockTransaction>>{
-  'Owner 01': [
-    _MockTransaction(
-      code: '[KODE TRANSAKSI]',
-      items: '5x Bakmi Udang, 2x Lemon Squash, 4x Americano',
-      date: '24 April 2026',
-      time: '16:43',
-      total: '237.120',
-      paymentMethod: 'TUNAI',
-      customerName: 'Owner 01',
-    ),
-  ],
-};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -147,11 +143,16 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
       _membersList
         ..clear()
         ..addAll(models.map((m) => _Member(
+              id: m.memberId,
               name: m.nama,
               phone: m.noTelp ?? '',
               role: 'Guest',
               points: m.poin,
               email: m.email,
+              gender: m.gender,
+              address: m.alamat,
+              birthDate: _formatTanggalLahir(m.tanggalLahir),
+              birthDateIso: m.tanggalLahir,
             )));
       setState(() {
         _filtered = List.of(_membersList);
@@ -194,25 +195,54 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
     });
   }
 
+  /// Ubah "1990-06-15" menjadi "15 Jun 1990" untuk ditampilkan.
+  static String? _formatTanggalLahir(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    final d = DateTime.tryParse(iso);
+    if (d == null) return null;
+    const bulan = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+    return '${d.day} ${bulan[d.month - 1]} ${d.year}';
+  }
+
   void _onAdd() {
     Navigator.push<_Member>(
       context,
       MaterialPageRoute(builder: (_) => const _AddMemberPage()),
-    ).then((member) {
+    ).then((member) async {
       if (member == null || !mounted) return;
-      setState(() {
-        _membersList.add(member);
-        _filtered = List.of(_membersList);
-        _searchCtrl.clear();
-      });
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await _datasource.createMember(
+          nama: member.name,
+          noTelp: member.phone,
+          email: member.email,
+          gender: member.gender,
+          tanggalLahir: member.birthDateIso,
+          alamat: member.address,
+        );
+      } on ApiException catch (e) {
+        if (mounted) messenger.showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      }
+      // Muat ulang dari server agar id member baru ikut terbawa.
+      await _load();
+      if (mounted) _searchCtrl.clear();
     });
   }
 
-  void _onHapusMember(_Member member) {
-    setState(() {
-      _membersList.remove(member);
-      _filtered.remove(member);
-    });
+  Future<void> _onHapusMember(_Member member) async {
+    if (member.id == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.deleteMember(member.id!);
+    } on ApiException catch (e) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    await _load();
   }
 
   void _onUbahMember(_Member original) {
@@ -221,14 +251,24 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
       MaterialPageRoute(
         builder: (_) => _AddMemberPage(initialMember: original),
       ),
-    ).then((updated) {
-      if (updated == null || !mounted) return;
-      setState(() {
-        final li = _membersList.indexOf(original);
-        if (li >= 0) _membersList[li] = updated;
-        final fi = _filtered.indexOf(original);
-        if (fi >= 0) _filtered[fi] = updated;
-      });
+    ).then((updated) async {
+      if (updated == null || !mounted || original.id == null) return;
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await _datasource.updateMember(
+          memberId: original.id!,
+          nama: updated.name,
+          noTelp: updated.phone,
+          email: updated.email,
+          gender: updated.gender,
+          tanggalLahir: updated.birthDateIso,
+          alamat: updated.address,
+        );
+      } on ApiException catch (e) {
+        if (mounted) messenger.showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      }
+      await _load();
     });
   }
 
@@ -762,14 +802,80 @@ class _DetailField extends StatelessWidget {
 
 // ── Riwayat tab ───────────────────────────────────────────────────────────────
 
-class _RiwayatTab extends StatelessWidget {
+class _RiwayatTab extends StatefulWidget {
   const _RiwayatTab({required this.member});
 
   final _Member member;
 
   @override
+  State<_RiwayatTab> createState() => _RiwayatTabState();
+}
+
+class _RiwayatTabState extends State<_RiwayatTab> {
+  static const _namaBulan = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  final _datasource = MemberRemoteDatasourceImpl();
+  List<_MemberTransaction> _transactions = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Riwayat diambil dari `GET /member/:id/transaksi`, menggantikan data
+  /// contoh yang sebelumnya di-hardcode per nama member.
+  Future<void> _load() async {
+    final id = widget.member.id;
+    if (id == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final rows = await _datasource.fetchTransaksiMember(id);
+      if (!mounted) return;
+      setState(() {
+        _transactions = rows.map(_toView).toList();
+        _loading = false;
+      });
+    } on ApiException {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  static String _ribuan(double v) {
+    final s = v.round().abs().toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  static String _duaDigit(int v) => v.toString().padLeft(2, '0');
+
+  _MemberTransaction _toView(MemberTransaksiModel m) {
+    final w = m.waktu.toLocal();
+    return _MemberTransaction(
+      code: m.kodeTransaksi,
+      items: m.items,
+      date: '${w.day} ${_namaBulan[w.month - 1]} ${w.year}',
+      time: '${_duaDigit(w.hour)}:${_duaDigit(w.minute)}',
+      total: _ribuan(m.total),
+      paymentMethod: m.tipePembayaran,
+      customerName: m.namaKontak,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final transactions = _mockTransactionsByMember[member.name] ?? [];
+    final transactions = _transactions;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -791,7 +897,9 @@ class _RiwayatTab extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: transactions.isEmpty
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : transactions.isEmpty
               ? Center(
                   child: Text(
                     'Belum ada riwayat pesanan',
@@ -815,7 +923,7 @@ class _RiwayatTab extends StatelessWidget {
 class _TransactionItem extends StatelessWidget {
   const _TransactionItem({required this.tx});
 
-  final _MockTransaction tx;
+  final _MemberTransaction tx;
 
   @override
   Widget build(BuildContext context) {
@@ -1111,6 +1219,10 @@ class _AddMemberPageState extends State<_AddMemberPage> {
                 email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
                 address: _alamatCtrl.text.trim().isEmpty ? null : _alamatCtrl.text.trim(),
                 birthDate: _formattedDate,
+                // Bentuk ISO untuk dikirim ke server (kolom date).
+                birthDateIso: _birthDate.year <= 1900
+                    ? null
+                    : _birthDate.toIso8601String().substring(0, 10),
               ),
             );
           },
