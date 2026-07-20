@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/supplier_item_model.dart';
 
@@ -9,6 +10,13 @@ abstract class SupplierRemoteDatasource {
     required num stok,
     required num stokMinimum,
     String? kategori,
+    String? imageUrl,
+  });
+
+  /// Mengunggah gambar dan mengembalikan URL publiknya.
+  Future<String> uploadFoto({
+    required List<int> bytes,
+    required String namaFile,
   });
   Future<void> updateItem(
     int bahanId, {
@@ -49,6 +57,7 @@ class SupplierRemoteDatasourceImpl implements SupplierRemoteDatasource {
     required num stok,
     required num stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) async {
     // POST /bahan-baku — tambah bahan baku baru.
     try {
@@ -58,7 +67,42 @@ class SupplierRemoteDatasourceImpl implements SupplierRemoteDatasource {
         'stok': stok,
         'stokMinimum': stokMinimum,
         if (kategori != null && kategori.isNotEmpty) 'kategori': kategori,
+        if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
       });
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<String> uploadFoto({
+    required List<int> bytes,
+    required String namaFile,
+  }) async {
+    // POST /upload (multipart). Dikirim sebagai bytes, bukan path, supaya
+    // tetap bekerja di web — di sana XFile.path berupa blob URL.
+    try {
+      final ext = namaFile.split('.').last.toLowerCase();
+      final subtype = switch (ext) {
+        'png' => 'png',
+        'webp' => 'webp',
+        _ => 'jpeg',
+      };
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: namaFile,
+          // Server menolak berkas yang tipenya bukan gambar, jadi tipe konten
+          // harus disetel eksplisit.
+          contentType: DioMediaType('image', subtype),
+        ),
+      });
+      final res = await _client.dio.post<Map<String, dynamic>>(
+        '/upload',
+        data: form,
+      );
+      final data = res.data?['data'] as Map<String, dynamic>? ?? const {};
+      return (data['url'] ?? '').toString();
     } catch (e) {
       throw _client.toApiException(e);
     }

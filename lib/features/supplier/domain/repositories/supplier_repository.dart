@@ -8,6 +8,12 @@ abstract class SupplierRepository {
     required num stok,
     required num stokMinimum,
     String? kategori,
+    String? imageUrl,
+  });
+
+  Future<String> uploadFoto({
+    required List<int> bytes,
+    required String namaFile,
   });
   Future<void> updateItem(
     int bahanId, {

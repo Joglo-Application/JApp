@@ -21,6 +21,7 @@ class SupplierRepositoryImpl implements SupplierRepository {
     required num stok,
     required num stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) =>
       _datasource.createItem(
         namaBahan: namaBahan,
@@ -28,6 +29,7 @@ class SupplierRepositoryImpl implements SupplierRepository {
         stok: stok,
         stokMinimum: stokMinimum,
         kategori: kategori,
+        imageUrl: imageUrl,
       );
 
   @override
@@ -54,4 +56,11 @@ class SupplierRepositoryImpl implements SupplierRepository {
 
   @override
   Future<void> deleteItem(int bahanId) => _datasource.deleteItem(bahanId);
+
+  @override
+  Future<String> uploadFoto({
+    required List<int> bytes,
+    required String namaFile,
+  }) =>
+      _datasource.uploadFoto(bytes: bytes, namaFile: namaFile);
 }
