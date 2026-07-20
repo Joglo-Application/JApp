@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../domain/entities/kategori_stok.dart';
 import '../../domain/entities/produksi_stok_entry.dart';
 import '../../domain/entities/stok_keluar_entry.dart';
@@ -7,6 +9,13 @@ import '../../domain/entities/stok_masuk_entry.dart';
 import '../../domain/entities/stok_opname_entry.dart';
 
 class KelolaStokProvider extends ChangeNotifier {
+  KelolaStokProvider({StokDokumenRemoteDatasource? datasource})
+      : _datasource = datasource ?? StokDokumenRemoteDatasource() {
+    loadStokMasuk();
+  }
+
+  final StokDokumenRemoteDatasource _datasource;
+
   final List<StokMasukEntry> _stokMasukList = [];
   final List<StokKeluarEntry> _stokKeluarList = [];
   final List<ProduksiStokEntry> _produksiStokList = [];
@@ -18,7 +27,6 @@ class KelolaStokProvider extends ChangeNotifier {
     KategoriStok(id: '4', nama: 'Kopi'),
     KategoriStok(id: '5', nama: 'Kue'),
   ];
-  int _masukCounter = 0;
   int _keluarCounter = 0;
   int _produksiCounter = 0;
   int _opnameCounter = 0;
@@ -30,10 +38,10 @@ class KelolaStokProvider extends ChangeNotifier {
   List<StokOpnameEntry> get stokOpnameList => List.unmodifiable(_stokOpnameList);
   List<KategoriStok> get kategoriStokList => List.unmodifiable(_kategoriStokList);
 
-  String generateKodeMasuk() {
-    _masukCounter++;
-    return 'SM-${_masukCounter.toString().padLeft(3, '0')}';
-  }
+  /// Kode dokumen kini ditentukan server saat penyimpanan, jadi belum bisa
+  /// diketahui saat form dibuka. Menampilkan tebakan lokal hanya akan
+  /// berbeda dari yang benar-benar tersimpan.
+  String generateKodeMasuk() => '(otomatis)';
 
   String generateKodeKeluar() {
     _keluarCounter++;
@@ -50,9 +58,65 @@ class KelolaStokProvider extends ChangeNotifier {
     return 'SO-${_opnameCounter.toString().padLeft(3, '0')}';
   }
 
-  void addStokMasuk(StokMasukEntry entry) {
-    _stokMasukList.add(entry);
-    notifyListeners();
+  /// Memuat daftar dokumen stok masuk dari server.
+  Future<void> loadStokMasuk() async {
+    try {
+      final rows = await _datasource.fetchStokMasuk();
+      _stokMasukList
+        ..clear()
+        ..addAll(rows.map(_toStokMasukEntry));
+      notifyListeners();
+    } on ApiException {
+      // Biarkan daftar apa adanya; layar menampilkan kosong daripada palsu.
+    }
+  }
+
+  static StokMasukStatus _statusMasuk(String s) => switch (s) {
+        'posted' => StokMasukStatus.posted,
+        'cancelled' => StokMasukStatus.cancelled,
+        _ => StokMasukStatus.draft,
+      };
+
+  static StokMasukEntry _toStokMasukEntry(DokumenStok d) => StokMasukEntry(
+        kode: d.kode,
+        tanggal: d.tanggal,
+        createdBy: d.createdBy,
+        supplier: d.supplier,
+        catatan: d.catatan,
+        status: _statusMasuk(d.status),
+        produk: d.produk
+            .map((p) => StokMasukProdukItem(
+                  refId: ((p['menuId'] ?? p['bahanId']) as num?)?.toInt() ?? 0,
+                  nama: (p['nama'] ?? '').toString(),
+                  source: p['sumber'] == 'inventori'
+                      ? ProdukSource.inventori
+                      : ProdukSource.stokGudang,
+                  jumlah: (p['jumlah'] as num?)?.toInt() ?? 1,
+                ))
+            .toList(),
+      );
+
+  /// Menyimpan dokumen stok masuk ke server lalu memuat ulang daftarnya.
+  /// Mengembalikan pesan galat bila gagal, atau `null` bila berhasil.
+  Future<String?> addStokMasuk(StokMasukEntry entry) async {
+    try {
+      await _datasource.createStokMasuk(
+        items: entry.produk
+            .map((p) => ItemDokumen(refId: p.refId, jumlah: p.jumlah))
+            .toList(),
+        sumber: entry.produk
+            .map((p) =>
+                p.source == ProdukSource.inventori ? 'inventori' : 'stok_gudang')
+            .toList(),
+        supplier: entry.supplier,
+        catatan: entry.catatan,
+        langsungPosting: entry.status == StokMasukStatus.posted,
+      );
+    } on ApiException catch (e) {
+      return e.message;
+    }
+    await loadStokMasuk();
+    return null;
   }
 
   void updateStokMasuk(StokMasukEntry entry) {
