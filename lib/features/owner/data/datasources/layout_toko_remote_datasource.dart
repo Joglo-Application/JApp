@@ -17,7 +17,7 @@ class LayoutArea {
 /// Pengaturan > Layout Toko: satu area berisi banyak meja.
 class LayoutTokoRemoteDatasource {
   LayoutTokoRemoteDatasource({ApiClient? client})
-      : _client = client ?? ApiClient.instance;
+    : _client = client ?? ApiClient.instance;
 
   final ApiClient _client;
 
@@ -50,8 +50,44 @@ class LayoutTokoRemoteDatasource {
     }
   }
 
-  /// Membuat area lalu meja-mejanya. Meja dibuat setelah areanya ada karena
-  /// masing-masing perlu menunjuk areaId.
+  /// Mengambil seluruh meja beserta id-nya, dipakai untuk mencocokkan nomor.
+  Future<Map<String, int>> _idMejaPerNomor() async {
+    final res = await _client.dio.get<Map<String, dynamic>>(
+      '/meja',
+      queryParameters: {'limit': 100},
+    );
+    final rows = res.data?['data'] as List<dynamic>? ?? const [];
+    return {
+      for (final r in rows.map((e) => e as Map<String, dynamic>))
+        (r['nomor'] ?? '').toString(): (r['mejaId'] as num).toInt(),
+    };
+  }
+
+  /// Memasukkan sebuah nomor meja ke dalam area.
+  ///
+  /// Bila nomornya sudah terdaftar, mejanya cukup dikaitkan ke area — bukan
+  /// dibuat ulang, karena server menolak nomor ganda. Ini yang terjadi pada
+  /// meja yang sudah ada sebelum denah mulai dipakai.
+  Future<void> _kaitkanMeja(
+    String nomor,
+    int areaId,
+    Map<String, int> idPerNomor,
+  ) async {
+    final mejaId = idPerNomor[nomor];
+    if (mejaId != null) {
+      await _client.dio.patch<Map<String, dynamic>>(
+        '/meja/$mejaId',
+        data: {'areaId': areaId},
+      );
+      return;
+    }
+    await _client.dio.post<Map<String, dynamic>>(
+      '/meja',
+      data: {'nomor': nomor, 'areaId': areaId},
+    );
+  }
+
+  /// Membuat area lalu mengaitkan meja-mejanya.
   Future<void> createLayout({
     required String nama,
     required List<String> mejaNomor,
@@ -67,11 +103,9 @@ class LayoutTokoRemoteDatasource {
               ?.toInt();
       if (areaId == null) return;
 
+      final idPerNomor = await _idMejaPerNomor();
       for (final nomor in mejaNomor) {
-        await _client.dio.post<Map<String, dynamic>>(
-          '/meja',
-          data: {'nomor': nomor, 'areaId': areaId},
-        );
+        await _kaitkanMeja(nomor, areaId, idPerNomor);
       }
     } catch (e) {
       throw _client.toApiException(e);
@@ -79,8 +113,10 @@ class LayoutTokoRemoteDatasource {
   }
 
   /// Menyimpan perubahan denah: nama area diperbarui, lalu daftar mejanya
-  /// dibandingkan — yang baru dibuat, yang hilang dihapus. Meja yang tetap ada
-  /// sengaja tidak disentuh supaya statusnya (terpakai/dipesan) tidak hilang.
+  /// dibandingkan. Yang bertambah dikaitkan ke area, yang hilang dilepas
+  /// kaitannya — bukan dihapus, karena "keluarkan dari denah" jauh lebih
+  /// ringan maksudnya daripada "hapus mejanya". Meja yang tetap ada tidak
+  /// disentuh supaya statusnya tidak berubah.
   Future<void> updateLayout({
     required int areaId,
     required String nama,
@@ -93,28 +129,22 @@ class LayoutTokoRemoteDatasource {
         data: {'nama': nama},
       );
 
-      final tambah = mejaNomorBaru.where((n) => !mejaNomorLama.contains(n));
-      for (final nomor in tambah) {
-        await _client.dio.post<Map<String, dynamic>>(
-          '/meja',
-          data: {'nomor': nomor, 'areaId': areaId},
-        );
+      final idPerNomor = await _idMejaPerNomor();
+
+      for (final nomor in mejaNomorBaru.where(
+        (n) => !mejaNomorLama.contains(n),
+      )) {
+        await _kaitkanMeja(nomor, areaId, idPerNomor);
       }
 
-      final hapus = mejaNomorLama.where((n) => !mejaNomorBaru.contains(n));
-      if (hapus.isEmpty) return;
-
-      final mejaRes = await _client.dio.get<Map<String, dynamic>>(
-        '/meja',
-        queryParameters: {'limit': 100},
-      );
-      final mejas = (mejaRes.data?['data'] as List<dynamic>? ?? const [])
-          .map((m) => m as Map<String, dynamic>);
-      for (final nomor in hapus) {
-        final target = mejas.where((m) => (m['nomor'] ?? '') == nomor);
-        if (target.isEmpty) continue;
-        await _client.dio.delete<Map<String, dynamic>>(
-          '/meja/${(target.first['mejaId'] as num).toInt()}',
+      for (final nomor in mejaNomorLama.where(
+        (n) => !mejaNomorBaru.contains(n),
+      )) {
+        final mejaId = idPerNomor[nomor];
+        if (mejaId == null) continue;
+        await _client.dio.patch<Map<String, dynamic>>(
+          '/meja/$mejaId',
+          data: {'areaId': null},
         );
       }
     } catch (e) {
