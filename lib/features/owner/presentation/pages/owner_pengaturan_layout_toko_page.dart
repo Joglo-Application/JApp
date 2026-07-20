@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../data/datasources/layout_toko_remote_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -22,21 +24,39 @@ class OwnerPengaturanLayoutTokoPage extends StatefulWidget {
 
 class _OwnerPengaturanLayoutTokoPageState
     extends State<OwnerPengaturanLayoutTokoPage> {
-  final List<LayoutTokoData> _layouts = [
-    const LayoutTokoData(
-      nama: 'Lantai 1',
-      meja: ['01', '02', '03', '04', '05', '06', 'Lesehan 01', 'Taman 01'],
-    ),
-    const LayoutTokoData(nama: 'Lantai 2', meja: ['07', '08', '09', '10']),
-    const LayoutTokoData(
-      nama: 'Lantai 3',
-      meja: ['11', '12', '13', '14', '15'],
-    ),
-    const LayoutTokoData(
-      nama: 'Outdoor',
-      meja: ['Outdoor 1', 'Outdoor 2', 'Outdoor 3', 'Outdoor 4'],
-    ),
-  ];
+  final _datasource = LayoutTokoRemoteDatasource();
+  final List<LayoutTokoData> _layouts = [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final rows = await _datasource.fetchLayouts();
+      if (!mounted) return;
+      setState(() {
+        _layouts
+          ..clear()
+          ..addAll(
+            rows.map(
+              (r) => LayoutTokoData(
+                areaId: r.areaId,
+                nama: r.nama,
+                meja: r.mejaNomor,
+              ),
+            ),
+          );
+      });
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan denah contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,13 +91,16 @@ class _OwnerPengaturanLayoutTokoPageState
                       ],
                     ),
                     const SizedBox(height: AppSpacing.x4),
-                    for (var i = 0; i < _layouts.length; i++) ...[
-                      if (i > 0) const SizedBox(height: AppSpacing.x3),
-                      _LayoutCard(
-                        data: _layouts[i],
-                        onEdit: () => _onEditLayout(i),
-                      ),
-                    ],
+                    if (_memuat)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      for (var i = 0; i < _layouts.length; i++) ...[
+                        if (i > 0) const SizedBox(height: AppSpacing.x3),
+                        _LayoutCard(
+                          data: _layouts[i],
+                          onEdit: () => _onEditLayout(i),
+                        ),
+                      ],
                   ],
                 ),
               ),
@@ -124,7 +147,18 @@ class _OwnerPengaturanLayoutTokoPageState
       AppRoutes.ownerPengaturanLayoutTokoEdit,
     );
     if (result == null || result.data == null || !mounted) return;
-    setState(() => _layouts.add(result.data!));
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _datasource.createLayout(
+        nama: result.data!.nama,
+        mejaNomor: result.data!.meja,
+        urutan: _layouts.length,
+      );
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    await _muat();
   }
 
   Future<void> _onEditLayout(int index) async {
@@ -133,13 +167,24 @@ class _OwnerPengaturanLayoutTokoPageState
       extra: _layouts[index],
     );
     if (result == null || !mounted) return;
-    setState(() {
+    final lama = _layouts[index];
+    final messenger = ScaffoldMessenger.of(context);
+    try {
       if (result.deleted) {
-        _layouts.removeAt(index);
+        await _datasource.deleteLayout(lama.areaId);
       } else if (result.data != null) {
-        _layouts[index] = result.data!;
+        await _datasource.updateLayout(
+          areaId: lama.areaId,
+          nama: result.data!.nama,
+          mejaNomorBaru: result.data!.meja,
+          mejaNomorLama: lama.meja,
+        );
       }
-    });
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+    await _muat();
   }
 }
 
@@ -166,7 +211,11 @@ class _TambahButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.onPrimary,
+                size: 20,
+              ),
               const SizedBox(width: AppSpacing.x1),
               Text(
                 'Tambah',
