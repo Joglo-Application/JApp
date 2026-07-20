@@ -8,8 +8,14 @@ import '../../../../core/theme/app_typography.dart';
 
 /// One floor/area entry in "Denah Restoran" — a name plus its list of tables.
 class LayoutTokoData {
-  const LayoutTokoData({required this.nama, required this.meja});
+  const LayoutTokoData({
+    required this.nama,
+    required this.meja,
+    this.areaId = 0,
+  });
 
+  /// Id area di server; 0 untuk denah yang belum tersimpan.
+  final int areaId;
   final String nama;
   final List<String> meja;
 }
