@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/stok_opname_entry.dart';
 import '../providers/kelola_stok_provider.dart';
+import '../widgets/kelola_stok/pilih_produk_dialog.dart';
 import '../widgets/kelola_stok/tambah_produk_opname_dialog.dart';
 
 class OwnerTambahkanStokOpnamePage extends StatefulWidget {
@@ -245,16 +246,29 @@ class _OwnerTambahkanStokOpnamePageState
   }
 
   Future<void> _onTambahProduk() async {
+    // Opname boleh memuat bahan baku maupun produk jadi, jadi sumbernya
+    // dipilih dulu — memakai dialog yang sama dengan alur Stok Masuk.
+    final source = await PilihProdukDialog.show(context);
+    if (source == null || !mounted) return;
+
     final alreadyAdded = _produk.map((p) => p.nama).toList();
     final items = await TambahProdukOpnamePage.push(
       context,
+      source: source,
       alreadyAdded: alreadyAdded,
     );
     if (items == null || !mounted) return;
     setState(() => _produk.addAll(items));
   }
 
-  void _save(StokOpnameStatus status) {
+  Future<void> _save(StokOpnameStatus status) async {
+    if (_produk.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tambahkan minimal satu produk')),
+      );
+      return;
+    }
+
     final entry = StokOpnameEntry(
       kode: _kode,
       tanggal: _tanggal,
@@ -263,12 +277,24 @@ class _OwnerTambahkanStokOpnamePageState
       produk: List.of(_produk),
       status: status,
     );
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (widget.existingEntry != null) {
+      // Mengubah dokumen tersimpan belum didukung server.
       widget.provider.updateStokOpname(entry);
-    } else {
-      widget.provider.addStokOpname(entry);
+      navigator.pop();
+      return;
     }
-    Navigator.of(context).pop();
+
+    final error = await widget.provider.addStokOpname(entry);
+    if (!mounted) return;
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    navigator.pop();
   }
 }
 

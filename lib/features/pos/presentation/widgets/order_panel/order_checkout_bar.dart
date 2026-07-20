@@ -17,11 +17,11 @@ class OrderCheckoutBar extends StatelessWidget {
     final alasan = await CancelOrderDialog.show(context);
     if (alasan == null || !context.mounted) return;
 
-    final ok = await showDialog<bool>(
+    final pin = await showDialog<String>(
       context: context,
       builder: (_) => const PinSupervisorDialog(),
     );
-    if (ok != true || !context.mounted) return;
+    if (pin == null || !context.mounted) return;
 
     final order = context.read<OrderProvider>();
     final messenger = ScaffoldMessenger.of(context);

@@ -11,11 +11,13 @@ enum KitchenOrderLoadState { idle, loading, loaded, error }
 
 class KitchenOrderProvider extends ChangeNotifier {
   KitchenOrderProvider() {
-    final repo = KitchenOrderRepositoryImpl(KitchenOrderRemoteDatasourceImpl());
+    _datasource = KitchenOrderRemoteDatasourceImpl();
+    final repo = KitchenOrderRepositoryImpl(_datasource);
     _usecase = FetchKitchenOrdersUsecase(repo);
     _completeUsecase = CompleteKitchenOrderUsecase(repo);
   }
 
+  late final KitchenOrderRemoteDatasource _datasource;
   late final FetchKitchenOrdersUsecase _usecase;
   late final CompleteKitchenOrderUsecase _completeUsecase;
 
@@ -40,21 +42,47 @@ class KitchenOrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleItem(String orderId, int itemIndex) {
+  /// Mencentang/membatalkan centang satu item pesanan.
+  ///
+  /// Statusnya disimpan di server (bukan hanya di state lokal seperti
+  /// sebelumnya) supaya progres terlihat di semua perangkat dapur dan tidak
+  /// hilang saat daftar dimuat ulang.
+  Future<void> toggleItem(String orderId, int itemIndex) async {
+    final orderIdx = _orders.indexWhere((o) => o.id == orderId);
+    if (orderIdx < 0) return;
+
+    final order = _orders[orderIdx];
+    if (itemIndex < 0 || itemIndex >= order.items.length) return;
+
+    final item = order.items[itemIndex];
+    final target = !item.isDone;
+
+    try {
+      await _datasource.setItemDone(
+        orderId: orderId,
+        detailId: item.detailId,
+        selesai: target,
+      );
+    } catch (_) {
+      // Biarkan tampilan apa adanya bila server menolak, supaya tidak
+      // menampilkan centang yang sebenarnya tidak tersimpan.
+      return;
+    }
+
     _orders = [
-      for (final order in _orders)
-        if (order.id == orderId)
-          order.copyWith(
+      for (final o in _orders)
+        if (o.id == orderId)
+          o.copyWith(
             items: [
-              for (var i = 0; i < order.items.length; i++)
+              for (var i = 0; i < o.items.length; i++)
                 if (i == itemIndex)
-                  order.items[i].copyWith(isDone: !order.items[i].isDone)
+                  o.items[i].copyWith(isDone: target)
                 else
-                  order.items[i],
+                  o.items[i],
             ],
           )
         else
-          order,
+          o,
     ];
     notifyListeners();
   }

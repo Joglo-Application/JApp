@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/pengaturan_remote_datasource.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -51,8 +54,53 @@ const _defaultData = _TokoData(
   lng: 112.7183,
 );
 
-class OwnerPengaturanTokoPage extends StatelessWidget {
+class OwnerPengaturanTokoPage extends StatefulWidget {
   const OwnerPengaturanTokoPage({super.key});
+
+  @override
+  State<OwnerPengaturanTokoPage> createState() =>
+      _OwnerPengaturanTokoPageState();
+}
+
+class _OwnerPengaturanTokoPageState extends State<OwnerPengaturanTokoPage> {
+  final _datasource = PengaturanRemoteDatasource();
+
+  // Dipakai hanya sebagai tampilan awal sebelum data server tiba.
+  _TokoData _data = _defaultData;
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  static String _teks(dynamic v) => (v ?? '').toString();
+
+  Future<void> _muat() async {
+    try {
+      final d = await _datasource.fetchGrup('toko');
+      if (!mounted) return;
+      setState(() {
+        _data = _TokoData(
+          namaToko: _teks(d['namaToko']),
+          telepon: _teks(d['telepon']),
+          email: _teks(d['email']),
+          alamat: _teks(d['alamat']),
+          negara: _teks(d['negara']),
+          provinsi: _teks(d['provinsi']),
+          kota: _teks(d['kota']),
+          kecamatan: _teks(d['kecamatan']),
+          kodePos: _teks(d['kodePos']),
+          lat: (d['latitude'] as num?)?.toDouble() ?? _defaultData.lat,
+          lng: (d['longitude'] as num?)?.toDouble() ?? _defaultData.lng,
+        );
+        _memuat = false;
+      });
+    } on ApiException {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +111,8 @@ class OwnerPengaturanTokoPage extends StatelessWidget {
           children: [
             PengaturanDetailTopBar(
               title: 'Toko',
+              // Baris-baris profil belum bisa diedit dari layar ini, jadi
+              // tidak ada yang perlu disimpan.
               onSave: () => Navigator.of(context).pop(),
               onClose: () => Navigator.of(context).pop(),
             ),
@@ -71,8 +121,10 @@ class OwnerPengaturanTokoPage extends StatelessWidget {
               thickness: 1,
               color: AppColors.outlineVariant,
             ),
-            const Expanded(
-              child: _TokoBody(data: _defaultData),
+            Expanded(
+              child: _memuat
+                  ? const Center(child: CircularProgressIndicator())
+                  : _TokoBody(data: _data),
             ),
           ],
         ),

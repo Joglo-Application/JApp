@@ -266,7 +266,14 @@ class _OwnerTambahkanStokMasukPageState
     setState(() => _produk.add(item));
   }
 
-  void _save(StokMasukStatus status) {
+  Future<void> _save(StokMasukStatus status) async {
+    if (_produk.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tambahkan minimal satu produk')),
+      );
+      return;
+    }
+
     final entry = StokMasukEntry(
       kode: _kode,
       tanggal: _tanggal,
@@ -276,12 +283,25 @@ class _OwnerTambahkanStokMasukPageState
       produk: List.of(_produk),
       status: status,
     );
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (widget.existingEntry != null) {
+      // Mengubah dokumen yang sudah tersimpan belum didukung server.
       widget.provider.updateStokMasuk(entry);
-    } else {
-      widget.provider.addStokMasuk(entry);
+      navigator.pop();
+      return;
     }
-    Navigator.of(context).pop();
+
+    // Hanya menutup layar bila server benar-benar menerima dokumennya.
+    final error = await widget.provider.addStokMasuk(entry);
+    if (!mounted) return;
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    navigator.pop();
   }
 }
 

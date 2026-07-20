@@ -356,12 +356,12 @@ class _PilihMejaPageState extends State<PilihMejaPage> {
         );
         if (!mounted) return;
         if (confirmed == true) {
-          final pinValid = await showDialog<bool>(
+          final pin = await showDialog<String>(
             context: context,
             builder: (_) => const PinSupervisorDialog(),
           );
           if (!mounted) return;
-          if (pinValid == true) {
+          if (pin != null) {
             _updateTableStatus(meja.id, _MejaStatus.free);
           }
         }
@@ -1221,11 +1221,11 @@ class _ReservasiOptionsDialog extends StatelessWidget {
               borderRadius: BorderRadius.zero,
               child: InkWell(
                 onTap: () async {
-                  final confirmed = await showDialog<bool>(
+                  final pin = await showDialog<String>(
                     context: context,
                     builder: (_) => const PinSupervisorDialog(),
                   );
-                  if (confirmed == true && context.mounted) {
+                  if (pin != null && context.mounted) {
                     Navigator.of(context).pop(_ReservasiAction.batalkan);
                   }
                 },

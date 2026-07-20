@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/datasources/pengaturan_remote_datasource.dart';
 import '../widgets/pengaturan/pengaturan_form_widgets.dart';
 
 class OwnerPengaturanMataUangPage extends StatefulWidget {
@@ -14,7 +16,40 @@ class OwnerPengaturanMataUangPage extends StatefulWidget {
 
 class _OwnerPengaturanMataUangPageState
     extends State<OwnerPengaturanMataUangPage> {
+  final _datasource = PengaturanRemoteDatasource();
   String _mataUang = 'Rupiah';
+  bool _menyimpan = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final data = await _datasource.fetchGrup('mataUang');
+      if (!mounted) return;
+      setState(() => _mataUang = (data['nama'] ?? 'Rupiah').toString());
+    } on ApiException {
+      // Biarkan nilai default; pengguna tetap bisa memilih dan menyimpan.
+    }
+  }
+
+  Future<void> _simpan() async {
+    if (_menyimpan) return;
+    setState(() => _menyimpan = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      await _datasource.simpanGrup('mataUang', {'nama': _mataUang});
+      navigator.pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _menyimpan = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +60,7 @@ class _OwnerPengaturanMataUangPageState
           children: [
             PengaturanDetailTopBar(
               title: 'Mata Uang Penjualan',
-              onSave: () => Navigator.of(context).pop(),
+              onSave: _simpan,
               onClose: () => Navigator.of(context).pop(),
             ),
             const Divider(

@@ -491,15 +491,26 @@ class _ShareButtonState extends State<_ShareButton> {
   }
 
   Future<void> _showPinDialog(String? alasan) async {
-    final ok = await showDialog<bool>(
+    final pin = await showDialog<String>(
       context: context,
       builder: (_) => const PinSupervisorDialog(),
     );
-    if (ok == true && mounted) {
-      final kode = context.read<TransaksiProvider>().selected?.kode;
-      if (kode != null) {
-        context.read<TransaksiProvider>().markAsReturned(kode);
-      }
+    if (pin == null || !mounted) return;
+
+    final provider = context.read<TransaksiProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final kode = provider.selected?.kode;
+    if (kode == null) return;
+
+    // Alasan wajib diisi di server; pakai keterangan umum bila tidak dipilih.
+    final error = await provider.returTransaksi(
+      kode: kode,
+      alasan: alasan ?? 'Retur transaksi',
+      pin: pin,
+    );
+    if (!mounted) return;
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
     }
   }
 

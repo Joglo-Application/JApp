@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../providers/owner_laporan_provider.dart';
 
 class LaporanGuestRestoTable extends StatelessWidget {
   const LaporanGuestRestoTable({super.key});
 
-  static const _layoutItems = [
-    ('Lantai 1', 241),
-    ('Lantai 2', 102),
-  ];
-
-  static const _totalGuest = 343;
-
   @override
   Widget build(BuildContext context) {
+    // Jumlah tamu berasal dari kolom jumlah_tamu pada pesanan, dikelompokkan
+    // per zona meja.
+    final guest = context.watch<OwnerLaporanProvider>().guest;
+
     return ListView(
       children: [
         _SectionHeader('Resto Layout'),
         _Header(),
-        ..._layoutItems.map((item) => _DataRow(label: item.$1, qty: item.$2)),
+        ...guest.items.map(
+          (item) => _DataRow(label: item.zona, qty: item.jumlahTamu),
+        ),
         const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
-        _TotalRow(total: _totalGuest),
+        _TotalRow(total: guest.totalTamu),
       ],
     );
   }

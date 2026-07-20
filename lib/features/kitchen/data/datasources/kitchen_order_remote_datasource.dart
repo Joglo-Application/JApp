@@ -4,6 +4,14 @@ import '../models/kitchen_order_model.dart';
 abstract interface class KitchenOrderRemoteDatasource {
   Future<List<KitchenOrderModel>> fetchActiveOrders();
   Future<void> completeOrder(String id);
+
+  /// Mencentang satu item pesanan agar progresnya terlihat di semua
+  /// perangkat dapur.
+  Future<void> setItemDone({
+    required String orderId,
+    required int detailId,
+    required bool selesai,
+  });
 }
 
 class KitchenOrderRemoteDatasourceImpl implements KitchenOrderRemoteDatasource {
@@ -32,6 +40,23 @@ class KitchenOrderRemoteDatasourceImpl implements KitchenOrderRemoteDatasource {
     // PATCH /kitchen/orders/:id/done — dapur menyelesaikan pesanan (non Dine-In).
     try {
       await _client.dio.patch<Map<String, dynamic>>('/kitchen/orders/$id/done');
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<void> setItemDone({
+    required String orderId,
+    required int detailId,
+    required bool selesai,
+  }) async {
+    // PATCH /kitchen/orders/:id/items/:detailId/done
+    try {
+      await _client.dio.patch<Map<String, dynamic>>(
+        '/kitchen/orders/$orderId/items/$detailId/done',
+        data: {'selesai': selesai},
+      );
     } catch (e) {
       throw _client.toApiException(e);
     }

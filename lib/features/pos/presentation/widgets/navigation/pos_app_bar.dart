@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -9,6 +10,7 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../pages/payment_page.dart';
 import '../../pages/pesanan_pending_page.dart';
 import '../../pages/pilih_meja_page.dart';
+import '../../../data/datasources/loyalty_remote_datasource.dart';
 import '../../../domain/entities/order_item.dart';
 import '../../providers/order_provider.dart';
 import '../order_panel/diskon_input.dart';
@@ -99,6 +101,7 @@ class _ActionBar extends StatelessWidget {
           context: context,
           builder: (_) => DiskonPesananDialog(
             title: 'Diskon Pesanan',
+            subtotal: context.read<OrderProvider>().subtotal.round(),
             onPromoSelected: (promo) => context
                 .read<OrderProvider>()
                 .setOrderDiscount(promo.discount, promo.discountType, promoName: promo.name),
@@ -867,6 +870,7 @@ enum _RewardType { discount, freeItem }
 
 class _LoyaltyReward {
   const _LoyaltyReward({
+    required this.rewardId,
     required this.type,
     required this.icon,
     required this.name,
@@ -878,6 +882,8 @@ class _LoyaltyReward {
     this.freeItemUnitPrice,
   });
 
+  /// Id reward di server, dipakai saat menukar poin.
+  final int rewardId;
   final _RewardType type;
   final IconData icon;
   final String name;
@@ -887,45 +893,117 @@ class _LoyaltyReward {
   final String? freeItemProductId;
   final String? freeItemName;
   final double? freeItemUnitPrice;
-}
 
-const _loyaltyRewards = [
-  _LoyaltyReward(
-    type: _RewardType.discount,
-    icon: Icons.local_fire_department_rounded,
-    name: 'Diskon IDR 20000',
-    pointCost: 10,
-    discountValue: 20000,
-    discountType: DiscountType.amount,
-  ),
-  _LoyaltyReward(
-    type: _RewardType.discount,
-    icon: Icons.local_fire_department_rounded,
-    name: 'Diskon 50 %',
-    pointCost: 10,
-    discountValue: 50,
-    discountType: DiscountType.percent,
-  ),
-  _LoyaltyReward(
-    type: _RewardType.freeItem,
-    icon: Icons.card_giftcard_rounded,
-    name: 'Free 1 Pizza Keju',
-    pointCost: 10,
-    freeItemProductId: 'redeem_pizza_keju',
-    freeItemName: 'Pizza Keju',
-    freeItemUnitPrice: 100000,
-  ),
-];
+  /// Memetakan reward dari server ke bentuk yang dipakai layar ini.
+  factory _LoyaltyReward.fromModel(LoyaltyRewardModel m) => _LoyaltyReward(
+        rewardId: m.rewardId,
+        type: m.isProdukGratis ? _RewardType.freeItem : _RewardType.discount,
+        icon: m.isProdukGratis
+            ? Icons.card_giftcard_rounded
+            : Icons.local_fire_department_rounded,
+        name: m.nama,
+        pointCost: m.poin,
+        discountValue: m.diskonNilai ?? 0,
+        discountType: m.diskonTipe == 'percent'
+            ? DiscountType.percent
+            : DiscountType.amount,
+        freeItemProductId: m.menuId?.toString(),
+        freeItemName: m.namaMenu,
+        freeItemUnitPrice: m.hargaMenu,
+      );
+}
 
 // ── Loyalty Point dialog ──────────────────────────────────────────────────────
 
-class _LoyaltyPointDialog extends StatelessWidget {
+class _LoyaltyPointDialog extends StatefulWidget {
   const _LoyaltyPointDialog({required this.provider});
 
   final OrderProvider provider;
 
   @override
+  State<_LoyaltyPointDialog> createState() => _LoyaltyPointDialogState();
+}
+
+class _LoyaltyPointDialogState extends State<_LoyaltyPointDialog> {
+  final _datasource = LoyaltyRemoteDatasource();
+  List<_LoyaltyReward> _rewards = const [];
+  bool _memuat = true;
+  bool _menukar = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _muatRewards();
+  }
+
+  /// Katalog reward diambil dari server, menggantikan daftar hardcoded yang
+  /// sebelumnya menunjuk produk yang tidak ada di database.
+  Future<void> _muatRewards() async {
+    try {
+      final rows = await _datasource.fetchRewards();
+      if (!mounted) return;
+      setState(() => _rewards = rows.map(_LoyaltyReward.fromModel).toList());
+    } on ApiException {
+      // Biarkan daftar kosong; dialog tetap menampilkan sisa poin.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  /// Menukar poin di server lebih dulu, baru menerapkan efeknya ke pesanan.
+  /// Urutan ini penting supaya poin tidak terlanjur berkurang di layar padahal
+  /// server menolak.
+  Future<void> _tukar(_LoyaltyReward reward) async {
+    if (_menukar) return;
+    final provider = widget.provider;
+    final memberId = provider.memberId;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    if (memberId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Pilih member terlebih dahulu')),
+      );
+      return;
+    }
+
+    setState(() => _menukar = true);
+    try {
+      await _datasource.redeem(memberId: memberId, rewardId: reward.rewardId);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _menukar = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
+
+    if (reward.type == _RewardType.freeItem) {
+      provider.redeemFreeItem(
+        name: reward.name,
+        pointCost: reward.pointCost,
+        item: OrderItem(
+          productId: reward.freeItemProductId ?? '',
+          name: reward.freeItemName ?? reward.name,
+          unitPrice: reward.freeItemUnitPrice ?? 0,
+          quantity: 1,
+          note: '** REDEEM',
+        ),
+        displayValue: reward.freeItemUnitPrice ?? 0,
+      );
+    } else {
+      provider.redeemReward(
+        reward.name,
+        reward.pointCost,
+        reward.discountValue,
+        reward.discountType,
+      );
+    }
+    navigator.pop();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final provider = widget.provider;
     final currentPoints = provider.memberPoints ?? 0;
     final activeReward = provider.redeemRewardName;
 
@@ -1002,38 +1080,27 @@ class _LoyaltyPointDialog extends StatelessWidget {
                     ),
                   ),
                   const Divider(height: 1),
-                  for (final reward in _loyaltyRewards)
-                    _LoyaltyRewardTile(
-                      reward: reward,
-                      isSelected: activeReward == reward.name,
-                      canAfford: currentPoints >= reward.pointCost,
-                      onTap: currentPoints >= reward.pointCost
-                          ? () {
-                              if (reward.type == _RewardType.freeItem) {
-                                provider.redeemFreeItem(
-                                  name: reward.name,
-                                  pointCost: reward.pointCost,
-                                  item: OrderItem(
-                                    productId: reward.freeItemProductId!,
-                                    name: reward.freeItemName!,
-                                    unitPrice: reward.freeItemUnitPrice!,
-                                    quantity: 1,
-                                    note: '** REDEEM',
-                                  ),
-                                  displayValue: reward.freeItemUnitPrice!,
-                                );
-                              } else {
-                                provider.redeemReward(
-                                  reward.name,
-                                  reward.pointCost,
-                                  reward.discountValue,
-                                  reward.discountType,
-                                );
-                              }
-                              Navigator.of(context).pop();
-                            }
-                          : null,
-                    ),
+                  if (_memuat)
+                    const Padding(
+                      padding: EdgeInsets.all(AppSpacing.x4),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final reward in _rewards)
+                      _LoyaltyRewardTile(
+                        reward: reward,
+                        isSelected: activeReward == reward.name,
+                        canAfford: currentPoints >= reward.pointCost,
+                        onTap: currentPoints >= reward.pointCost && !_menukar
+                            ? () => _tukar(reward)
+                            : null,
+                      ),
                 ],
               ),
             ),

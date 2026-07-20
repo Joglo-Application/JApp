@@ -4,13 +4,9 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../../../../core/network/api_exception.dart';
+import '../../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../../domain/entities/stok_keluar_entry.dart';
-
-class _ProdukOption {
-  const _ProdukOption({required this.nama, required this.harga});
-  final String nama;
-  final int harga;
-}
 
 class TambahProdukKeluarPage extends StatefulWidget {
   const TambahProdukKeluarPage({super.key, this.alreadyAdded = const []});
@@ -34,17 +30,33 @@ class TambahProdukKeluarPage extends StatefulWidget {
 }
 
 class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
-  static const _allProduk = [
-    _ProdukOption(nama: 'Burger Sapi', harga: 20000),
-    _ProdukOption(nama: 'Bakmi Udang', harga: 25000),
-    _ProdukOption(nama: 'Lemon Squash', harga: 15000),
-    _ProdukOption(nama: 'Americano', harga: 18000),
-  ];
+  final _datasource = StokDokumenRemoteDatasource();
 
+  List<ProdukPilihan> _allProduk = const [];
+  bool _memuat = true;
   String _query = '';
-  final Set<String> _selected = {};
 
-  List<_ProdukOption> get _filtered {
+  /// Dipilih per id, bukan per nama, agar produk bernama sama tidak tertukar.
+  final Set<int> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final items = await _datasource.fetchMenus();
+      if (mounted) setState(() => _allProduk = items);
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan produk contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  List<ProdukPilihan> get _filtered {
     final q = _query.toLowerCase();
     return _allProduk
         .where((p) =>
@@ -153,7 +165,8 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
     );
   }
 
-  Widget _buildList(List<_ProdukOption> items) {
+  Widget _buildList(List<ProdukPilihan> items) {
+    if (_memuat) return const Center(child: CircularProgressIndicator());
     if (items.isEmpty) {
       return Center(
         child: Text(
@@ -170,13 +183,13 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final p = items[i];
-        final isChecked = _selected.contains(p.nama);
+        final isChecked = _selected.contains(p.id);
         return InkWell(
           onTap: () => setState(() {
             if (isChecked) {
-              _selected.remove(p.nama);
+              _selected.remove(p.id);
             } else {
-              _selected.add(p.nama);
+              _selected.add(p.id);
             }
           }),
           child: Padding(
@@ -200,9 +213,9 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
                   ),
                   onChanged: (v) => setState(() {
                     if (v == true) {
-                      _selected.add(p.nama);
+                      _selected.add(p.id);
                     } else {
-                      _selected.remove(p.nama);
+                      _selected.remove(p.id);
                     }
                   }),
                 ),
@@ -235,11 +248,12 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
   }
 
   void _onTambah() {
-    final allProdukMap = {for (final p in _allProduk) p.nama: p};
+    final byId = {for (final p in _allProduk) p.id: p};
     final result = _selected
-        .map((nama) => StokKeluarProdukItem(
-              nama: nama,
-              harga: allProdukMap[nama]?.harga ?? 0,
+        .map((id) => StokKeluarProdukItem(
+              refId: id,
+              nama: byId[id]?.nama ?? '',
+              harga: (byId[id]?.harga ?? 0).round(),
             ))
         .toList();
     Navigator.of(context).pop(result);

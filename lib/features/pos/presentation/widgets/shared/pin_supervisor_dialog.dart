@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../../core/network/api_client.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
 
-/// Shows a PIN Supervisor dialog and returns `true` when the correct PIN is
-/// entered, or `false` / `null` when cancelled.
+/// Dialog PIN Supervisor. PIN diverifikasi ke server (`POST /auth/verify-pin`),
+/// bukan dicocokkan di klien.
+///
+/// Mengembalikan PIN yang sudah terverifikasi, atau `null` bila dibatalkan.
+/// PIN-nya ikut dikembalikan karena sebagian aksi (mis. retur transaksi)
+/// perlu menyertakannya lagi saat memanggil API.
 ///
 /// Usage:
 /// ```dart
-/// final ok = await showDialog<bool>(
+/// final pin = await showDialog<String>(
 ///   context: context,
 ///   builder: (_) => const PinSupervisorDialog(),
 /// );
+/// if (pin == null) return; // dibatalkan
 /// ```
 class PinSupervisorDialog extends StatefulWidget {
   const PinSupervisorDialog({super.key});
@@ -25,11 +31,15 @@ class PinSupervisorDialog extends StatefulWidget {
 class _PinSupervisorDialogState extends State<PinSupervisorDialog> {
   String _pin = '';
   bool _wrongPin = false;
+  bool _memeriksa = false;
+  String _pesanError = 'PIN salah, coba lagi';
 
-  static const _correctPin = '123456';
   static const _maxLength = 6;
 
   void _onKey(String key) {
+    // Abaikan penekanan tombol selama menunggu jawaban server.
+    if (_memeriksa) return;
+
     setState(() {
       _wrongPin = false;
       if (key == '↻') {
@@ -38,16 +48,31 @@ class _PinSupervisorDialogState extends State<PinSupervisorDialog> {
         if (_pin.isNotEmpty) _pin = _pin.substring(0, _pin.length - 1);
       } else if (_pin.length < _maxLength) {
         _pin += key;
-        if (_pin.length == _maxLength) {
-          if (_pin == _correctPin) {
-            Navigator.of(context).pop(true);
-          } else {
-            _pin = '';
-            _wrongPin = true;
-          }
-        }
       }
     });
+
+    if (_pin.length == _maxLength) _verifikasi();
+  }
+
+  Future<void> _verifikasi() async {
+    setState(() => _memeriksa = true);
+    final client = ApiClient.instance;
+    final pin = _pin;
+    try {
+      await client.dio.post<Map<String, dynamic>>(
+        '/auth/verify-pin',
+        data: {'pin': pin},
+      );
+      if (mounted) Navigator.of(context).pop(pin);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pin = '';
+        _wrongPin = true;
+        _pesanError = client.toApiException(e).message;
+        _memeriksa = false;
+      });
+    }
   }
 
   @override
@@ -86,7 +111,7 @@ class _PinSupervisorDialogState extends State<PinSupervisorDialog> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () => Navigator.of(context).pop(),
                       child: Text(
                         'Batal',
                         style: AppTypography.textTheme.labelLarge?.copyWith(
@@ -113,7 +138,8 @@ class _PinSupervisorDialogState extends State<PinSupervisorDialog> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: AppSpacing.x3),
                         child: Text(
-                          'PIN salah, coba lagi',
+                          _pesanError,
+                          textAlign: TextAlign.center,
                           style: AppTypography.textTheme.bodySmall?.copyWith(
                             color: AppColors.error,
                           ),

@@ -3,6 +3,13 @@ import '../models/transaksi_model.dart';
 
 abstract class TransaksiRemoteDatasource {
   Future<List<TransaksiModel>> fetchTransaksi({DateTime? date});
+
+  /// Retur transaksi. PIN supervisor diverifikasi ulang di server.
+  Future<void> returTransaksi({
+    required String kode,
+    required String alasan,
+    required String pin,
+  });
 }
 
 class TransaksiRemoteDatasourceImpl implements TransaksiRemoteDatasource {
@@ -26,6 +33,24 @@ class TransaksiRemoteDatasourceImpl implements TransaksiRemoteDatasource {
       return rows
           .map((e) => TransaksiModel.fromJson(e as Map<String, dynamic>))
           .toList();
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<void> returTransaksi({
+    required String kode,
+    required String alasan,
+    required String pin,
+  }) async {
+    // POST /transaksi/:kode/retur — mengembalikan stok bahan, menandai
+    // transaksi sebagai retur, dan mencatatnya di audit log.
+    try {
+      await _client.dio.post<Map<String, dynamic>>(
+        '/transaksi/$kode/retur',
+        data: {'alasan': alasan, 'pin': pin},
+      );
     } catch (e) {
       throw _client.toApiException(e);
     }

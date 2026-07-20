@@ -4,6 +4,8 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../../../../core/network/api_exception.dart';
+import '../../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../../domain/entities/stok_masuk_entry.dart';
 
 class ProdukPickerPanel extends StatefulWidget {
@@ -16,30 +18,37 @@ class ProdukPickerPanel extends StatefulWidget {
 }
 
 class _ProdukPickerPanelState extends State<ProdukPickerPanel> {
-  static const _inventoriItems = [
-    'Burger Sapi',
-    'Bakmi Udang',
-    'Lemon Squash',
-    'Americano',
-  ];
-  static const _stokGudangItems = [
-    'Beras',
-    'Air Galon',
-    'Telur',
-    'Tepung Terigu',
-    'Daging Ayam Fillet',
-  ];
+  final _datasource = StokDokumenRemoteDatasource();
 
+  List<ProdukPilihan> _allItems = const [];
+  bool _memuat = true;
   String _query = '';
 
-  List<String> get _allItems => widget.source == ProdukSource.inventori
-      ? _inventoriItems
-      : _stokGudangItems;
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
 
-  List<String> get _filteredItems => _query.isEmpty
+  /// Daftar produk diambil dari server (menu untuk Inventori, bahan baku
+  /// untuk Stok Gudang) supaya id-nya ikut terbawa saat dipilih.
+  Future<void> _muat() async {
+    try {
+      final items = widget.source == ProdukSource.inventori
+          ? await _datasource.fetchMenus()
+          : await _datasource.fetchBahanBaku();
+      if (mounted) setState(() => _allItems = items);
+    } on ApiException {
+      // Biarkan kosong; daftar tampil hampa daripada menampilkan contoh palsu.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  List<ProdukPilihan> get _filteredItems => _query.isEmpty
       ? _allItems
       : _allItems
-          .where((i) => i.toLowerCase().contains(_query.toLowerCase()))
+          .where((i) => i.nama.toLowerCase().contains(_query.toLowerCase()))
           .toList();
 
   String get _title =>
@@ -148,13 +157,30 @@ class _ProdukPickerPanelState extends State<ProdukPickerPanel> {
   }
 
   Widget _buildList(BuildContext context) {
+    if (_memuat) return const Center(child: CircularProgressIndicator());
+
     final items = _filteredItems;
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          'Tidak ada produk',
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
     return ListView.separated(
       itemCount: items.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) => InkWell(
         onTap: () => Navigator.of(context).pop(
-          StokMasukProdukItem(nama: items[i], source: widget.source),
+          StokMasukProdukItem(
+            refId: items[i].id,
+            nama: items[i].nama,
+            source: widget.source,
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -162,7 +188,7 @@ class _ProdukPickerPanelState extends State<ProdukPickerPanel> {
             vertical: AppSpacing.x4,
           ),
           child: Text(
-            items[i],
+            items[i].nama,
             style: AppTypography.textTheme.bodyMedium,
           ),
         ),

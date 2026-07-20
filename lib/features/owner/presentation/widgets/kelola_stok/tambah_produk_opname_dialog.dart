@@ -4,27 +4,35 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../../../../core/network/api_exception.dart';
+import '../../../data/datasources/stok_dokumen_remote_datasource.dart';
+import '../../../domain/entities/stok_masuk_entry.dart' show ProdukSource;
 import '../../../domain/entities/stok_opname_entry.dart';
 
-class _ProdukOption {
-  const _ProdukOption({required this.nama, required this.qtySystem});
-  final String nama;
-  final int qtySystem;
-}
-
 class TambahProdukOpnamePage extends StatefulWidget {
-  const TambahProdukOpnamePage({super.key, this.alreadyAdded = const []});
+  const TambahProdukOpnamePage({
+    super.key,
+    required this.source,
+    this.alreadyAdded = const [],
+  });
 
+  /// Menentukan daftar yang dimuat: menu untuk Inventori, bahan baku untuk
+  /// Stok Gudang. Satu dokumen opname boleh memuat keduanya.
+  final ProdukSource source;
   final List<String> alreadyAdded;
 
   static Future<List<StokOpnameProdukItem>?> push(
     BuildContext context, {
+    required ProdukSource source,
     List<String> alreadyAdded = const [],
   }) {
     return Navigator.of(context).push<List<StokOpnameProdukItem>>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => TambahProdukOpnamePage(alreadyAdded: alreadyAdded),
+        builder: (_) => TambahProdukOpnamePage(
+          source: source,
+          alreadyAdded: alreadyAdded,
+        ),
       ),
     );
   }
@@ -34,19 +42,35 @@ class TambahProdukOpnamePage extends StatefulWidget {
 }
 
 class _TambahProdukOpnamePageState extends State<TambahProdukOpnamePage> {
-  static const _allProduk = [
-    _ProdukOption(nama: 'Burger Sapi', qtySystem: 50),
-    _ProdukOption(nama: 'Bakmi Udang', qtySystem: 40),
-    _ProdukOption(nama: 'Lemon Squash', qtySystem: 35),
-    _ProdukOption(nama: 'Americano', qtySystem: 60),
-    _ProdukOption(nama: 'Air Mineral 600ml', qtySystem: 30),
-    _ProdukOption(nama: 'Air Mineral 750ml', qtySystem: 22),
-  ];
+  final _datasource = StokDokumenRemoteDatasource();
 
+  List<ProdukPilihan> _allProduk = const [];
+  bool _memuat = true;
   String _query = '';
-  final Set<String> _selected = {};
 
-  List<_ProdukOption> get _filtered {
+  /// Dipilih per id agar produk bernama sama tidak tertukar.
+  final Set<int> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final items = widget.source == ProdukSource.inventori
+          ? await _datasource.fetchMenus()
+          : await _datasource.fetchBahanBaku();
+      if (mounted) setState(() => _allProduk = items);
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan stok contoh yang menyesatkan.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  List<ProdukPilihan> get _filtered {
     final q = _query.toLowerCase();
     return _allProduk
         .where((p) =>
@@ -149,7 +173,8 @@ class _TambahProdukOpnamePageState extends State<TambahProdukOpnamePage> {
     );
   }
 
-  Widget _buildList(List<_ProdukOption> items) {
+  Widget _buildList(List<ProdukPilihan> items) {
+    if (_memuat) return const Center(child: CircularProgressIndicator());
     if (items.isEmpty) {
       return Center(
         child: Text(
@@ -166,10 +191,10 @@ class _TambahProdukOpnamePageState extends State<TambahProdukOpnamePage> {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final p = items[i];
-        final isChecked = _selected.contains(p.nama);
+        final isChecked = _selected.contains(p.id);
         return InkWell(
           onTap: () => setState(() {
-            isChecked ? _selected.remove(p.nama) : _selected.add(p.nama);
+            isChecked ? _selected.remove(p.id) : _selected.add(p.id);
           }),
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -188,7 +213,7 @@ class _TambahProdukOpnamePageState extends State<TambahProdukOpnamePage> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   onChanged: (v) => setState(() {
-                    v == true ? _selected.add(p.nama) : _selected.remove(p.nama);
+                    v == true ? _selected.add(p.id) : _selected.remove(p.id);
                   }),
                 ),
               ],
@@ -220,14 +245,19 @@ class _TambahProdukOpnamePageState extends State<TambahProdukOpnamePage> {
   }
 
   void _onTambah() {
-    final map = {for (final p in _allProduk) p.nama: p};
-    final result = _selected
-        .map((nama) => StokOpnameProdukItem(
-              nama: nama,
-              qtySystem: map[nama]?.qtySystem ?? 0,
-              qtyAktual: map[nama]?.qtySystem ?? 0,
-            ))
-        .toList();
+    final byId = {for (final p in _allProduk) p.id: p};
+    final result = _selected.map((id) {
+      // Stok sistem ditampilkan sebagai pembanding; hitungan fisik diawali
+      // dengan angka yang sama supaya selisihnya mulai dari nol.
+      final sistem = (byId[id]?.stok ?? 0).round();
+      return StokOpnameProdukItem(
+        refId: id,
+        source: widget.source,
+        nama: byId[id]?.nama ?? '',
+        qtySystem: sistem,
+        qtyAktual: sistem,
+      );
+    }).toList();
     Navigator.of(context).pop(result);
   }
 }

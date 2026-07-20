@@ -8,10 +8,11 @@ import '../../domain/usecases/fetch_transaksi_usecase.dart';
 
 class TransaksiProvider extends ChangeNotifier {
   TransaksiProvider({TransaksiRepository? repository}) {
-    final repo = repository ?? TransaksiRepositoryImpl();
-    _fetchTransaksi = FetchTransaksiUseCase(repo);
+    _repository = repository ?? TransaksiRepositoryImpl();
+    _fetchTransaksi = FetchTransaksiUseCase(_repository);
   }
 
+  late final TransaksiRepository _repository;
   late final FetchTransaksiUseCase _fetchTransaksi;
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -170,7 +171,22 @@ class TransaksiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void markAsReturned(String kode) {
+  /// Meretur transaksi di server, lalu menandainya di state lokal bila
+  /// berhasil. Sebelumnya penandaan hanya lokal sehingga hilang saat data
+  /// dimuat ulang, stok tidak kembali, dan kas tidak disesuaikan.
+  ///
+  /// Mengembalikan pesan galat bila gagal, atau `null` bila berhasil.
+  Future<String?> returTransaksi({
+    required String kode,
+    required String alasan,
+    required String pin,
+  }) async {
+    try {
+      await _repository.returTransaksi(kode: kode, alasan: alasan, pin: pin);
+    } on ApiException catch (e) {
+      return e.message;
+    }
+
     _all = _all
         .map((t) => t.kode == kode ? t.copyWith(isReturned: true) : t)
         .toList();
@@ -178,6 +194,7 @@ class TransaksiProvider extends ChangeNotifier {
       _selected = _all.firstWhere((t) => t.kode == kode);
     }
     notifyListeners();
+    return null;
   }
 
   void setPaymentTypeFilter(String? type) {

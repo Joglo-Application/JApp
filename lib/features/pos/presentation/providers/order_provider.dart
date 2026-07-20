@@ -45,6 +45,10 @@ class OrderProvider extends ChangeNotifier {
   final List<OrderItem> _items = [];
   String _customerName = '';
   int? _memberPoints;
+
+  /// Id member terpilih. Tanpa ini pesanan tersimpan tanpa kaitan member,
+  /// sehingga riwayat transaksi member selalu kosong.
+  int? _memberId;
   double _orderDiscount = 0;
   DiscountType _orderDiscountType = DiscountType.amount;
   String? _orderPromoName;
@@ -77,6 +81,7 @@ class OrderProvider extends ChangeNotifier {
 
   String get customerName => _customerName;
   int? get memberPoints => _memberPoints;
+  int? get memberId => _memberId;
   double get orderDiscount => _orderDiscount;
   DiscountType get orderDiscountType => _orderDiscountType;
   String? get orderPromoName => _orderPromoName;
@@ -113,12 +118,14 @@ class OrderProvider extends ChangeNotifier {
   void setCustomerName(String name) {
     _customerName = name;
     _memberPoints = null;
+    _memberId = null;
     notifyListeners();
   }
 
-  void setMember(String name, int points) {
+  void setMember(String name, int points, {int? memberId}) {
     _customerName = name;
     _memberPoints = points;
+    _memberId = memberId;
     notifyListeners();
   }
 
@@ -161,6 +168,7 @@ class OrderProvider extends ChangeNotifier {
     _orderPromoName = null;
     _orderNote = '';
     _memberPoints = null;
+    _memberId = null;
     _submitError = null;
     notifyListeners();
   }
@@ -588,6 +596,7 @@ class OrderProvider extends ChangeNotifier {
       orderType: _apiOrderType(effectiveOrderType),
       catatan: _orderNote.isEmpty ? null : _orderNote,
       mejaId: _mejaId,
+      memberId: _memberId,
       diskon: diskon,
       hold: hold,
     );

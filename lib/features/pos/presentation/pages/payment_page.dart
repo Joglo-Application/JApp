@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -101,10 +103,12 @@ class _PaymentPageState extends State<PaymentPage> {
       ..pop()
       ..pop();
 
-    // Persist earned loyalty points to the member store (so the new balance
-    // loads next time the member is selected) before wiping the order.
+    // Simpan poin yang diperoleh ke server. Sengaja tidak ditunggu supaya
+    // reset layar tidak tertahan jaringan; kegagalannya sudah ditangani di
+    // dalam updateMemberPoints dan tidak membatalkan pembayaran yang sudah
+    // tercatat.
     if (memberName.isNotEmpty && memberPoints != null && earned > 0) {
-      updateMemberPoints(memberName, memberPoints + earned);
+      unawaited(updateMemberPoints(memberName, memberPoints + earned));
     }
 
     // Reset everything — including the customer name — so the panel shows the

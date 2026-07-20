@@ -6,7 +6,9 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/utils/currency_formatter.dart';
+import '../../../data/datasources/promo_remote_datasource.dart';
 import '../../../domain/entities/order_item.dart';
 import '../../../domain/entities/product.dart';
 import '../../providers/order_provider.dart';
@@ -57,6 +59,15 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
     _discountCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  /// Harga × qty item ini — dasar validasi promo di server.
+  int get _subtotalItem {
+    final price = double.tryParse(
+          _priceCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+        ) ??
+        0;
+    return (price * _qty).round();
   }
 
   void _applyPromo(DiscountPromo promo) {
@@ -129,6 +140,7 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
                   onTypeChanged: (t) => setState(() => _discountType = t),
                   promoLabel: _promoLabel,
                   onPromoSelected: _applyPromo,
+                  subtotal: _subtotalItem,
                 ),
                 const SizedBox(height: AppSpacing.x4),
                 _CatatanSection(controller: _noteCtrl),
@@ -285,6 +297,7 @@ class _DiskonSection extends StatelessWidget {
     required this.discountType,
     required this.onTypeChanged,
     required this.onPromoSelected,
+    required this.subtotal,
     this.promoLabel,
   });
 
@@ -292,6 +305,9 @@ class _DiskonSection extends StatelessWidget {
   final DiscountType discountType;
   final ValueChanged<DiscountType> onTypeChanged;
   final ValueChanged<DiscountPromo> onPromoSelected;
+
+  /// Harga × qty item ini — dasar validasi promo di server.
+  final int subtotal;
   final String? promoLabel;
 
   @override
@@ -312,6 +328,7 @@ class _DiskonSection extends StatelessWidget {
                 context: context,
                 builder: (_) => DiskonPesananDialog(
                   onPromoSelected: onPromoSelected,
+                  subtotal: subtotal,
                 ),
               ),
             ),
@@ -587,11 +604,15 @@ class DiskonPesananDialog extends StatefulWidget {
   const DiskonPesananDialog({
     super.key,
     required this.onPromoSelected,
+    required this.subtotal,
     this.title = 'Diskon Item',
     this.onOpenInput,
   });
 
   final ValueChanged<DiscountPromo> onPromoSelected;
+
+  /// Dasar perhitungan potongan; dikirim ke server saat memvalidasi promo.
+  final int subtotal;
   final String title;
   final VoidCallback? onOpenInput;
 
@@ -600,9 +621,53 @@ class DiskonPesananDialog extends StatefulWidget {
 }
 
 class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
+  final _datasource = PromoRemoteDatasource();
+
+  List<PromoModel> _promoList = const [];
+  bool _memuat = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _muatPromo();
+  }
+
+  Future<void> _muatPromo() async {
+    try {
+      final list = await _datasource.fetchPromo();
+      if (mounted) setState(() => _promoList = list);
+    } on ApiException {
+      // Daftar promo gagal dimuat — dialog tetap bisa dipakai lewat input
+      // kode voucher manual, jadi tidak perlu menghalangi pengguna.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
   void _selectPromo(DiscountPromo promo) {
     widget.onPromoSelected(promo);
     Navigator.of(context).pop();
+  }
+
+  /// Menerapkan promo lewat validasi server agar nominal potongannya
+  /// dihitung di sana, bukan di klien.
+  Future<void> _pilihPromoServer(String kode) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final hasil = await _datasource.validatePromo(
+        kode: kode,
+        subtotal: widget.subtotal,
+      );
+      if (!mounted) return;
+      _selectPromo(DiscountPromo(
+        name: hasil.nama,
+        discount: hasil.diskon,
+        discountType: DiscountType.amount,
+      ));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   @override
@@ -667,7 +732,7 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
               onTap: () {
                 showDialog<DiscountPromo>(
                   context: context,
-                  builder: (_) => const _VoucherInputDialog(),
+                  builder: (_) => _VoucherInputDialog(subtotal: widget.subtotal),
                 ).then((promo) {
                   if (promo != null) _selectPromo(promo);
                 });
@@ -675,15 +740,28 @@ class _DiskonPesananDialogState extends State<DiskonPesananDialog> {
             ),
             const SizedBox(height: AppSpacing.x3),
             Divider(height: 1, color: AppColors.onPrimary.withValues(alpha: 0.2)),
-            _PromoTile(
-              name: 'PROMO MEI (PROMOMEI)',
-              description: 'Diskon. 5%',
-              onTap: () => _selectPromo(const DiscountPromo(
-                name: 'PROMO MEI',
-                discount: 5,
-                discountType: DiscountType.percent,
-              )),
-            ),
+            // Daftar promo aktif diambil dari server (GET /promo).
+            if (_memuat)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.x4),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.onPrimary,
+                    ),
+                  ),
+                ),
+              )
+            else
+              for (final promo in _promoList)
+                _PromoTile(
+                  name: '${promo.nama} (${promo.kode})',
+                  description: promo.deskripsi,
+                  onTap: () => _pilihPromoServer(promo.kode),
+                ),
           ],
         ),
       ),
@@ -865,7 +943,10 @@ class _CatatanPesananDialogState extends State<CatatanPesananDialog> {
 // ── Voucher Input Dialog ──────────────────────────────────────────────────────
 
 class _VoucherInputDialog extends StatefulWidget {
-  const _VoucherInputDialog();
+  const _VoucherInputDialog({required this.subtotal});
+
+  /// Dasar perhitungan potongan, dikirim ke server saat memvalidasi kode.
+  final int subtotal;
 
   @override
   State<_VoucherInputDialog> createState() => _VoucherInputDialogState();
@@ -873,15 +954,9 @@ class _VoucherInputDialog extends StatefulWidget {
 
 class _VoucherInputDialogState extends State<_VoucherInputDialog> {
   final _ctrl = TextEditingController();
+  final _datasource = PromoRemoteDatasource();
   String? _errorText;
-
-  static const _vouchers = <String, DiscountPromo>{
-    'PROMOMEI': DiscountPromo(
-      name: 'PROMO MEI',
-      discount: 5,
-      discountType: DiscountType.percent,
-    ),
-  };
+  bool _memeriksa = false;
 
   @override
   void dispose() {
@@ -889,14 +964,39 @@ class _VoucherInputDialogState extends State<_VoucherInputDialog> {
     super.dispose();
   }
 
-  void _confirm() {
+  /// Kode voucher divalidasi dan potongannya dihitung di server
+  /// (`POST /promo/validate`), sehingga tidak bisa diatur dari klien.
+  Future<void> _confirm() async {
+    if (_memeriksa) return;
     final code = _ctrl.text.trim().toUpperCase();
-    final promo = _vouchers[code];
-    if (promo == null) {
-      setState(() => _errorText = 'Kode voucher tidak valid');
+    if (code.isEmpty) {
+      setState(() => _errorText = 'Kode voucher belum diisi');
       return;
     }
-    Navigator.of(context).pop(promo);
+
+    setState(() {
+      _memeriksa = true;
+      _errorText = null;
+    });
+
+    try {
+      final hasil = await _datasource.validatePromo(
+        kode: code,
+        subtotal: widget.subtotal,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(DiscountPromo(
+        name: hasil.nama,
+        discount: hasil.diskon,
+        discountType: DiscountType.amount,
+      ));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message;
+        _memeriksa = false;
+      });
+    }
   }
 
   @override

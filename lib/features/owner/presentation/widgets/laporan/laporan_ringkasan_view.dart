@@ -1,44 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../providers/owner_laporan_provider.dart';
+
+/// Format "Rp 1.234.567".
+String _rp(double v) {
+  final s = v.round().abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return '${v < 0 ? '-' : ''}Rp $buf';
+}
 
 class LaporanRingkasanView extends StatelessWidget {
   const LaporanRingkasanView({super.key});
 
-  static const _summaryItems = [
-    ('Ringkasan Loyalty Point', 34),
-    ('Pesanan Diterima', 225),
-    ('Pesanan Dibatalkan', 62),
-    ('Pesanan Diretur', 21),
-  ];
-
-  static const _pencatatanItems = [
-    ('Pendapatan', 'Rp 1.270.600'),
-    ('Pengeluaran', 'Rp 200.000'),
-    ('Pengembalian Penjualan', 'Rp 280.700'),
-  ];
-
-  static const _penjualanItems = [
-    ('Total Penjualan', 'Rp 989.900'),
-    ('Penjualan Kotor', 'Rp 949.300'),
-    ('Penerimaan', 'Rp 989.000'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final r = context.watch<OwnerLaporanProvider>().ringkasan;
+
+    final summaryItems = [
+      ('Ringkasan Loyalty Point', r.poinTerkumpul),
+      ('Pesanan Diterima', r.pesananDiterima),
+      ('Pesanan Dibatalkan', r.pesananDibatalkan),
+      ('Pesanan Diretur', r.pesananDiretur),
+    ];
+
+    final pencatatanItems = [
+      ('Pendapatan', _rp(r.pendapatan)),
+      ('Pengeluaran', _rp(r.pengeluaran)),
+      ('Pengembalian Penjualan', _rp(r.retur)),
+    ];
+
+    // "Kotor" = sebelum pajak & biaya layanan; "Penerimaan" = bersih setelah
+    // dikurangi retur dan pengeluaran.
+    final penjualanItems = [
+      ('Total Penjualan', _rp(r.pendapatan)),
+      ('Penjualan Kotor', _rp(r.subtotal)),
+      ('Penerimaan', _rp(r.pendapatanBersih)),
+    ];
+
     return ListView(
       children: [
-        ..._summaryItems.map(
+        ...summaryItems.map(
           (item) => _SummaryRow(label: item.$1, total: item.$2),
         ),
         const _SectionHeader('Ringkasan Pencatatan Resto'),
-        ..._pencatatanItems.map(
+        ...pencatatanItems.map(
           (item) => _KeyValueRow(label: item.$1, value: item.$2),
         ),
         const _SectionHeader('Ringkasan Penjualan'),
-        ..._penjualanItems.map(
+        ...penjualanItems.map(
           (item) => _KeyValueRow(label: item.$1, value: item.$2),
         ),
       ],

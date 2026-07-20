@@ -6,9 +6,13 @@ class StokMasukProdukItem {
   StokMasukProdukItem({
     required this.nama,
     required this.source,
+    this.refId = 0,
     this.jumlah = 1,
   });
 
+  /// menuId bila sumbernya inventori, bahanId bila stok gudang. Dibutuhkan
+  /// agar dokumen menunjuk produk yang tepat, bukan dicocokkan lewat nama.
+  final int refId;
   final String nama;
   final ProdukSource source;
   int jumlah;

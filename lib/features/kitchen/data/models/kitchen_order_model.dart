@@ -4,6 +4,7 @@ class KitchenOrderItemModel extends KitchenOrderItem {
   const KitchenOrderItemModel({
     required super.nama,
     required super.qty,
+    super.detailId,
     super.catatan,
     super.isDone,
   });
@@ -12,7 +13,10 @@ class KitchenOrderItemModel extends KitchenOrderItem {
       KitchenOrderItemModel(
         nama: json['nama'] as String,
         qty: json['qty'] as int,
+        detailId: (json['detailId'] as num?)?.toInt() ?? 0,
         catatan: json['catatan'] as String? ?? '',
+        // Status centang kini tersimpan di server, jadi ikut dimuat.
+        isDone: json['selesai'] == true,
       );
 }
 
