@@ -4,9 +4,12 @@ class StokKeluarProdukItem {
   StokKeluarProdukItem({
     required this.nama,
     required this.harga,
+    this.refId = 0,
     this.jumlah = 1,
   });
 
+  /// menuId produk yang dikeluarkan.
+  final int refId;
   final String nama;
   final int harga;
   int jumlah;

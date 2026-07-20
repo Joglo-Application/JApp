@@ -162,4 +162,33 @@ class StokDokumenRemoteDatasource {
       throw _client.toApiException(e);
     }
   }
+
+  /// Membuat dokumen stok keluar. Itemnya berupa produk jadi (menu), sesuai
+  /// pemilih produk di layar Kelola Stok.
+  Future<void> createStokKeluar({
+    required List<ItemDokumen> items,
+    String? catatan,
+    required bool langsungPosting,
+  }) async {
+    try {
+      await _client.dio.post<Map<String, dynamic>>(
+        '/stok-keluar',
+        data: {
+          if (catatan != null && catatan.isNotEmpty) 'catatan': catatan,
+          'langsungPosting': langsungPosting,
+          'items': [
+            for (final it in items)
+              {
+                'sumber': 'inventori',
+                'menuId': it.refId,
+                'jumlah': it.jumlah,
+                'harga': it.harga ?? 0,
+              },
+          ],
+        },
+      );
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
 }

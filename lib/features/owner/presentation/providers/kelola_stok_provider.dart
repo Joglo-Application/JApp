@@ -12,6 +12,7 @@ class KelolaStokProvider extends ChangeNotifier {
   KelolaStokProvider({StokDokumenRemoteDatasource? datasource})
       : _datasource = datasource ?? StokDokumenRemoteDatasource() {
     loadStokMasuk();
+    loadStokKeluar();
   }
 
   final StokDokumenRemoteDatasource _datasource;
@@ -27,7 +28,6 @@ class KelolaStokProvider extends ChangeNotifier {
     KategoriStok(id: '4', nama: 'Kopi'),
     KategoriStok(id: '5', nama: 'Kue'),
   ];
-  int _keluarCounter = 0;
   int _produksiCounter = 0;
   int _opnameCounter = 0;
   int _kategoriCounter = 5;
@@ -43,10 +43,8 @@ class KelolaStokProvider extends ChangeNotifier {
   /// berbeda dari yang benar-benar tersimpan.
   String generateKodeMasuk() => '(otomatis)';
 
-  String generateKodeKeluar() {
-    _keluarCounter++;
-    return 'SK-${_keluarCounter.toString().padLeft(3, '0')}';
-  }
+  /// Sama seperti stok masuk: kode ditentukan server saat penyimpanan.
+  String generateKodeKeluar() => '(otomatis)';
 
   String generateKodeProduksi() {
     _produksiCounter++;
@@ -127,9 +125,58 @@ class KelolaStokProvider extends ChangeNotifier {
     }
   }
 
-  void addStokKeluar(StokKeluarEntry entry) {
-    _stokKeluarList.add(entry);
-    notifyListeners();
+  /// Memuat daftar dokumen stok keluar dari server.
+  Future<void> loadStokKeluar() async {
+    try {
+      final rows = await _datasource.fetchStokKeluar();
+      _stokKeluarList
+        ..clear()
+        ..addAll(rows.map(_toStokKeluarEntry));
+      notifyListeners();
+    } on ApiException {
+      // Biarkan daftar apa adanya.
+    }
+  }
+
+  static StokKeluarStatus _statusKeluar(String s) => switch (s) {
+        'posted' => StokKeluarStatus.posted,
+        'cancelled' => StokKeluarStatus.cancelled,
+        _ => StokKeluarStatus.draft,
+      };
+
+  static StokKeluarEntry _toStokKeluarEntry(DokumenStok d) => StokKeluarEntry(
+        kode: d.kode,
+        tanggal: d.tanggal,
+        createdBy: d.createdBy,
+        catatan: d.catatan,
+        status: _statusKeluar(d.status),
+        produk: d.produk
+            .map((p) => StokKeluarProdukItem(
+                  refId: ((p['menuId'] ?? p['bahanId']) as num?)?.toInt() ?? 0,
+                  nama: (p['nama'] ?? '').toString(),
+                  harga: (p['harga'] as num?)?.toInt() ?? 0,
+                  jumlah: (p['jumlah'] as num?)?.toInt() ?? 1,
+                ))
+            .toList(),
+      );
+
+  /// Menyimpan dokumen stok keluar ke server lalu memuat ulang daftarnya.
+  /// Mengembalikan pesan galat bila gagal, atau `null` bila berhasil.
+  Future<String?> addStokKeluar(StokKeluarEntry entry) async {
+    try {
+      await _datasource.createStokKeluar(
+        items: entry.produk
+            .map((p) =>
+                ItemDokumen(refId: p.refId, jumlah: p.jumlah, harga: p.harga))
+            .toList(),
+        catatan: entry.catatan,
+        langsungPosting: entry.status == StokKeluarStatus.posted,
+      );
+    } on ApiException catch (e) {
+      return e.message;
+    }
+    await loadStokKeluar();
+    return null;
   }
 
   void updateStokKeluar(StokKeluarEntry entry) {
