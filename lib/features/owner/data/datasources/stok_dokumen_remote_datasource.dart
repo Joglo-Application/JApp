@@ -173,6 +173,45 @@ class StokDokumenRemoteDatasource {
     }
   }
 
+  /// Nama bahan pada resep sebuah menu. Diambil hanya untuk produk yang
+  /// benar-benar dipilih — memuatnya untuk seluruh daftar berarti satu
+  /// permintaan per menu.
+  Future<List<String>> fetchResep(int menuId) async {
+    try {
+      final res =
+          await _client.dio.get<Map<String, dynamic>>('/menus/$menuId/resep');
+      final rows = res.data?['data'] as List<dynamic>? ?? const [];
+      return rows
+          .map((e) => ((e as Map<String, dynamic>)['namaBahan'] ?? '').toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  /// Membuat dokumen produksi stok. Itemnya selalu berupa menu.
+  Future<void> createProduksiStok({
+    required List<ItemDokumen> items,
+    String? catatan,
+    required bool langsungPosting,
+  }) async {
+    try {
+      await _client.dio.post<Map<String, dynamic>>(
+        '/produksi-stok',
+        data: {
+          if (catatan != null && catatan.isNotEmpty) 'catatan': catatan,
+          'langsungPosting': langsungPosting,
+          'items': [
+            for (final it in items) {'menuId': it.refId, 'jumlah': it.jumlah},
+          ],
+        },
+      );
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
   /// Membuat dokumen stok opname. Satu dokumen boleh memuat bahan baku
   /// maupun produk jadi. Stok sistem tidak dikirim — server merekamnya sendiri
   /// saat dokumen dibuat agar selisihnya dihitung dari angka yang otoritatif.

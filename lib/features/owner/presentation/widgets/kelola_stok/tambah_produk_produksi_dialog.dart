@@ -4,13 +4,9 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../../../../core/network/api_exception.dart';
+import '../../../data/datasources/stok_dokumen_remote_datasource.dart';
 import '../../../domain/entities/produksi_stok_entry.dart';
-
-class _ProdukOption {
-  const _ProdukOption({required this.nama, required this.resep});
-  final String nama;
-  final List<String> resep;
-}
 
 class TambahProdukProduksiPage extends StatefulWidget {
   const TambahProdukProduksiPage({super.key, this.alreadyAdded = const []});
@@ -35,29 +31,34 @@ class TambahProdukProduksiPage extends StatefulWidget {
 }
 
 class _TambahProdukProduksiPageState extends State<TambahProdukProduksiPage> {
-  static const _allProduk = [
-    _ProdukOption(
-      nama: 'Burger Sapi',
-      resep: ['Roti', 'Daging Sapi', 'Tomat', 'Timun'],
-    ),
-    _ProdukOption(
-      nama: 'Bakmi Udang',
-      resep: ['Mie', 'Udang', 'Kuah Kaldu'],
-    ),
-    _ProdukOption(
-      nama: 'Lemon Squash',
-      resep: ['Lemon', 'Air Soda', 'Sirup'],
-    ),
-    _ProdukOption(
-      nama: 'Americano',
-      resep: ['Espresso', 'Air Panas'],
-    ),
-  ];
+  final _datasource = StokDokumenRemoteDatasource();
 
+  List<ProdukPilihan> _allProduk = const [];
+  bool _memuat = true;
+  bool _menyiapkan = false;
   String _query = '';
-  final Set<String> _selected = {};
 
-  List<_ProdukOption> get _filtered {
+  /// Dipilih per id agar produk bernama sama tidak tertukar.
+  final Set<int> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _muat();
+  }
+
+  Future<void> _muat() async {
+    try {
+      final items = await _datasource.fetchMenus();
+      if (mounted) setState(() => _allProduk = items);
+    } on ApiException {
+      // Biarkan kosong daripada menampilkan produk contoh.
+    } finally {
+      if (mounted) setState(() => _memuat = false);
+    }
+  }
+
+  List<ProdukPilihan> get _filtered {
     final q = _query.toLowerCase();
     return _allProduk
         .where((p) =>
@@ -166,7 +167,8 @@ class _TambahProdukProduksiPageState extends State<TambahProdukProduksiPage> {
     );
   }
 
-  Widget _buildList(List<_ProdukOption> items) {
+  Widget _buildList(List<ProdukPilihan> items) {
+    if (_memuat) return const Center(child: CircularProgressIndicator());
     if (items.isEmpty) {
       return Center(
         child: Text(
@@ -183,13 +185,13 @@ class _TambahProdukProduksiPageState extends State<TambahProdukProduksiPage> {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final p = items[i];
-        final isChecked = _selected.contains(p.nama);
+        final isChecked = _selected.contains(p.id);
         return InkWell(
           onTap: () => setState(() {
             if (isChecked) {
-              _selected.remove(p.nama);
+              _selected.remove(p.id);
             } else {
-              _selected.add(p.nama);
+              _selected.add(p.id);
             }
           }),
           child: Padding(
@@ -213,9 +215,9 @@ class _TambahProdukProduksiPageState extends State<TambahProdukProduksiPage> {
                   ),
                   onChanged: (v) => setState(() {
                     if (v == true) {
-                      _selected.add(p.nama);
+                      _selected.add(p.id);
                     } else {
-                      _selected.remove(p.nama);
+                      _selected.remove(p.id);
                     }
                   }),
                 ),
@@ -247,14 +249,31 @@ class _TambahProdukProduksiPageState extends State<TambahProdukProduksiPage> {
     );
   }
 
-  void _onTambah() {
-    final allProdukMap = {for (final p in _allProduk) p.nama: p};
-    final result = _selected
-        .map((nama) => ProduksiStokProdukItem(
-              nama: nama,
-              resep: allProdukMap[nama]?.resep ?? [],
-            ))
-        .toList();
-    Navigator.of(context).pop(result);
+  Future<void> _onTambah() async {
+    if (_menyiapkan) return;
+    setState(() => _menyiapkan = true);
+
+    final byId = {for (final p in _allProduk) p.id: p};
+    final navigator = Navigator.of(context);
+    final result = <ProduksiStokProdukItem>[];
+
+    for (final id in _selected) {
+      // Resep diambil per produk terpilih; memuatnya untuk seluruh daftar
+      // berarti satu permintaan per menu.
+      List<String> resep = const [];
+      try {
+        resep = await _datasource.fetchResep(id);
+      } on ApiException {
+        // Resep gagal dimuat — item tetap bisa diproduksi tanpa rinciannya.
+      }
+      result.add(ProduksiStokProdukItem(
+        refId: id,
+        nama: byId[id]?.nama ?? '',
+        resep: resep,
+      ));
+    }
+
+    if (!mounted) return;
+    navigator.pop(result);
   }
 }

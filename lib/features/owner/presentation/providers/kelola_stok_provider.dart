@@ -14,6 +14,7 @@ class KelolaStokProvider extends ChangeNotifier {
     loadStokMasuk();
     loadStokKeluar();
     loadStokOpname();
+    loadProduksiStok();
   }
 
   final StokDokumenRemoteDatasource _datasource;
@@ -29,7 +30,6 @@ class KelolaStokProvider extends ChangeNotifier {
     KategoriStok(id: '4', nama: 'Kopi'),
     KategoriStok(id: '5', nama: 'Kue'),
   ];
-  int _produksiCounter = 0;
   int _kategoriCounter = 5;
 
   List<StokMasukEntry> get stokMasukList => List.unmodifiable(_stokMasukList);
@@ -46,10 +46,8 @@ class KelolaStokProvider extends ChangeNotifier {
   /// Sama seperti stok masuk: kode ditentukan server saat penyimpanan.
   String generateKodeKeluar() => '(otomatis)';
 
-  String generateKodeProduksi() {
-    _produksiCounter++;
-    return 'PS-${_produksiCounter.toString().padLeft(3, '0')}';
-  }
+  /// Kode ditentukan server saat penyimpanan.
+  String generateKodeProduksi() => '(otomatis)';
 
   /// Kode ditentukan server saat penyimpanan.
   String generateKodeOpname() => '(otomatis)';
@@ -185,9 +183,59 @@ class KelolaStokProvider extends ChangeNotifier {
     }
   }
 
-  void addProduksiStok(ProduksiStokEntry entry) {
-    _produksiStokList.add(entry);
-    notifyListeners();
+  /// Memuat daftar dokumen produksi stok dari server.
+  Future<void> loadProduksiStok() async {
+    try {
+      final rows = await _datasource.fetchProduksiStok();
+      _produksiStokList
+        ..clear()
+        ..addAll(rows.map(_toProduksiEntry));
+      notifyListeners();
+    } on ApiException {
+      // Biarkan daftar apa adanya.
+    }
+  }
+
+  static ProduksiStokStatus _statusProduksi(String s) => switch (s) {
+        'posted' => ProduksiStokStatus.posted,
+        'cancelled' => ProduksiStokStatus.cancelled,
+        _ => ProduksiStokStatus.draft,
+      };
+
+  static ProduksiStokEntry _toProduksiEntry(DokumenStok d) => ProduksiStokEntry(
+        kode: d.kode,
+        tanggal: d.tanggal,
+        createdBy: d.createdBy,
+        catatan: d.catatan,
+        status: _statusProduksi(d.status),
+        produk: d.produk
+            .map((p) => ProduksiStokProdukItem(
+                  refId: (p['menuId'] as num?)?.toInt() ?? 0,
+                  nama: (p['nama'] ?? '').toString(),
+                  // Rincian resep tidak disimpan pada dokumen; hanya relevan
+                  // saat menyusunnya.
+                  resep: const [],
+                  jumlah: (p['jumlah'] as num?)?.toInt() ?? 1,
+                ))
+            .toList(),
+      );
+
+  /// Menyimpan dokumen produksi stok ke server lalu memuat ulang daftarnya.
+  /// Mengembalikan pesan galat bila gagal, atau `null` bila berhasil.
+  Future<String?> addProduksiStok(ProduksiStokEntry entry) async {
+    try {
+      await _datasource.createProduksiStok(
+        items: entry.produk
+            .map((p) => ItemDokumen(refId: p.refId, jumlah: p.jumlah))
+            .toList(),
+        catatan: entry.catatan,
+        langsungPosting: entry.status == ProduksiStokStatus.posted,
+      );
+    } on ApiException catch (e) {
+      return e.message;
+    }
+    await loadProduksiStok();
+    return null;
   }
 
   void updateProduksiStok(ProduksiStokEntry entry) {
