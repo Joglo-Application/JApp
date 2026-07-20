@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../providers/owner_laporan_provider.dart';
 import '../widgets/laporan/laporan_action_bar.dart';
 import '../widgets/laporan/laporan_app_bar.dart';
 import '../widgets/laporan/laporan_guest_resto_table.dart';
@@ -22,22 +24,41 @@ class _OwnerLaporanPageState extends State<OwnerLaporanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      drawer: const OwnerDrawer(activePage: OwnerDrawerPage.laporan),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            const LaporanAppBar(),
-            LaporanTabBar(
-              selectedIndex: _tabIndex,
-              onTabSelected: (i) => setState(() => _tabIndex = i),
-            ),
-            const LaporanActionBar(),
-            const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
-            Expanded(child: _buildContent()),
-          ],
+    return ChangeNotifierProvider(
+      create: (_) => OwnerLaporanProvider()..load(),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        drawer: const OwnerDrawer(activePage: OwnerDrawerPage.laporan),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              const LaporanAppBar(),
+              LaporanTabBar(
+                selectedIndex: _tabIndex,
+                onTabSelected: (i) => setState(() => _tabIndex = i),
+              ),
+              const LaporanActionBar(),
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.outlineVariant,
+              ),
+              Expanded(
+                child: Consumer<OwnerLaporanProvider>(
+                  builder: (context, laporan, _) {
+                    if (laporan.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (laporan.error != null) {
+                      return Center(child: Text(laporan.error!));
+                    }
+                    return _buildContent();
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

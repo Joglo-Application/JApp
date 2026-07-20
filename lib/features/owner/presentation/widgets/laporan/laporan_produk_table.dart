@@ -1,33 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../providers/owner_laporan_provider.dart';
+
+/// Format ringkas "IDR 1.234.567" untuk kolom jumlah.
+String _idr(double v) {
+  final s = v.round().abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return 'IDR $buf';
+}
 
 class LaporanProdukTable extends StatelessWidget {
   const LaporanProdukTable({super.key});
 
-  static const _items = [
-    _ProdukRow('Burger Sapi', 'Makanan', 63, 1260000),
-    _ProdukRow('Bakmi Udang', 'Makanan', 104, 3328000),
-    _ProdukRow('Lemon Squash', 'Minuman', 51, 714000),
-    _ProdukRow('Americano', 'Minuman', 34, 340000),
-  ];
-
-  static const _topGroups = [
-    _GroupRow('Makanan', 167, 'IDR 4.588.000'),
-    _GroupRow('Minuman', 85, 'IDR 1.054.000'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final data = context.watch<OwnerLaporanProvider>().produk;
+    final items = data.items
+        .map((e) => _ProdukRow(e.nama, e.kategori, e.qty, e.omzet.round()))
+        .toList();
+    final topGroups = data.kategori
+        .map((e) => _GroupRow(e.kategori, e.qty, _idr(e.omzet)))
+        .toList();
+
     return Column(
       children: [
         const _ProdukHeader(),
         Expanded(
           child: ListView(
             children: [
-              ..._items.map(
+              ...items.map(
                 (item) => Column(
                   children: [
                     _ProdukRow2(item: item),
@@ -41,7 +50,7 @@ class LaporanProdukTable extends StatelessWidget {
               ),
               const _SectionHeader('Top Group Produk'),
               const _GroupHeader(),
-              ..._topGroups.map(
+              ...topGroups.map(
                 (item) => Column(
                   children: [
                     _GroupDataRow(item: item),

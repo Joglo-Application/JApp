@@ -1,25 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../providers/owner_laporan_provider.dart';
+
+/// Format ringkas "IDR 1.234.567".
+String _idr(double v) {
+  final s = v.round().abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return 'IDR $buf';
+}
 
 class LaporanPembayaranTable extends StatelessWidget {
   const LaporanPembayaranTable({super.key});
 
-  static const _items = [
-    _PayRow('TUNAI', 104, 'IDR 8.588.000'),
-    _PayRow('QRIS', 285, 'IDR 26.054.000'),
-    _PayRow('DEBIT CARD', 163, 'IDR 9.124.000'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final items = context
+        .watch<OwnerLaporanProvider>()
+        .pembayaran
+        .map((e) => _PayRow(e.metode, e.jumlahTransaksi, _idr(e.total)))
+        .toList();
+
     return ListView(
       children: [
         _SectionHeader('Top Metode Pembayaran'),
         const _Header(),
-        ..._items.map((item) => _DataRow(item: item)),
+        ...items.map((item) => _DataRow(item: item)),
       ],
     );
   }

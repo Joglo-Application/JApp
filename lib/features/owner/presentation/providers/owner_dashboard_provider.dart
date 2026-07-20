@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/network/api_exception.dart';
+import '../../data/datasources/laporan_remote_datasource.dart';
+
 class OwnerDailyData {
   const OwnerDailyData({required this.date, required this.value});
   final DateTime date;
@@ -18,14 +21,18 @@ class OwnerTopEntry {
 }
 
 class OwnerDashboardProvider extends ChangeNotifier {
-  OwnerDashboardProvider() {
+  OwnerDashboardProvider({LaporanRemoteDatasource? datasource})
+      : _datasource = datasource ?? LaporanRemoteDatasource() {
     _initDates();
     load();
   }
 
+  final LaporanRemoteDatasource _datasource;
+
   late DateTime startDate;
   late DateTime endDate;
   bool isLoading = false;
+  String? error;
 
   double pendapatan = 0;
   double pengeluaran = 0;
@@ -47,44 +54,54 @@ class OwnerDashboardProvider extends ChangeNotifier {
     endDate = DateTime(now.year, now.month + 1, 0);
   }
 
+  /// Seluruh isi dashboard datang dari satu panggilan `GET /laporan/dashboard`
+  /// — ringkasan, deret harian, dan top produk/kategori sekaligus.
   Future<void> load() async {
     isLoading = true;
+    error = null;
     notifyListeners();
 
-    // TODO: replace with real API calls
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final d = await _datasource.fetchDashboard(start: startDate, end: endDate);
+      final r = d.ringkasan;
 
-    pendapatan = 1270600;
-    pengeluaran = 200000;
-    pengembalianPenjualan = 280700;
-    totalPenjualan = 989900;
-    penjualanKotor = 949300;
-    jumlahTransaksi = 132;
-    penerimaan = 989000;
+      pendapatan = r.pendapatan;
+      pengeluaran = r.pengeluaran;
+      pengembalianPenjualan = r.retur;
+      totalPenjualan = r.pendapatan;
+      penjualanKotor = r.subtotal;
+      jumlahTransaksi = r.pesananDiterima;
+      penerimaan = r.pendapatanBersih;
 
-    final base = DateTime(2025, 8, 13);
-    dailyPendapatan = [
-      OwnerDailyData(date: base, value: 1602300),
-      OwnerDailyData(date: base.add(const Duration(days: 1)), value: 450000),
-      OwnerDailyData(date: base.add(const Duration(days: 2)), value: 1270600),
-      OwnerDailyData(date: base.add(const Duration(days: 3)), value: 300000),
-    ];
-    dailyPengeluaran = [
-      OwnerDailyData(date: base, value: 430000),
-      OwnerDailyData(date: base.add(const Duration(days: 1)), value: 50000),
-      OwnerDailyData(date: base.add(const Duration(days: 2)), value: 200000),
-      OwnerDailyData(date: base.add(const Duration(days: 3)), value: 100000),
-    ];
+      dailyPendapatan = d.harian
+          .map((e) => OwnerDailyData(date: e.tanggal, value: e.pendapatan))
+          .toList();
+      dailyPengeluaran = d.harian
+          .map((e) => OwnerDailyData(date: e.tanggal, value: e.pengeluaran))
+          .toList();
 
-    topKategoriProduk = [
-      const OwnerTopEntry(kategori: 'Makanan', nama: 'Produk', jumlah: 0),
-    ];
-    topProdukToko = [
-      const OwnerTopEntry(kategori: 'Makanan', nama: 'Produk', jumlah: 0),
-    ];
-
-    isLoading = false;
-    notifyListeners();
+      topKategoriProduk = d.topKategori
+          .map((e) => OwnerTopEntry(
+                kategori: e.kategori,
+                nama: e.kategori,
+                jumlah: e.qty,
+              ))
+          .toList();
+      topProdukToko = d.topProduk
+          .map((e) => OwnerTopEntry(
+                kategori: e.kategori,
+                nama: e.nama,
+                jumlah: e.qty,
+              ))
+          .toList();
+    } on ApiException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Gagal memuat dashboard.';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> changeDateRange(DateTime start, DateTime end) async {
