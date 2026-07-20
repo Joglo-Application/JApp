@@ -10,9 +10,17 @@ import '../../data/models/member_model.dart';
 // ── Public result type ────────────────────────────────────────────────────────
 
 class SelectedMember {
-  const SelectedMember({required this.name, required this.points});
+  const SelectedMember({
+    required this.name,
+    required this.points,
+    this.memberId,
+  });
   final String name;
   final int points;
+
+  /// Dipakai agar pesanan tersimpan dengan kaitan member, dan poin bisa
+  /// ditukar lewat server.
+  final int? memberId;
 }
 
 // ── Model tampilan ────────────────────────────────────────────────────────────
@@ -279,7 +287,11 @@ class _PilihMemberPageState extends State<PilihMemberPage> {
     );
     if (confirmed == true && mounted) {
       Navigator.of(context).pop(
-        SelectedMember(name: member.name, points: member.points),
+        SelectedMember(
+          name: member.name,
+          points: member.points,
+          memberId: member.id,
+        ),
       );
     }
   }

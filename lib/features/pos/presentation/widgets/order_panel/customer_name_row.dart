@@ -36,7 +36,13 @@ class CustomerNameRow extends StatelessWidget {
                   context,
                   MaterialPageRoute(builder: (_) => const PilihMemberPage()),
                 ).then((member) {
-                  if (member != null) provider.setMember(member.name, member.points);
+                  if (member != null) {
+                    provider.setMember(
+                      member.name,
+                      member.points,
+                      memberId: member.memberId,
+                    );
+                  }
                 });
               },
               child: const Icon(
