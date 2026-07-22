@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -34,6 +37,11 @@ class _OwnerTambahkanStokOpnamePageState
   late DateTime _tanggal;
   late String _catatan;
   final List<StokOpnameProdukItem> _produk = [];
+
+  /// Nama pembuat dokumen = user yang sedang login (server juga menetapkan
+  /// ini dari JWT; di sini hanya untuk tampilan draft).
+  String get _createdBy =>
+      context.read<AuthProvider>().user?.namaUser ?? '-';
 
   @override
   void initState() {
@@ -72,17 +80,9 @@ class _OwnerTambahkanStokOpnamePageState
             Expanded(
               child: ListView(
                 children: [
-                  _ProdukSection(
-                    produk: _produk,
-                    onTambah: _onTambahProduk,
-                    onDelete: (item) => setState(() => _produk.remove(item)),
-                    onQtyAktualChanged: (item, qty) =>
-                        setState(() => item.qtyAktual = qty),
-                  ),
-                  const Divider(height: 1),
                   _DateRow(tanggal: _tanggal, onEdit: _pickDate),
                   const Divider(height: 1),
-                  const _LabelValueRow(label: 'Created By', value: 'Dapur01'),
+                  _LabelValueRow(label: 'Created By', value: context.select<AuthProvider, String>((a) => a.user?.namaUser ?? '-')),
                   const Divider(height: 1),
                   _EditableSection(
                     label: 'Catatan',
@@ -96,6 +96,13 @@ class _OwnerTambahkanStokOpnamePageState
                     ),
                   ),
                   const Divider(height: 1),
+                  _ProdukSection(
+                    produk: _produk,
+                    onTambah: _onTambahProduk,
+                    onDelete: (item) => setState(() => _produk.remove(item)),
+                    onQtyAktualChanged: (item, qty) =>
+                        setState(() => item.qtyAktual = qty),
+                  ),
                 ],
               ),
             ),
@@ -272,7 +279,7 @@ class _OwnerTambahkanStokOpnamePageState
     final entry = StokOpnameEntry(
       kode: _kode,
       tanggal: _tanggal,
-      createdBy: 'Dapur01',
+      createdBy: _createdBy,
       catatan: _catatan.isEmpty ? null : _catatan,
       produk: List.of(_produk),
       status: status,
@@ -334,41 +341,81 @@ class _ProdukSection extends StatelessWidget {
             ),
           ),
         ),
-        InkWell(
-          onTap: onTambah,
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.x4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (produk.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.x3),
+                  child: Text(
+                    'Belum ada produk. Tekan tombol di bawah untuk menambah.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                for (final item in produk) ...[
+                  _ProdukItemRow(
+                    item: item,
+                    onDelete: () => onDelete(item),
+                    onQtyAktualChanged: (qty) => onQtyAktualChanged(item, qty),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                ],
+              _TambahProdukButton(onTap: onTambah),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TambahProdukButton extends StatelessWidget {
+  const _TambahProdukButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.08),
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.md,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppColors.primary),
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x3,
-            ),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.x3),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add_rounded, size: 18),
+                const Icon(
+                  Icons.add_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: AppSpacing.x1),
                 Text(
                   'Tambah Produk',
                   style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        ...produk.map(
-          (item) => Column(
-            children: [
-              const Divider(height: 1),
-              _ProdukItemRow(
-                item: item,
-                onDelete: () => onDelete(item),
-                onQtyAktualChanged: (qty) => onQtyAktualChanged(item, qty),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -386,58 +433,118 @@ class _ProdukItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
+    final huruf = item.nama.isNotEmpty ? item.nama[0].toUpperCase() : '?';
+    final selisih = item.qtySelisih;
+    final selisihColor = selisih > 0
+        ? Colors.green.shade700
+        : selisih < 0
+            ? AppColors.error
+            : AppColors.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.x3),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: onDelete,
-            child: const Icon(
-              Icons.close_rounded,
-              size: 20,
-              color: AppColors.primary,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Text(
+                  huruf,
+                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: Text(
+                  item.nama,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded),
+                color: AppColors.error,
+                iconSize: 22,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Hapus',
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.x3),
-          Expanded(
-            child: Text(item.nama, style: AppTypography.textTheme.bodyMedium),
+          const SizedBox(height: AppSpacing.x2),
+          Wrap(
+            spacing: AppSpacing.x5,
+            runSpacing: AppSpacing.x3,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            children: [
+              _QtyGroup(
+                label: 'Qty Aktual',
+                child: _QuantityControl(
+                  value: item.qtyAktual,
+                  onChanged: onQtyAktualChanged,
+                ),
+              ),
+              _QtyGroup(
+                label: 'Qty System',
+                child: _ReadOnlyBox(value: item.qtySystem),
+              ),
+              _QtyGroup(
+                label: 'Qty Selisih',
+                child: _ReadOnlyBox(
+                  value: item.qtySelisih,
+                  color: selisihColor,
+                  showSign: true,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.x3),
-          _QtyLabel(label: 'Qty Aktual'),
-          const SizedBox(width: AppSpacing.x2),
-          _QuantityControl(
-            value: item.qtyAktual,
-            onChanged: onQtyAktualChanged,
-          ),
-          const SizedBox(width: AppSpacing.x3),
-          _QtyLabel(label: 'Qty System'),
-          const SizedBox(width: AppSpacing.x2),
-          _ReadOnlyBox(value: item.qtySystem),
-          const SizedBox(width: AppSpacing.x3),
-          _QtyLabel(label: 'Qty Selisih'),
-          const SizedBox(width: AppSpacing.x2),
-          _ReadOnlyBox(value: item.qtySelisih),
         ],
       ),
     );
   }
 }
 
-class _QtyLabel extends StatelessWidget {
-  const _QtyLabel({required this.label});
+class _QtyGroup extends StatelessWidget {
+  const _QtyGroup({required this.label, required this.child});
 
   final String label;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: AppTypography.textTheme.bodySmall?.copyWith(
-        color: AppColors.onSurfaceVariant,
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTypography.textTheme.bodySmall?.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.x1),
+        child,
+      ],
     );
   }
 }
@@ -505,23 +612,37 @@ class _QtyBtn extends StatelessWidget {
 }
 
 class _ReadOnlyBox extends StatelessWidget {
-  const _ReadOnlyBox({required this.value});
+  const _ReadOnlyBox({
+    required this.value,
+    this.color,
+    this.showSign = false,
+  });
 
   final int value;
 
+  /// Bila diisi, mewarnai border & teks (mis. selisih: hijau/merah).
+  final Color? color;
+
+  /// Menambah tanda `+` untuk nilai positif (dipakai kolom selisih).
+  final bool showSign;
+
   @override
   Widget build(BuildContext context) {
+    final text = showSign && value > 0 ? '+$value' : '$value';
     return Container(
       width: 52,
       height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: color ?? AppColors.outline),
         borderRadius: AppRadius.xs,
       ),
       child: Text(
-        '$value',
-        style: AppTypography.textTheme.bodyMedium,
+        text,
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          color: color ?? AppColors.onSurface,
+          fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
     );
   }

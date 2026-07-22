@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/kitchen_order_provider.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -13,13 +15,15 @@ const _months = [
 class KitchenTransaksiAppBar extends StatelessWidget {
   const KitchenTransaksiAppBar({super.key});
 
-  String get _dateLabel {
-    final now = DateTime.now();
-    return '${now.day} ${_months[now.month - 1]} ${now.year}';
-  }
+  static String _dateLabel(DateTime d) =>
+      '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   @override
   Widget build(BuildContext context) {
+    final tanggal = context.select<KitchenOrderProvider, DateTime>(
+      (p) => p.selectedDate,
+    );
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.grey.shade700,
@@ -47,7 +51,7 @@ class KitchenTransaksiAppBar extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                _dateLabel,
+                _dateLabel(tanggal),
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSecondary,
                 ),
@@ -82,13 +86,28 @@ class _MenuButton extends StatelessWidget {
 }
 
 class _CalendarButton extends StatelessWidget {
+  /// Membuka pemilih tanggal, lalu memuat ulang daftar untuk tanggal itu.
+  /// Batas atas hari ini — dapur tidak punya pesanan di masa depan.
+  Future<void> _pilihTanggal(BuildContext context) async {
+    final provider = context.read<KitchenOrderProvider>();
+    final kini = DateTime.now();
+    final dipilih = await showDatePicker(
+      context: context,
+      initialDate: provider.selectedDate,
+      firstDate: DateTime(kini.year - 1),
+      lastDate: kini,
+    );
+    if (dipilih == null) return;
+    await provider.changeDate(dipilih);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.primary,
       borderRadius: AppRadius.md,
       child: InkWell(
-        onTap: () {},
+        onTap: () => _pilihTanggal(context),
         borderRadius: AppRadius.md,
         child: const SizedBox(
           width: 45,

@@ -6,16 +6,21 @@ class KategoriModel {
     required this.kategoriId,
     required this.nama,
     required this.urutan,
+    this.produkCount = 0,
   });
 
   final int kategoriId;
   final String nama;
   final int urutan;
 
+  /// Jumlah produk pada kategori ini (dihitung server).
+  final int produkCount;
+
   factory KategoriModel.fromJson(Map<String, dynamic> json) => KategoriModel(
         kategoriId: (json['kategoriId'] as num).toInt(),
         nama: (json['nama'] ?? '').toString(),
         urutan: (json['urutan'] as num?)?.toInt() ?? 0,
+        produkCount: (json['produkCount'] as num?)?.toInt() ?? 0,
       );
 }
 

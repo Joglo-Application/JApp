@@ -8,6 +8,7 @@ class ProdukPilihan {
     required this.nama,
     this.harga = 0,
     this.stok = 0,
+    this.satuan = '',
   });
 
   final int id;
@@ -16,6 +17,9 @@ class ProdukPilihan {
 
   /// Stok menurut sistem — ditampilkan sebagai pembanding saat stok opname.
   final double stok;
+
+  /// Satuan bahan baku (kg, liter, pcs, …). Kosong untuk menu.
+  final String satuan;
 }
 
 /// Satu baris item pada dokumen yang dikirim ke server.
@@ -70,7 +74,8 @@ class StokDokumenRemoteDatasource {
     try {
       final res = await _client.dio.get<Map<String, dynamic>>(
         '/menus',
-        queryParameters: {'limit': 200},
+        // Server membatasi limit maksimal 100; 200 ditolak (422) → daftar kosong.
+        queryParameters: {'limit': 100},
       );
       final rows = res.data?['data'] as List<dynamic>? ?? const [];
       return rows.map((e) {
@@ -92,7 +97,8 @@ class StokDokumenRemoteDatasource {
     try {
       final res = await _client.dio.get<Map<String, dynamic>>(
         '/bahan-baku',
-        queryParameters: {'limit': 200},
+        // Server membatasi limit maksimal 100; 200 ditolak (422) → daftar kosong.
+        queryParameters: {'limit': 100},
       );
       final rows = res.data?['data'] as List<dynamic>? ?? const [];
       return rows.map((e) {
@@ -101,6 +107,8 @@ class StokDokumenRemoteDatasource {
           id: (m['bahanId'] as num).toInt(),
           nama: (m['namaBahan'] ?? '').toString(),
           stok: double.tryParse('${m['stok']}') ?? 0,
+          harga: (m['hargaSatuan'] as num?)?.toDouble() ?? 0,
+          satuan: (m['satuan'] ?? '').toString(),
         );
       }).toList();
     } catch (e) {

@@ -268,7 +268,6 @@ final appRouter = GoRouter(
       path: AppRoutes.kitchenInventori,
       builder: (context, state) => const InventoriPage(
         drawer: KitchenDrawer(activePage: KitchenDrawerPage.inventori),
-        canTambah: true,
       ),
     ),
     GoRoute(

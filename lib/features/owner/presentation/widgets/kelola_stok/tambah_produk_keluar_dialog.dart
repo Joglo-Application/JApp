@@ -48,6 +48,10 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
   Future<void> _muat() async {
     try {
       final items = await _datasource.fetchMenus();
+      // Urutkan menurut nama (A→Z, tanpa peduli huruf besar/kecil).
+      items.sort(
+        (a, b) => a.nama.toLowerCase().compareTo(b.nama.toLowerCase()),
+      );
       if (mounted) setState(() => _allProduk = items);
     } on ApiException {
       // Biarkan kosong daripada menampilkan produk contoh.
@@ -179,49 +183,22 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
     }
 
     return ListView.separated(
+      padding: const EdgeInsets.all(AppSpacing.x4),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.x2),
       itemBuilder: (_, i) {
         final p = items[i];
         final isChecked = _selected.contains(p.id);
-        return InkWell(
-          onTap: () => setState(() {
+        return _ProdukPickRow(
+          produk: p,
+          selected: isChecked,
+          onToggle: () => setState(() {
             if (isChecked) {
               _selected.remove(p.id);
             } else {
               _selected.add(p.id);
             }
           }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x4,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    p.nama,
-                    style: AppTypography.textTheme.bodyMedium,
-                  ),
-                ),
-                Checkbox(
-                  value: isChecked,
-                  activeColor: AppColors.tertiary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      _selected.add(p.id);
-                    } else {
-                      _selected.remove(p.id);
-                    }
-                  }),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );
@@ -257,5 +234,169 @@ class _TambahProdukKeluarPageState extends State<TambahProdukKeluarPage> {
             ))
         .toList();
     Navigator.of(context).pop(result);
+  }
+}
+
+// ── Baris pilih produk ───────────────────────────────────────────────────────
+
+class _ProdukPickRow extends StatelessWidget {
+  const _ProdukPickRow({
+    required this.produk,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final ProdukPilihan produk;
+  final bool selected;
+  final VoidCallback onToggle;
+
+  static String _fmtAngka(double v) {
+    final s = v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+    final intPart = s.split('.').first;
+    final buf = StringBuffer();
+    for (var i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) buf.write('.');
+      buf.write(intPart[i]);
+    }
+    final dec = s.contains('.') ? ',${s.split('.').last}' : '';
+    return '$buf$dec';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final habis = produk.stok <= 0;
+    final huruf = produk.nama.isNotEmpty ? produk.nama[0].toUpperCase() : '?';
+
+    return Material(
+      color: selected
+          ? AppColors.tertiary.withValues(alpha: 0.08)
+          : AppColors.surface,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: AppRadius.md,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.x3),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(
+              color: selected ? AppColors.tertiary : AppColors.outlineVariant,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.tertiary.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.sm,
+                ),
+                child: Text(
+                  huruf,
+                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                    color: AppColors.tertiary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      produk.nama,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.textTheme.bodyLarge?.copyWith(
+                        color: AppColors.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x1),
+                    Row(
+                      children: [
+                        _MetaChip(
+                          icon: Icons.inventory_rounded,
+                          label: 'Stok ${_fmtAngka(produk.stok)}',
+                          fg: habis ? AppColors.error : Colors.green.shade700,
+                          bg: habis
+                              ? AppColors.error.withValues(alpha: 0.10)
+                              : Colors.green.withValues(alpha: 0.12),
+                        ),
+                        if (produk.harga > 0) ...[
+                          const SizedBox(width: AppSpacing.x2),
+                          _MetaChip(
+                            icon: Icons.sell_rounded,
+                            label: 'Rp ${_fmtAngka(produk.harga)}',
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x2),
+              Checkbox(
+                value: selected,
+                activeColor: AppColors.tertiary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                onChanged: (_) => onToggle(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    this.fg,
+    this.bg,
+  });
+
+  final IconData icon;
+  final String label;
+
+  /// Warna teks/ikon dan latar chip; default netral (abu-abu).
+  final Color? fg;
+  final Color? bg;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = fg ?? AppColors.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x2,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: bg ?? AppColors.surfaceContainerHighest,
+        borderRadius: AppRadius.xs,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: foreground),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AppTypography.textTheme.labelSmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

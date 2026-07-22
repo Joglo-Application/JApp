@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/datasources/absensi_remote_datasource.dart';
 import '../../data/datasources/pegawai_remote_datasource.dart';
 import '../widgets/navigation/owner_drawer.dart';
 
@@ -949,20 +950,6 @@ class _BottomAction extends StatelessWidget {
 
 // ── Kehadiran sheet ───────────────────────────────────────────────────────────
 
-class _AttendanceRecord {
-  const _AttendanceRecord({
-    required this.nama,
-    required this.tanggal,
-    required this.jamMasuk,
-    required this.jamKeluar,
-  });
-
-  final String nama;
-  final String tanggal;
-  final String jamMasuk;
-  final String jamKeluar;
-}
-
 class _KehadiranSheet extends StatefulWidget {
   const _KehadiranSheet();
 
@@ -972,28 +959,41 @@ class _KehadiranSheet extends StatefulWidget {
 
 class _KehadiranSheetState extends State<_KehadiranSheet> {
   final _searchCtrl = TextEditingController();
+  final _datasource = OwnerAbsensiRemoteDatasource();
   DateTime? _selectedDate;
+  String _searchQuery = '';
+  List<OwnerAbsensiRecord> _records = const [];
+  bool _loading = true;
 
-  final List<_AttendanceRecord> _records = const [
-    _AttendanceRecord(
-      nama: 'Kasir01',
-      tanggal: '14 Agustus 2025',
-      jamMasuk: '12:32:02',
-      jamKeluar: '18:40:32',
-    ),
-    _AttendanceRecord(
-      nama: 'Dapur01',
-      tanggal: '14 Agustus 2025',
-      jamMasuk: '12:11:12',
-      jamKeluar: '21:08:16',
-    ),
-    _AttendanceRecord(
-      nama: 'Gudang01',
-      tanggal: '14 Agustus 2025',
-      jamMasuk: '12:11:12',
-      jamKeluar: '21:08:16',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await _datasource.fetchAbsensi(date: _selectedDate);
+      if (!mounted) return;
+      setState(() {
+        _records = data;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _records = const [];
+        _loading = false;
+      });
+    }
+  }
+
+  List<OwnerAbsensiRecord> get _filtered {
+    if (_searchQuery.isEmpty) return _records;
+    final q = _searchQuery.toLowerCase();
+    return _records.where((r) => r.nama.toLowerCase().contains(q)).toList();
+  }
 
   @override
   void dispose() {
@@ -1028,6 +1028,7 @@ class _KehadiranSheetState extends State<_KehadiranSheet> {
                 Expanded(
                   child: TextField(
                     controller: _searchCtrl,
+                    onChanged: (q) => setState(() => _searchQuery = q),
                     style: AppTypography.textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurface,
                     ),
@@ -1075,7 +1076,10 @@ class _KehadiranSheetState extends State<_KehadiranSheet> {
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now(),
                       );
-                      if (picked != null) setState(() => _selectedDate = picked);
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                        await _load();
+                      }
                     },
                     borderRadius: AppRadius.sm,
                     child: const Padding(
@@ -1118,17 +1122,35 @@ class _KehadiranSheetState extends State<_KehadiranSheet> {
             ),
           ),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.x4,
-                vertical: AppSpacing.x2,
-              ),
-              itemCount: _records.length,
-              separatorBuilder: (_, _) => const Divider(
-                height: 1,
-                color: AppColors.outlineVariant,
-              ),
-              itemBuilder: (_, i) => _AttendanceRow(record: _records[i]),
+            child: Builder(
+              builder: (_) {
+                if (_loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final records = _filtered;
+                if (records.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Belum ada data kehadiran',
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                    vertical: AppSpacing.x2,
+                  ),
+                  itemCount: records.length,
+                  separatorBuilder: (_, _) => const Divider(
+                    height: 1,
+                    color: AppColors.outlineVariant,
+                  ),
+                  itemBuilder: (_, i) => _AttendanceRow(record: records[i]),
+                );
+              },
             ),
           ),
         ],
@@ -1140,7 +1162,7 @@ class _KehadiranSheetState extends State<_KehadiranSheet> {
 class _AttendanceRow extends StatelessWidget {
   const _AttendanceRow({required this.record});
 
-  final _AttendanceRecord record;
+  final OwnerAbsensiRecord record;
 
   @override
   Widget build(BuildContext context) {

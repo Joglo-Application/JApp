@@ -456,6 +456,24 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  /// Auto-simpan cart yang sedang diisi ke Pending saat kasir meninggalkan POS
+  /// (efeknya sama seperti tombol "+", tapi dipicu oleh perpindahan menu supaya
+  /// pesanan yang belum sempat disimpan tidak hilang).
+  ///
+  /// No-op bila cart kosong, sedang ada proses simpan, atau pesanan sudah
+  /// dikirim ke dapur (sudah tersimpan di server). [holdOrder] menyalin isi cart
+  /// secara sinkron sebelum `await` pertamanya, jadi memanggil [clear] tepat
+  /// setelahnya aman — payload yang dikirim tetap utuh. Mengembalikan `true`
+  /// bila draft benar-benar disimpan.
+  Future<bool> autoHoldToPending() {
+    if (_items.isEmpty || _isSubmitting || isSentToKitchen) {
+      return Future.value(false);
+    }
+    final saving = holdOrder(_customerName);
+    clear();
+    return saving;
+  }
+
   /// Menyimpan SEBAGIAN item (subset) sebagai draft held — dipakai Split Bill.
   /// Tidak menyentuh cart aktif (pemanggil yang menghapus item terpilih).
   Future<bool> holdItems(List<OrderItem> items, String customerNama) async {

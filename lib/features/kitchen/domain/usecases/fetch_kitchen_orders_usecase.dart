@@ -6,5 +6,6 @@ class FetchKitchenOrdersUsecase {
 
   final KitchenOrderRepository _repository;
 
-  Future<List<KitchenOrder>> call() => _repository.fetchActiveOrders();
+  Future<List<KitchenOrder>> call({String? date, String? status}) =>
+      _repository.fetchActiveOrders(date: date, status: status);
 }

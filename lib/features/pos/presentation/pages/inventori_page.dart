@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/router/app_routes.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/create_menu_params.dart';
 import '../../domain/entities/inventori_item.dart';
 import '../../domain/entities/update_menu_params.dart';
@@ -14,27 +15,23 @@ import '../widgets/navigation/pos_drawer.dart';
 import 'inventori_edit_item_page.dart';
 
 class InventoriPage extends StatelessWidget {
-  const InventoriPage({super.key, this.drawer, this.canTambah = false});
+  const InventoriPage({super.key, this.drawer});
 
   final Widget? drawer;
-
-  /// Tombol "+ Tambah" hanya untuk role Dapur.
-  final bool canTambah;
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => InventoriProvider()..load(),
-      child: _InventoriView(drawer: drawer, canTambah: canTambah),
+      child: _InventoriView(drawer: drawer),
     );
   }
 }
 
 class _InventoriView extends StatefulWidget {
-  const _InventoriView({this.drawer, this.canTambah = false});
+  const _InventoriView({this.drawer});
 
   final Widget? drawer;
-  final bool canTambah;
 
   @override
   State<_InventoriView> createState() => _InventoriViewState();
@@ -82,14 +79,22 @@ class _InventoriViewState extends State<_InventoriView> {
 
   @override
   Widget build(BuildContext context) {
+    // Tambah & edit produk untuk role pemilik tab Inventori (dapur, gudang,
+    // kasir). Role lain (supervisor, owner, admin) melihat daftar read-only.
+    final canManage = context.select<AuthProvider, bool>(
+      (a) => a.canManageInventori,
+    );
+
     return Scaffold(
       drawer: widget.drawer ??
           const PosDrawer(activePage: PosDrawerPage.inventori),
       body: Column(
         children: [
-          InventoriAppBar(onTambah: widget.canTambah ? _onTambah : null),
+          InventoriAppBar(onTambah: canManage ? _onTambah : null),
           const InventoriFilterBar(),
-          Expanded(child: InventoriTable(onTapItem: _onEditItem)),
+          Expanded(
+            child: InventoriTable(onTapItem: canManage ? _onEditItem : null),
+          ),
         ],
       ),
     );

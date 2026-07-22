@@ -12,11 +12,45 @@ import '../widgets/order_panel/order_panel.dart';
 import '../widgets/navigation/pos_drawer.dart';
 import '../widgets/product_panel/product_panel.dart';
 import 'payment_page.dart';
+import 'pesanan_pending_page.dart';
 
 const double _kExpandedBreakpoint = 800;
 
-class PosPage extends StatelessWidget {
+class PosPage extends StatefulWidget {
   const PosPage({super.key});
+
+  @override
+  State<PosPage> createState() => _PosPageState();
+}
+
+class _PosPageState extends State<PosPage> {
+  // Disimpan di didChangeDependencies agar bisa dipakai di dispose(), saat
+  // context sudah tidak boleh dipakai untuk lookup provider.
+  OrderProvider? _order;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _order = context.read<OrderProvider>();
+  }
+
+  @override
+  void dispose() {
+    // Kasir pindah ke fitur lain dengan cart masih terisi → auto-simpan ke
+    // Pending (POS adalah GoRoute biasa, jadi dispose() = benar-benar keluar
+    // dari POS; sub-flow seperti Payment/Pilih Meja hanya di-push sehingga POS
+    // tetap mounted dan tidak memicu ini). Dijadwalkan setelah frame agar tidak
+    // memanggil notifyListeners saat subtree POS sedang dibongkar.
+    final order = _order;
+    if (order != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        order.autoHoldToPending().then((saved) {
+          if (saved) refreshPendingOrders();
+        });
+      });
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -15,7 +15,7 @@ class KitchenTransaksiPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => KitchenOrderProvider()..fetch(),
+      create: (_) => KitchenOrderProvider(includeCompleted: true)..fetch(),
       child: const _KitchenTransaksiView(),
     );
   }
