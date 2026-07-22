@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../domain/entities/kitchen_order.dart';
@@ -62,6 +63,39 @@ class KitchenTransaksiList extends StatelessWidget {
   }
 }
 
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final KitchenOrderStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      KitchenOrderStatus.done => ('Selesai', Colors.green.shade700),
+      KitchenOrderStatus.cancelled => ('Dibatalkan', AppColors.onSurfaceVariant),
+      KitchenOrderStatus.inProgress => ('Diproses', Colors.orange.shade800),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x2,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.full,
+      ),
+      child: Text(
+        label,
+        style: AppTypography.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
 class _OrderListTile extends StatelessWidget {
   const _OrderListTile({
     required this.order,
@@ -88,17 +122,21 @@ class _OrderListTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(
+                  Flexible(
                     child: Text(
                       order.kodeTransaksi,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.onSurface,
                       ),
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.x2),
+                  _StatusChip(status: order.status),
+                  const Spacer(),
                   Text(
                     _formatDateTime(order.startTime),
                     style: AppTypography.textTheme.bodySmall?.copyWith(

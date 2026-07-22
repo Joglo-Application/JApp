@@ -8,8 +8,8 @@ class KitchenOrderRepositoryImpl implements KitchenOrderRepository {
   final KitchenOrderRemoteDatasource _datasource;
 
   @override
-  Future<List<KitchenOrder>> fetchActiveOrders() =>
-      _datasource.fetchActiveOrders();
+  Future<List<KitchenOrder>> fetchActiveOrders({String? date, String? status}) =>
+      _datasource.fetchActiveOrders(date: date, status: status);
 
   @override
   Future<void> completeOrder(String id) => _datasource.completeOrder(id);

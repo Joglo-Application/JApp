@@ -7,9 +7,18 @@ import '../../data/models/auth_user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? repository})
-    : _repo = repository ?? AuthRepository();
+    : _repo = repository ?? AuthRepository() {
+    // Pulihkan sesi sekali saat app dibuat — berlaku untuk semua titik masuk,
+    // termasuk refresh / deep-link di web yang tidak melewati Splash.
+    _bootstrap = tryAutoLogin();
+  }
 
   final AuthRepository _repo;
+
+  /// Future restore-sesi awal; dipakai Splash untuk menunggu tanpa memicu
+  /// `/auth/me` kedua kali.
+  Future<bool>? _bootstrap;
+  Future<bool> ensureBootstrapped() => _bootstrap ??= tryAutoLogin();
 
   bool _isLoading = false;
   String? _error;
@@ -19,6 +28,13 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   AuthUser? get user => _user;
   bool get isAuthenticated => _user != null;
+
+  /// Role yang memiliki tab Inventori dengan hak CRUD penuh atas produk:
+  /// dapur, gudang, dan kasir. Role lain (supervisor, owner, admin) melihat
+  /// daftar sebagai read-only; server pun menolak tulisan di luar ketiga role
+  /// ini (403).
+  static const _inventoriManagers = {'dapur', 'gudang', 'kasir'};
+  bool get canManageInventori => _inventoriManagers.contains(_user?.role);
 
   /// Halaman awal sesuai role user yang login.
   String get landingRoute {

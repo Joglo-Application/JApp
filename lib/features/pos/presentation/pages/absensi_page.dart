@@ -8,6 +8,8 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/drawer/role_drawer.dart';
+import '../../../auth/data/models/auth_user_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/absensi_provider.dart';
 
 class AbsensiPage extends StatelessWidget {
@@ -16,7 +18,7 @@ class AbsensiPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AbsensiProvider(),
+      create: (_) => AbsensiProvider()..load(),
       child: const _AbsensiView(),
     );
   }
@@ -202,16 +204,27 @@ class _ClockZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Identitas yang sedang login — supaya jelas absen ini atas nama siapa,
+    // menghindari salah absen saat berpindah role.
+    final user = context.select<AuthProvider, AuthUser?>((a) => a.user);
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          '[Nama Restoran]',
-          style: AppTypography.textTheme.titleMedium?.copyWith(
+          user?.namaUser ?? '-',
+          style: AppTypography.textTheme.titleLarge?.copyWith(
             color: AppColors.onPrimary,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        if (user?.role != null && user!.role.isNotEmpty)
+          Text(
+            user.role[0].toUpperCase() + user.role.substring(1),
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onPrimary.withValues(alpha: 0.9),
+            ),
+          ),
         const SizedBox(height: AppSpacing.x4),
         const Icon(
           Icons.people_rounded,
@@ -286,26 +299,44 @@ class _ActionSection extends StatelessWidget {
     );
   }
 
-  void _onHadir(BuildContext context) {
-    context.read<AbsensiProvider>().hadir();
-    showDialog<void>(
-      context: context,
-      builder: (_) => const _StatusDialog(
-        icon: Icons.wb_sunny_rounded,
-        message: 'Anda Sudah Hadir',
-      ),
-    );
+  Future<void> _onHadir(BuildContext context) async {
+    final provider = context.read<AbsensiProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await provider.hadir();
+    if (!context.mounted) return;
+    if (ok) {
+      showDialog<void>(
+        context: context,
+        builder: (_) => const _StatusDialog(
+          icon: Icons.wb_sunny_rounded,
+          message: 'Anda Sudah Hadir',
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(provider.error ?? 'Gagal absen masuk')),
+      );
+    }
   }
 
-  void _onPulang(BuildContext context) {
-    context.read<AbsensiProvider>().pulang();
-    showDialog<void>(
-      context: context,
-      builder: (_) => const _StatusDialog(
-        icon: Icons.nightlight_round,
-        message: 'Anda Sudah Pulang',
-      ),
-    );
+  Future<void> _onPulang(BuildContext context) async {
+    final provider = context.read<AbsensiProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await provider.pulang();
+    if (!context.mounted) return;
+    if (ok) {
+      showDialog<void>(
+        context: context,
+        builder: (_) => const _StatusDialog(
+          icon: Icons.nightlight_round,
+          message: 'Anda Sudah Pulang',
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(provider.error ?? 'Gagal absen keluar')),
+      );
+    }
   }
 }
 
@@ -360,7 +391,12 @@ class _RiwayatSheet extends StatelessWidget {
   String _formatDate(DateTime dt) {
     final day = _days[dt.weekday - 1];
     final month = _months[dt.month - 1];
-    return '$day,\n${dt.day} $month ${dt.year}';
+    return '$day, ${dt.day} $month ${dt.year}';
+  }
+
+  static String _formatTime(DateTime dt) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
   }
 
   @override
@@ -421,9 +457,42 @@ class _RiwayatSheet extends StatelessWidget {
                                 ),
                                 const SizedBox(width: AppSpacing.x3),
                                 Expanded(
-                                  child: Text(
-                                    _formatDate(record.waktu),
-                                    style: AppTypography.textTheme.bodyMedium,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _formatDate(record.waktu),
+                                        style: AppTypography
+                                            .textTheme.bodyMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.x1),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isHadir
+                                                ? Icons.login_rounded
+                                                : Icons.logout_rounded,
+                                            size: 15,
+                                            color: AppColors.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: AppSpacing.x1),
+                                          Text(
+                                            '${isHadir ? 'Masuk' : 'Keluar'} '
+                                            '${_formatTime(record.waktu)}',
+                                            style: AppTypography
+                                                .textTheme.bodySmall
+                                                ?.copyWith(
+                                              color:
+                                                  AppColors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 FilledButton(

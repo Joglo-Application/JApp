@@ -324,6 +324,7 @@ class KelolaStokProvider extends ChangeNotifier {
         ..addAll(rows.map((k) => KategoriStok(
               id: k.kategoriId.toString(),
               nama: k.nama,
+              produkCount: k.produkCount,
             )));
       notifyListeners();
     } on ApiException {

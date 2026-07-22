@@ -45,7 +45,7 @@ class _SplashPageState extends State<SplashPage>
   Future<void> _bootstrap() async {
     final auth = context.read<AuthProvider>();
     final results = await Future.wait([
-      auth.tryAutoLogin(),
+      auth.ensureBootstrapped(),
       Future.delayed(const Duration(milliseconds: 2000), () => false),
     ]);
 

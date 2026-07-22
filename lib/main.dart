@@ -23,7 +23,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        // Eager: bootstrap sesi jalan saat app start (bukan menunggu diakses),
+        // agar user tersedia walau masuk lewat deep-link/refresh di web.
+        ChangeNotifierProvider(create: (_) => AuthProvider(), lazy: false),
         ChangeNotifierProvider(create: (_) => MenuProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => PosUiProvider()),

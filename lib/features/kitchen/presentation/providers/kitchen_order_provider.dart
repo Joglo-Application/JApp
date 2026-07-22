@@ -10,12 +10,16 @@ import '../../domain/usecases/fetch_kitchen_orders_usecase.dart';
 enum KitchenOrderLoadState { idle, loading, loaded, error }
 
 class KitchenOrderProvider extends ChangeNotifier {
-  KitchenOrderProvider() {
+  /// [includeCompleted] true untuk tab Transaksi (menampilkan pesanan yang
+  /// sudah selesai juga); false untuk layar Dapur (hanya sedang diproses).
+  KitchenOrderProvider({this.includeCompleted = false}) {
     _datasource = KitchenOrderRemoteDatasourceImpl();
     final repo = KitchenOrderRepositoryImpl(_datasource);
     _usecase = FetchKitchenOrdersUsecase(repo);
     _completeUsecase = CompleteKitchenOrderUsecase(repo);
   }
+
+  final bool includeCompleted;
 
   late final KitchenOrderRemoteDatasource _datasource;
   late final FetchKitchenOrdersUsecase _usecase;
@@ -24,22 +28,39 @@ class KitchenOrderProvider extends ChangeNotifier {
   List<KitchenOrder> _orders = [];
   KitchenOrderLoadState _state = KitchenOrderLoadState.idle;
   String? _error;
+  DateTime _selectedDate = DateTime.now();
 
   List<KitchenOrder> get orders => _orders;
   KitchenOrderLoadState get state => _state;
   bool get isLoading => _state == KitchenOrderLoadState.loading;
   String? get error => _error;
+  DateTime get selectedDate => _selectedDate;
+
+  static String _asQuery(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 
   Future<void> fetch() async {
     _state = KitchenOrderLoadState.loading;
     notifyListeners();
     try {
-      _orders = await _usecase();
+      _orders = await _usecase(
+        date: _asQuery(_selectedDate),
+        status: includeCompleted ? 'all' : null,
+      );
       _state = KitchenOrderLoadState.loaded;
     } catch (_) {
       _state = KitchenOrderLoadState.error;
     }
     notifyListeners();
+  }
+
+  /// Berpindah tanggal lalu memuat ulang daftar dari server.
+  Future<void> changeDate(DateTime date) async {
+    if (_asQuery(date) == _asQuery(_selectedDate)) return;
+    _selectedDate = date;
+    await fetch();
   }
 
   /// Mencentang/membatalkan centang satu item pesanan.

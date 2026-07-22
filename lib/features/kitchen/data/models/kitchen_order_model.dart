@@ -47,6 +47,13 @@ class KitchenOrderModel extends KitchenOrder {
       tipe: tipe,
       items: items,
       startTime: DateTime.parse(json['startTime'] as String),
+      status: _statusFromJson(json['status'] as String?),
     );
   }
+
+  static KitchenOrderStatus _statusFromJson(String? raw) => switch (raw) {
+        'completed' => KitchenOrderStatus.done,
+        'cancelled' => KitchenOrderStatus.cancelled,
+        _ => KitchenOrderStatus.inProgress,
+      };
 }

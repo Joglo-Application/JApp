@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -37,6 +39,11 @@ class _OwnerTambahkanStokMasukPageState
   String _supplier = '';
   late String _catatan;
   final List<StokMasukProdukItem> _produk = [];
+
+  /// Nama pembuat dokumen = user yang sedang login (server juga menetapkan ini
+  /// dari JWT; di sini hanya untuk tampilan draft).
+  String get _createdBy =>
+      context.read<AuthProvider>().user?.namaUser ?? '-';
 
   @override
   void initState() {
@@ -77,7 +84,7 @@ class _OwnerTambahkanStokMasukPageState
                     onEdit: _pickDate,
                   ),
                   const Divider(height: 1),
-                  const _CreatedByRow(createdBy: 'Kasir01'),
+                  _CreatedByRow(createdBy: context.select<AuthProvider, String>((a) => a.user?.namaUser ?? '-')),
                   const Divider(height: 1),
                   _EditableSection(
                     label: 'Supplier',
@@ -277,7 +284,7 @@ class _OwnerTambahkanStokMasukPageState
     final entry = StokMasukEntry(
       kode: _kode,
       tanggal: _tanggal,
-      createdBy: 'Kasir01',
+      createdBy: _createdBy,
       supplier: _supplier.isEmpty ? null : _supplier,
       catatan: _catatan.isEmpty ? null : _catatan,
       produk: List.of(_produk),
@@ -487,41 +494,81 @@ class _ProdukSection extends StatelessWidget {
             ),
           ),
         ),
-        InkWell(
-          onTap: onTambah,
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.x4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (produk.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.x3),
+                  child: Text(
+                    'Belum ada produk. Tekan tombol di bawah untuk menambah.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                for (final item in produk) ...[
+                  _ProdukItemRow(
+                    item: item,
+                    onDelete: () => onDelete(item),
+                    onQuantityChanged: (qty) => onQuantityChanged(item, qty),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                ],
+              _TambahProdukButton(onTap: onTambah),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TambahProdukButton extends StatelessWidget {
+  const _TambahProdukButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.08),
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.md,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppColors.primary),
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x3,
-            ),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.x3),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add_rounded, size: 18),
+                const Icon(
+                  Icons.add_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: AppSpacing.x1),
                 Text(
                   'Tambah Produk',
                   style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        ...produk.map(
-          (item) => Column(
-            children: [
-              const Divider(height: 1),
-              _ProdukItemRow(
-                item: item,
-                onDelete: () => onDelete(item),
-                onQuantityChanged: (qty) => onQuantityChanged(item, qty),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -540,38 +587,68 @@ class _ProdukItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isInventori = item.source == ProdukSource.inventori;
-    final iconColor =
-        isInventori ? Colors.deepOrange : AppColors.primary;
+    final accent = isInventori ? Colors.deepOrange : AppColors.primary;
     final icon =
-        isInventori ? Icons.inventory_2_rounded : Icons.groups_rounded;
+        isInventori ? Icons.inventory_2_rounded : Icons.warehouse_rounded;
+    final sumberLabel = isInventori ? 'Inventori' : 'Stok Gudang';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.x3),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onDelete,
-            child: Icon(
-              Icons.close_rounded,
-              size: 20,
-              color: AppColors.primary,
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Icon(icon, size: 22, color: accent),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.nama,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  sumberLabel,
+                  style: AppTypography.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: AppSpacing.x2),
-          Icon(icon, size: 22, color: iconColor),
-          const SizedBox(width: AppSpacing.x3),
-          Expanded(
-            child: Text(
-              item.nama,
-              style: AppTypography.textTheme.bodyMedium,
-            ),
-          ),
           _QuantityControl(
             value: item.jumlah,
             onChanged: onQuantityChanged,
+          ),
+          const SizedBox(width: AppSpacing.x1),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+            color: AppColors.error,
+            iconSize: 22,
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Hapus',
           ),
         ],
       ),

@@ -2,7 +2,9 @@ import '../../../../core/network/api_client.dart';
 import '../models/kitchen_order_model.dart';
 
 abstract interface class KitchenOrderRemoteDatasource {
-  Future<List<KitchenOrderModel>> fetchActiveOrders();
+  /// [date] dalam format `YYYY-MM-DD`; bila null server memakai hari berjalan.
+  /// [status] cakupan: `in_progress` (default), `completed`, atau `all`.
+  Future<List<KitchenOrderModel>> fetchActiveOrders({String? date, String? status});
   Future<void> completeOrder(String id);
 
   /// Mencentang satu item pesanan agar progresnya terlihat di semua
@@ -21,11 +23,16 @@ class KitchenOrderRemoteDatasourceImpl implements KitchenOrderRemoteDatasource {
   final ApiClient _client;
 
   @override
-  Future<List<KitchenOrderModel>> fetchActiveOrders() async {
-    // GET /kitchen/orders — order aktif (pesanan pending) untuk layar dapur.
+  Future<List<KitchenOrderModel>> fetchActiveOrders({
+    String? date,
+    String? status,
+  }) async {
+    // GET /kitchen/orders?date=&status= — order untuk layar dapur/transaksi.
     try {
-      final res =
-          await _client.dio.get<Map<String, dynamic>>('/kitchen/orders');
+      final res = await _client.dio.get<Map<String, dynamic>>(
+        '/kitchen/orders',
+        queryParameters: {'date': ?date, 'status': ?status},
+      );
       final rows = res.data?['data'] as List<dynamic>? ?? const [];
       return rows
           .map((e) => KitchenOrderModel.fromJson(e as Map<String, dynamic>))
