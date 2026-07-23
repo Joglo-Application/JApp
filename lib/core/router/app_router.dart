@@ -297,7 +297,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.inventoriPilihBahan,
-      builder: (context, state) => const InventoriPilihBahanPage(),
+      builder: (context, state) => InventoriPilihBahanPage(
+        alreadyAdded: (state.extra as List<int>?) ?? const [],
+      ),
     ),
   ],
 );

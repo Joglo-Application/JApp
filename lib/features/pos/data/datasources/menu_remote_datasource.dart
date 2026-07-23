@@ -3,12 +3,30 @@ import '../../domain/entities/create_menu_params.dart';
 import '../../domain/entities/update_menu_params.dart';
 import '../models/menu_model.dart';
 
+/// Satu baris resep sebuah menu, hasil `GET /menus/{id}/resep`.
+class ResepBahan {
+  const ResepBahan({
+    required this.bahanId,
+    required this.nama,
+    required this.satuan,
+    required this.jumlahPakai,
+  });
+
+  final int bahanId;
+  final String nama;
+  final String satuan;
+  final double jumlahPakai;
+}
+
 abstract class MenuRemoteDatasource {
   Future<List<MenuModel>> fetchMenus();
 
   Future<MenuModel> createMenu(CreateMenuParams params);
 
   Future<MenuModel> updateMenu(UpdateMenuParams params);
+
+  /// Resep (bahan + jumlah pakai) sebuah menu.
+  Future<List<ResepBahan>> fetchResep(int menuId);
 }
 
 class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
@@ -113,6 +131,26 @@ class MenuRemoteDatasourceImpl implements MenuRemoteDatasource {
       );
       final data = res.data!['data'] as Map<String, dynamic>;
       return MenuModel.fromJson(data);
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<List<ResepBahan>> fetchResep(int menuId) async {
+    try {
+      final res =
+          await _client.dio.get<Map<String, dynamic>>('/menus/$menuId/resep');
+      final rows = res.data?['data'] as List<dynamic>? ?? const [];
+      return rows.map((e) {
+        final m = e as Map<String, dynamic>;
+        return ResepBahan(
+          bahanId: (m['bahanId'] as num).toInt(),
+          nama: (m['namaBahan'] ?? '').toString(),
+          satuan: (m['satuan'] ?? '').toString(),
+          jumlahPakai: double.tryParse('${m['jumlahPakai']}') ?? 0,
+        );
+      }).toList();
     } catch (e) {
       throw _client.toApiException(e);
     }

@@ -10,7 +10,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../owner/data/datasources/stok_gudang_remote_datasource.dart';
 import '../../../owner/domain/entities/stok_gudang_item.dart';
+import '../../data/datasources/menu_remote_datasource.dart';
 import '../../domain/entities/inventori_item.dart';
 import '../../domain/entities/menu_resep_input.dart';
 import '../../domain/entities/product.dart';
@@ -69,6 +71,9 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   /// setelah ini menyala (mula-mula disabled).
   bool _dirty = false;
 
+  /// Resep dimuat dari server saat halaman dibuka (GET /menus/{id}/resep).
+  bool _loadingResep = true;
+
   final _picker = ImagePicker();
 
   static const _kategoriList = [
@@ -96,7 +101,49 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     _namaCtrl.addListener(_markDirty);
     _hargaCtrl.addListener(_markDirty);
     _royaltyCtrl.addListener(_markDirty);
+    _loadResep();
   }
+
+  /// Muat resep tersimpan (GET /menus/{id}/resep) lalu cocokkan ke stok gudang
+  /// agar info stok/unit-nya akurat. Tidak menandai halaman "berubah".
+  Future<void> _loadResep() async {
+    final menuId = int.tryParse(InventoriProvider.menuIdOf(widget.item.id)) ?? 0;
+    if (menuId <= 0) {
+      setState(() => _loadingResep = false);
+      return;
+    }
+    try {
+      final resep = await MenuRemoteDatasourceImpl().fetchResep(menuId);
+      final stok = await StokGudangRemoteDatasourceImpl().fetchStokGudang();
+      final byId = {for (final m in stok) m.bahanId: m.toEntity()};
+      final entries = resep.map((r) {
+        final item = byId[r.bahanId] ??
+            StokGudangItem(
+              id: 'STK-${r.bahanId}',
+              bahanId: r.bahanId,
+              nama: r.nama,
+              kategori: '',
+              unitProduk: r.satuan,
+              qtyStok: 0,
+              qtyTahan: 0,
+            );
+        final entry = ResepEntry(item, initialJumlah: _fmtJumlah(r.jumlahPakai));
+        // Mengubah jumlah bahan menandai halaman berubah (Simpan aktif).
+        entry.jumlah.addListener(_markDirty);
+        return entry;
+      }).toList();
+      if (!mounted) return;
+      setState(() {
+        _resepEntries.addAll(entries);
+        _loadingResep = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingResep = false);
+    }
+  }
+
+  static String _fmtJumlah(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
   @override
   void dispose() {
@@ -114,7 +161,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -123,30 +170,31 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
                 height: 1, thickness: 1, color: AppColors.outlineVariant),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.x4,
-                  vertical: AppSpacing.x4,
-                ),
+                padding: const EdgeInsets.all(AppSpacing.x4),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildFotoSection(),
-                    _sectionDivider(),
-                    _buildNamaSection(),
-                    _sectionDivider(),
-                    _buildKategoriSection(),
-                    _sectionDivider(),
-                    _buildHargaSection(),
-                    _sectionDivider(),
-                    _buildLacakInventoriSection(),
-                    _sectionDivider(),
-                    _buildResepMakananSection(),
-                    _sectionDivider(),
-                    _buildRoyaltySection(),
-                    _sectionDivider(),
-                    _buildProdukKhususSection(),
-                    _sectionDivider(),
-                    _buildTampilkanDiPosSection(),
+                    _card([
+                      _buildFotoSection(),
+                      _sectionDivider(),
+                      _buildNamaSection(),
+                      _sectionDivider(),
+                      _buildKategoriSection(),
+                      _sectionDivider(),
+                      _buildHargaSection(),
+                    ]),
+                    _card([
+                      _buildLacakInventoriSection(),
+                      _sectionDivider(),
+                      _buildResepMakananSection(),
+                    ]),
+                    _card([
+                      _buildRoyaltySection(),
+                      _sectionDivider(),
+                      _buildProdukKhususSection(),
+                      _sectionDivider(),
+                      _buildTampilkanDiPosSection(),
+                    ]),
                     const SizedBox(height: AppSpacing.x8),
                   ],
                 ),
@@ -157,6 +205,20 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
       ),
     );
   }
+
+  Widget _card(List<Widget> children) => Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.x3),
+        padding: const EdgeInsets.all(AppSpacing.x4),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.md,
+          border: Border.all(color: AppColors.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      );
 
   Widget _sectionDivider() => const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.x4),
@@ -416,7 +478,18 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
             TambahSmallButton(onTap: _pilihBahan),
           ],
         ),
-        if (_resepEntries.isNotEmpty) ...[
+        if (_loadingResep)
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.x3),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (_resepEntries.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.x3),
           for (int i = 0; i < _resepEntries.length; i++) ...[
             ResepEntryRow(
@@ -555,10 +628,19 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   }
 
   Future<void> _pilihBahan() async {
+    final sudahAda = _resepEntries.map((e) => e.item.bahanId).toList();
     final item = await context.push<StokGudangItem>(
       AppRoutes.inventoriPilihBahan,
+      extra: sudahAda,
     );
-    if (item != null) setState(() { _resepEntries.add(ResepEntry(item)); _dirty = true; });
+    if (item == null || !mounted) return;
+    // Cegah bahan ganda dalam satu resep, dan bahan yang stoknya habis.
+    if (sudahAda.contains(item.bahanId) || item.qtyStok <= 0) return;
+    final entry = ResepEntry(item)..jumlah.addListener(_markDirty);
+    setState(() {
+      _resepEntries.add(entry);
+      _dirty = true;
+    });
   }
 
   void _pickKategori() {
