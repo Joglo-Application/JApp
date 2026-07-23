@@ -16,7 +16,7 @@ class SupplierKategoriStokGudangPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => KategoriStokGudangProvider(),
+      create: (_) => KategoriStokGudangProvider()..load(),
       child: Scaffold(
         drawer: const SupplierDrawer(
           activePage: SupplierDrawerPage.kategoriStokGudang,
@@ -70,14 +70,18 @@ class _AppBar extends StatelessWidget {
 
   Future<void> _openTambahDialog(BuildContext context) async {
     final provider = context.read<KategoriStokGudangProvider>();
+    final messenger = ScaffoldMessenger.of(context);
     final nama = await showDialog<String>(
       context: context,
       builder: (_) => const _TambahKategoriDialog(),
     );
     if (nama == null || nama.trim().isEmpty) return;
-    provider.addKategori(
-      KategoriStokGudang(id: provider.generateId(), nama: nama.trim()),
-    );
+    final ok = await provider.addKategori(nama.trim());
+    if (!ok) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(provider.error ?? 'Gagal menambah kategori')),
+      );
+    }
   }
 }
 
@@ -89,30 +93,74 @@ class _KategoriList extends StatelessWidget {
     final list = context.select<KategoriStokGudangProvider, List<KategoriStokGudang>>(
       (p) => p.list,
     );
+    final isLoading = context.select<KategoriStokGudangProvider, bool>(
+      (p) => p.isLoading,
+    );
     final provider = context.read<KategoriStokGudangProvider>();
 
+    if (isLoading && list.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (list.isEmpty) {
       return Center(
-        child: Text(
-          'Belum ada kategori',
-          style: AppTypography.textTheme.bodyMedium?.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.category_outlined,
+              size: 56,
+              color: AppColors.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: AppSpacing.x3),
+            Text(
+              'Belum ada kategori',
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
-      itemCount: list.length,
-      onReorder: provider.reorderKategori,
-      buildDefaultDragHandles: false,
-      itemBuilder: (context, i) => _KategoriRow(
-        key: ValueKey(list[i].id),
-        index: i,
-        kategori: list[i],
-        onEdit: () => _openEditPage(context, provider, list[i]),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x3,
+            AppSpacing.x4,
+            AppSpacing.x2,
+          ),
+          child: Text(
+            '${list.length} kategori',
+            style: AppTypography.textTheme.labelMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ReorderableListView.builder(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.x4,
+              0,
+              AppSpacing.x4,
+              AppSpacing.x4,
+            ),
+            itemCount: list.length,
+            onReorder: provider.reorderKategori,
+            buildDefaultDragHandles: false,
+            itemBuilder: (context, i) => _KategoriRow(
+              key: ValueKey(list[i].id),
+              index: i,
+              kategori: list[i],
+              onEdit: () => _openEditPage(context, provider, list[i]),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -146,42 +194,93 @@ class _KategoriRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.x4,
-            vertical: AppSpacing.x3,
+    final huruf =
+        kategori.nama.isNotEmpty ? kategori.nama[0].toUpperCase() : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.x2),
+      padding: const EdgeInsets.all(AppSpacing.x3),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: const Icon(
+              Icons.drag_handle_rounded,
+              color: AppColors.onSurfaceVariant,
+              size: 22,
+            ),
           ),
-          child: Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const Icon(
-                  Icons.drag_handle_rounded,
-                  color: AppColors.onSurfaceVariant,
-                  size: 22,
-                ),
+          const SizedBox(width: AppSpacing.x2),
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Text(
+              huruf,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(width: AppSpacing.x3),
-              Expanded(
-                child: Text(
-                  kategori.nama,
-                  style: AppTypography.textTheme.bodyMedium,
-                ),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_rounded, size: 20),
-                color: AppColors.onSurfaceVariant,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
+            ),
           ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Text(
+              kategori.nama,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          _ProdukBadge(count: kategori.produkCount),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_rounded, size: 20),
+            color: AppColors.onSurfaceVariant,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProdukBadge extends StatelessWidget {
+  const _ProdukBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x2,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHighest,
+        borderRadius: AppRadius.full,
+      ),
+      child: Text(
+        '$count Produk',
+        style: AppTypography.textTheme.labelSmall?.copyWith(
+          color: AppColors.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
         ),
-        const Divider(height: 1),
-      ],
+      ),
     );
   }
 }
