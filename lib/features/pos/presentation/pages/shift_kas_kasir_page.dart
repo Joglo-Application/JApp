@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/thousands_separator_input_formatter.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -72,7 +73,7 @@ class _AddEntryFab extends StatelessWidget {
 
   void _onPressed(BuildContext context) {
     final provider = context.read<ShiftKasProvider>();
-    if (!provider.shiftStarted) {
+    if (!provider.hasShift) {
       showDialog<void>(
         context: context,
         builder: (_) => ChangeNotifierProvider.value(
@@ -477,6 +478,7 @@ class _KasAwalDialogState extends State<_KasAwalDialog> {
                 controller: _ctrl,
                 keyboardType: TextInputType.number,
                 autofocus: true,
+                inputFormatters: const [ThousandsSeparatorInputFormatter()],
                 style: AppTypography.textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: '0',
@@ -618,9 +620,18 @@ class _MulaiShiftConfirmDialog extends StatelessWidget {
                   ),
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        context.read<ShiftKasProvider>().mulaiShift(kasAwal);
-                        Navigator.of(context).pop();
+                      onTap: () async {
+                        final provider = context.read<ShiftKasProvider>();
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+                        await provider.mulaiShift(kasAwal);
+                        if (!context.mounted) return;
+                        navigator.pop();
+                        if (provider.error != null) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(provider.error!)),
+                          );
+                        }
                       },
                       borderRadius: const BorderRadius.only(
                         bottomRight: Radius.circular(12),
@@ -697,20 +708,27 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final nama = _namaCtrl.text.trim();
     final jumlah = double.tryParse(
       _jumlahCtrl.text.trim().replaceAll('.', '').replaceAll(',', ''),
     );
     if (nama.isEmpty || jumlah == null || jumlah <= 0) return;
 
-    context.read<ShiftKasProvider>().addEntry(
+    final provider = context.read<ShiftKasProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    await provider.addEntry(
       jenis: _tab == _KasTab.masuk ? ShiftKasJenis.setoran : ShiftKasJenis.penarikan,
       namaTransaksi: nama,
       jumlah: jumlah,
       catatan: _catatanCtrl.text.trim(),
     );
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    navigator.pop();
+    if (provider.error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(provider.error!)));
+    }
   }
 
   @override
@@ -808,6 +826,7 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
                   TextField(
                     controller: _jumlahCtrl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: const [ThousandsSeparatorInputFormatter()],
                     style: AppTypography.textTheme.bodyLarge,
                     decoration: InputDecoration(
                       prefixText: 'Rp  ',
@@ -1093,6 +1112,7 @@ class _EntryDetailDialogState extends State<_EntryDetailDialog> {
                   TextField(
                     controller: _jumlahCtrl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: const [ThousandsSeparatorInputFormatter()],
                     style: AppTypography.textTheme.bodyLarge,
                     decoration: fieldDecoration.copyWith(prefixText: 'Rp  '),
                   ),

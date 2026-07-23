@@ -24,6 +24,10 @@ class ShiftKasProvider extends ChangeNotifier {
   // ── Getters (kompatibel dengan halaman) ─────────────────────────────────────
   DateTime get selectedDate => _selectedDate;
   bool get shiftStarted => _shift?.isOpen ?? false;
+
+  /// Apakah pada tanggal terpilih sudah ada kas (shift), apa pun statusnya.
+  /// Dipakai tombol "+": belum ada → dialog Kas Awal; sudah ada → masuk/keluar.
+  bool get hasShift => _shift != null;
   double get kasAwal => (_shift?.kasAwal ?? 0).toDouble();
   DateTime? get shiftStartTime => _shift?.waktuMulai;
   double get totalKeluar => (_shift?.totalKeluar ?? 0).toDouble();
@@ -36,14 +40,16 @@ class ShiftKasProvider extends ChangeNotifier {
   String? get error => _error;
 
   // ── Load ────────────────────────────────────────────────────────────────────
-  /// Muat shift `open` milik kasir (dipanggil saat halaman dibuka).
+  /// Muat kas untuk hari ini (dipanggil saat halaman dibuka). Memakai tanggal —
+  /// bukan shift aktif lintas hari — agar data yang tampil selalu sesuai tanggal
+  /// yang ditunjukkan; hari tanpa kas tampil kosong.
   Future<void> load() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       _selectedDate = DateTime.now();
-      _setShift(await _ds.fetchActive());
+      _setShift(await _ds.fetchByDate(_selectedDate));
     } on ApiException catch (e) {
       _error = e.message;
     } catch (_) {
