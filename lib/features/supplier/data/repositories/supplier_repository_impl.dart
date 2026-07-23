@@ -40,6 +40,7 @@ class SupplierRepositoryImpl implements SupplierRepository {
     num? stok,
     num? stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) =>
       _datasource.updateItem(
         bahanId,
@@ -48,6 +49,7 @@ class SupplierRepositoryImpl implements SupplierRepository {
         stok: stok,
         stokMinimum: stokMinimum,
         kategori: kategori,
+        imageUrl: imageUrl,
       );
 
   @override

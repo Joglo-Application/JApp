@@ -3,6 +3,8 @@
          (debug/profile manifests declare this separately and are NOT merged
          into release, so it must live h    ere too.) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Kamera untuk ambil foto stok (image_picker source: camera). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="JApp"
         android:name="${applicationName}"

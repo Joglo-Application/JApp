@@ -1,15 +1,15 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/supplier_item.dart';
 import '../providers/supplier_provider.dart';
+import '../widgets/foto_source_picker.dart';
 
 // ── Stub data (mirrors tambah page) ──────────────────────────────────────────
 
@@ -69,7 +69,9 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
   late final TextEditingController _qtyStokCtrl;
   late final TextEditingController _qtyTahanCtrl;
 
-  late String? _fotoPath;
+  late String? _fotoUrl; // URL foto lama dari server (bila ada)
+  XFile? _fotoFile; // foto baru yang dipilih (bila ada)
+  Uint8List? _fotoBytes; // bytes foto baru, untuk pratinjau + unggah
   late String? _selectedKategori;
   late String? _selectedSatuan;
 
@@ -82,26 +84,24 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
     return _namaCtrl.text.trim() != widget.item.nama ||
         _selectedKategori != widget.item.kategori ||
         _selectedSatuan != _parseSatuan(widget.item.unitProduk) ||
-        _konverterCtrl.text.trim() !=
-            _parseKonverter(widget.item.unitProduk) ||
+        _konverterCtrl.text.trim() != _parseKonverter(widget.item.unitProduk) ||
         _qtyStokCtrl.text.trim() != '${widget.item.qtyStok}' ||
         _qtyTahanCtrl.text.trim() != '${widget.item.qtyTahan}' ||
-        _fotoPath != widget.item.imageUrl;
+        _fotoBytes != null; // foto baru dipilih
   }
 
   @override
   void initState() {
     super.initState();
-    _fotoPath = widget.item.imageUrl;
+    _fotoUrl = widget.item.imageUrl;
     _selectedKategori = widget.item.kategori;
     _selectedSatuan = _parseSatuan(widget.item.unitProduk);
     _namaCtrl = TextEditingController(text: widget.item.nama);
-    _konverterCtrl =
-        TextEditingController(text: _parseKonverter(widget.item.unitProduk));
-    _qtyStokCtrl =
-        TextEditingController(text: '${widget.item.qtyStok}');
-    _qtyTahanCtrl =
-        TextEditingController(text: '${widget.item.qtyTahan}');
+    _konverterCtrl = TextEditingController(
+      text: _parseKonverter(widget.item.unitProduk),
+    );
+    _qtyStokCtrl = TextEditingController(text: '${widget.item.qtyStok}');
+    _qtyTahanCtrl = TextEditingController(text: '${widget.item.qtyTahan}');
   }
 
   @override
@@ -123,77 +123,81 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildHeader(),
-            const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant),
             Expanded(
-              child: ListView(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Foto (always unlocked — tap to change)
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _FieldLabel(label: 'Foto', required: true),
-                        const SizedBox(height: AppSpacing.x2),
-                        _FotoInput(fotoPath: _fotoPath, onPick: _pickImage),
-                      ],
+                  // ── Kiri: blok unggah foto ──
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.x4),
+                    child: SizedBox(
+                      width: 480,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _FieldLabel(label: 'Foto', required: true),
+                          const SizedBox(height: AppSpacing.x3),
+                          _FotoInput(
+                            remoteUrl: _fotoUrl,
+                            pickedBytes: _fotoBytes,
+                            onPick: _pickImage,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const _SectionDivider(),
-
-                  // Nama
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // ── Kanan: form ──
+                  Expanded(
+                    child: ListView(
                       children: [
-                        _LabelRow(
-                          label: 'Nama',
-                          required: true,
-                          locked: !_isUnlocked(_kNama),
-                          onUnlock: () => _unlock(_kNama),
+                        // Nama
+                        _Section(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _LabelRow(
+                                label: 'Nama',
+                                required: true,
+                                locked: !_isUnlocked(_kNama),
+                                onUnlock: () => _unlock(_kNama),
+                              ),
+                              const SizedBox(height: AppSpacing.x2),
+                              _EditableTextInput(
+                                controller: _namaCtrl,
+                                hint: 'Nama',
+                                readOnly: !_isUnlocked(_kNama),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.x2),
-                        _EditableTextInput(
-                          controller: _namaCtrl,
-                          hint: 'Nama',
-                          readOnly: !_isUnlocked(_kNama),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const _SectionDivider(),
 
-                  // Kategori
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _LabelRow(
-                          label: 'Kategori',
-                          required: true,
-                          locked: !_isUnlocked(_kKategori_),
-                          onUnlock: () => _unlock(_kKategori_),
+                        // Kategori
+                        _Section(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _LabelRow(
+                                label: 'Kategori',
+                                required: true,
+                                locked: !_isUnlocked(_kKategori_),
+                                onUnlock: () => _unlock(_kKategori_),
+                              ),
+                              const SizedBox(height: AppSpacing.x2),
+                              _EditableDropdown(
+                                value: _selectedKategori,
+                                items: _kKategori,
+                                enabled: _isUnlocked(_kKategori_),
+                                pickerStyle: _PickerStyle.gold,
+                                onChanged: (v) =>
+                                    setState(() => _selectedKategori = v),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.x2),
-                        _EditableDropdown(
-                          value: _selectedKategori,
-                          items: _kKategori,
-                          enabled: _isUnlocked(_kKategori_),
-                          pickerStyle: _PickerStyle.gold,
-                          onChanged: (v) =>
-                              setState(() => _selectedKategori = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const _SectionDivider(),
 
-                  // Satuan + Konverter Satuan
-                  _Section(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
+                        // Satuan
+                        _Section(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -215,8 +219,9 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.x4),
-                        Expanded(
+
+                        // Konverter Satuan
+                        _Section(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -235,51 +240,50 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const _SectionDivider(),
 
-                  // Qty Stok + Qty Tahan
-                  _Section(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
+                        // Qty Stok + Qty Tahan
+                        _Section(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _LabelRow(
-                                label: 'Qty Stok',
-                                required: true,
-                                locked: !_isUnlocked(_kQtyStok),
-                                onUnlock: () => _unlock(_kQtyStok),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _LabelRow(
+                                      label: 'Qty Stok',
+                                      required: true,
+                                      locked: !_isUnlocked(_kQtyStok),
+                                      onUnlock: () => _unlock(_kQtyStok),
+                                    ),
+                                    const SizedBox(height: AppSpacing.x2),
+                                    _EditableNumberInput(
+                                      controller: _qtyStokCtrl,
+                                      readOnly: !_isUnlocked(_kQtyStok),
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: AppSpacing.x2),
-                              _EditableNumberInput(
-                                controller: _qtyStokCtrl,
-                                readOnly: !_isUnlocked(_kQtyStok),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.x4),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _LabelRow(
-                                label: 'Qty Tahan',
-                                required: false,
-                                locked: !_isUnlocked(_kQtyTahan),
-                                onUnlock: () => _unlock(_kQtyTahan),
-                              ),
-                              const SizedBox(height: AppSpacing.x2),
-                              _EditableNumberInput(
-                                controller: _qtyTahanCtrl,
-                                readOnly: !_isUnlocked(_kQtyTahan),
-                                onChanged: (_) => setState(() {}),
+                              const SizedBox(width: AppSpacing.x4),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _LabelRow(
+                                      label: 'Qty Tahan',
+                                      required: false,
+                                      locked: !_isUnlocked(_kQtyTahan),
+                                      onUnlock: () => _unlock(_kQtyTahan),
+                                    ),
+                                    const SizedBox(height: AppSpacing.x2),
+                                    _EditableNumberInput(
+                                      controller: _qtyTahanCtrl,
+                                      readOnly: !_isUnlocked(_kQtyTahan),
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -306,7 +310,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
   }
 
   Widget _buildHeader() {
-    return Padding(
+    return Container(
+      color: AppColors.primary,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
         vertical: AppSpacing.x3,
@@ -317,13 +322,18 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
           Text(
             'Edit Stok',
             style: AppTypography.textTheme.titleMedium?.copyWith(
+              color: AppColors.onPrimary,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: AppSpacing.x2),
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.close_rounded, size: 22),
+            child: const Icon(
+              Icons.close_rounded,
+              size: 22,
+              color: AppColors.onPrimary,
+            ),
           ),
         ],
       ),
@@ -331,9 +341,17 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (file != null && mounted) setState(() => _fotoPath = file.path);
+    // Pilih sumber (kamera/galeri) + persetujuan kamera lewat helper bersama.
+    final file = await pickFotoFromSource(context);
+    if (file == null) return;
+    // Dibaca sebagai bytes supaya pratinjau bekerja di web dan bytes yang sama
+    // dipakai ulang saat mengunggah pada _simpan.
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _fotoFile = file;
+      _fotoBytes = bytes;
+    });
   }
 
   void _hapus() {
@@ -370,7 +388,23 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
   Future<void> _simpan() async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    // Foto & konverter tidak dikirim ke BE (lihat catatan di halaman tambah).
+
+    // Unggah foto baru dulu bila ada; URL hasilnya dikirim bersama perubahan.
+    // Konverter masih tampilan FE — belum dikirim ke server.
+    String? imageUrl;
+    if (_fotoBytes != null && _fotoFile != null) {
+      imageUrl = await widget.provider.uploadFoto(
+        bytes: _fotoBytes!,
+        namaFile: _fotoFile!.name,
+      );
+      if (imageUrl == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Foto gagal diunggah, coba lagi')),
+        );
+        return;
+      }
+    }
+
     final ok = await widget.provider.updateStok(
       widget.item.bahanId,
       namaBahan: _namaCtrl.text.trim(),
@@ -379,6 +413,7 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
       stokMinimum:
           int.tryParse(_qtyTahanCtrl.text.trim()) ?? widget.item.qtyTahan,
       kategori: _selectedKategori ?? widget.item.kategori,
+      imageUrl: imageUrl,
     );
     if (!mounted) return;
     if (ok) {
@@ -452,21 +487,16 @@ class _Section extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.x4),
-        child: child,
-      );
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.all(AppSpacing.x4), child: child);
 }
 
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider();
 
   @override
-  Widget build(BuildContext context) => const Divider(
-        height: 1,
-        thickness: 1,
-        color: AppColors.outlineVariant,
-      );
+  Widget build(BuildContext context) =>
+      const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant);
 }
 
 // ── Field label ───────────────────────────────────────────────────────────────
@@ -481,8 +511,9 @@ class _FieldLabel extends StatelessWidget {
     if (!required) {
       return Text(
         label,
-        style: AppTypography.textTheme.bodyMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
       );
     }
     return RichText(
@@ -496,7 +527,9 @@ class _FieldLabel extends StatelessWidget {
           TextSpan(
             text: ' *',
             style: TextStyle(
-                color: AppColors.error, fontWeight: FontWeight.bold),
+              color: AppColors.error,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -507,28 +540,127 @@ class _FieldLabel extends StatelessWidget {
 // ── Foto input ────────────────────────────────────────────────────────────────
 
 class _FotoInput extends StatelessWidget {
-  const _FotoInput({required this.fotoPath, required this.onPick});
-  final String? fotoPath;
+  const _FotoInput({
+    required this.remoteUrl,
+    required this.pickedBytes,
+    required this.onPick,
+  });
+  final String? remoteUrl; // foto lama dari server
+  final Uint8List? pickedBytes; // foto baru yang baru dipilih
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
+    // Foto baru menang atas foto lama. Keduanya web-safe: Image.memory untuk
+    // bytes, Image.network (URL absolut) untuk foto server.
+    final resolvedUrl = ApiConfig.resolveImageUrl(remoteUrl);
+    final Widget? preview = pickedBytes != null
+        ? Image.memory(pickedBytes!, fit: BoxFit.cover)
+        : (resolvedUrl != null
+              ? Image.network(resolvedUrl, fit: BoxFit.cover)
+              : null);
     return GestureDetector(
       onTap: onPick,
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          color: AppColors.outline,
-          borderRadius: AppRadius.sm,
+      child: _DashedBorder(
+        radius: 12,
+        color: AppColors.primary,
+        child: Container(
+          width: double.infinity,
+          height: 440,
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.25),
+            borderRadius: AppRadius.md,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child:
+              preview ??
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.cloud_upload_outlined,
+                    size: 48,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: AppSpacing.x3),
+                  Text(
+                    'Upload Foto',
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  Text(
+                    'JPEG, PNG, atau WebP · maks 5 MB',
+                    style: AppTypography.textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: fotoPath != null
-            ? Image.file(File(fotoPath!), fit: BoxFit.cover)
-            : null,
       ),
     );
   }
+}
+
+// ── Dashed border ─────────────────────────────────────────────────────────────
+
+class _DashedBorder extends StatelessWidget {
+  const _DashedBorder({
+    required this.child,
+    required this.radius,
+    required this.color,
+  });
+  final Widget child;
+  final double radius;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedRRectPainter(radius: radius, color: color),
+      child: child,
+    );
+  }
+}
+
+class _DashedRRectPainter extends CustomPainter {
+  _DashedRRectPainter({required this.radius, required this.color});
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    const dash = 6.0;
+    const gap = 5.0;
+    final source = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+    final dashed = Path();
+    for (final metric in source.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        dashed.addPath(
+          metric.extractPath(distance, next.clamp(0.0, metric.length)),
+          Offset.zero,
+        );
+        distance = next + gap;
+      }
+    }
+    canvas.drawPath(dashed, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DashedRRectPainter oldDelegate) =>
+      oldDelegate.radius != radius || oldDelegate.color != color;
 }
 
 // ── Editable text input ───────────────────────────────────────────────────────
@@ -547,12 +679,12 @@ class _EditableTextInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
-        controller: controller,
-        readOnly: readOnly,
-        onChanged: onChanged,
-        style: AppTypography.textTheme.bodyMedium,
-        decoration: _fieldDecoration(hint, readOnly),
-      );
+    controller: controller,
+    readOnly: readOnly,
+    onChanged: onChanged,
+    style: AppTypography.textTheme.bodyMedium,
+    decoration: _fieldDecoration(hint, readOnly),
+  );
 }
 
 // ── Editable number input ─────────────────────────────────────────────────────
@@ -569,14 +701,14 @@ class _EditableNumberInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
-        controller: controller,
-        readOnly: readOnly,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: onChanged,
-        style: AppTypography.textTheme.bodyMedium,
-        decoration: _fieldDecoration('0', readOnly),
-      );
+    controller: controller,
+    readOnly: readOnly,
+    keyboardType: TextInputType.number,
+    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    onChanged: onChanged,
+    style: AppTypography.textTheme.bodyMedium,
+    decoration: _fieldDecoration('0', readOnly),
+  );
 }
 
 // ── Editable dropdown ─────────────────────────────────────────────────────────
@@ -621,8 +753,8 @@ class _EditableDropdown extends StatelessWidget {
               size: 20,
               color: enabled
                   ? (value != null
-                      ? AppColors.onSurface
-                      : AppColors.onSurfaceVariant)
+                        ? AppColors.onSurface
+                        : AppColors.onSurfaceVariant)
                   : AppColors.onSurfaceVariant,
             ),
             const SizedBox(width: AppSpacing.x2),
@@ -632,8 +764,8 @@ class _EditableDropdown extends StatelessWidget {
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: enabled
                       ? (value != null
-                          ? AppColors.onSurface
-                          : AppColors.onSurfaceVariant)
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant)
                       : AppColors.onSurfaceVariant,
                 ),
               ),
@@ -700,8 +832,10 @@ class _GoldPickerDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppColors.onPrimary),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.onPrimary,
+                    ),
                     iconSize: 22,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -763,14 +897,16 @@ class _GoldPickerItem extends StatelessWidget {
                 label,
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onPrimary,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_rounded,
-                  size: 18, color: AppColors.onPrimary),
+              const Icon(
+                Icons.check_rounded,
+                size: 18,
+                color: AppColors.onPrimary,
+              ),
           ],
         ),
       ),
@@ -889,8 +1025,7 @@ class _WhitePickerItem extends StatelessWidget {
                 label,
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurface,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -967,8 +1102,9 @@ class _BottomButtons extends StatelessWidget {
           child: _Btn(
             label: 'Simpan',
             color: canSave ? AppColors.tertiary : AppColors.outline,
-            textColor:
-                canSave ? AppColors.onTertiary : AppColors.onSurfaceVariant,
+            textColor: canSave
+                ? AppColors.onTertiary
+                : AppColors.onSurfaceVariant,
             onPressed: onSimpan,
           ),
         ),
@@ -1031,8 +1167,11 @@ class _HapusConfirmDialog extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: GestureDetector(
                 onTap: () => Navigator.of(context).pop(false),
-                child: const Icon(Icons.close_rounded,
-                    size: 22, color: AppColors.onSurfaceVariant),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 22,
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.x2),

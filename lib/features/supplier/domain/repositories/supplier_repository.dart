@@ -22,6 +22,7 @@ abstract class SupplierRepository {
     num? stok,
     num? stokMinimum,
     String? kategori,
+    String? imageUrl,
   });
   Future<void> tambahStok(int bahanId, num jumlah);
   Future<void> deleteItem(int bahanId);

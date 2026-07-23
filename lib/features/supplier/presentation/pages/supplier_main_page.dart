@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -43,9 +44,7 @@ class _SupplierMainView extends StatelessWidget {
           const Expanded(child: _SupplierTable()),
           SafeArea(
             top: false,
-            child: _TambahProdukButton(
-              onTap: () => _showPilihDialog(context),
-            ),
+            child: _TambahProdukButton(onTap: () => _showPilihDialog(context)),
           ),
         ],
       ),
@@ -71,9 +70,7 @@ class _SupplierAppBar extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.grey.shade700,
-        border: Border(
-          bottom: BorderSide(color: AppColors.secondaryContainer),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
       ),
       child: SafeArea(
         bottom: false,
@@ -137,14 +134,8 @@ class _TableHeader extends StatelessWidget {
         child: Row(
           children: [
             const SizedBox(width: 48 + AppSpacing.x3),
-            Expanded(
-              flex: 3,
-              child: _HeaderCell(label: 'Nama'),
-            ),
-            Expanded(
-              flex: 2,
-              child: _HeaderCell(label: 'Unit Produk'),
-            ),
+            Expanded(flex: 3, child: _HeaderCell(label: 'Nama')),
+            Expanded(flex: 2, child: _HeaderCell(label: 'Unit Produk')),
             Expanded(
               child: _HeaderCell(label: 'Qty Stok', align: TextAlign.right),
             ),
@@ -152,7 +143,7 @@ class _TableHeader extends StatelessWidget {
               child: _HeaderCell(label: 'Qty Tahan', align: TextAlign.right),
             ),
             const SizedBox(
-              width: 64,
+              width: 72,
               child: _HeaderCell(label: 'Status', align: TextAlign.right),
             ),
           ],
@@ -216,25 +207,148 @@ class _SupplierTable extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const Divider(
-        height: 1,
-        thickness: 1,
-        color: AppColors.outlineVariant,
-      ),
-      itemBuilder: (context, index) => _SupplierRow(
-            item: items[index],
+    return _GroupedList(items: items, provider: provider);
+  }
+}
+
+// ── Grouping per kategori (mengikuti halaman Stok Gudang) ─────────────────────
+
+/// Urutan kategori baku (samakan dengan pilihan di form Tambah/Edit Stok).
+const _kKategoriOrder = ['Bahan Dasar', 'Bumbu', 'Cabe', 'Saos', 'Frozen Food'];
+
+class _GroupedList extends StatelessWidget {
+  const _GroupedList({required this.items, required this.provider});
+
+  final List<SupplierItem> items;
+  final SupplierProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    // Kelompokkan berdasarkan kategori; item tanpa kategori masuk grup khusus.
+    final groups = <String, List<SupplierItem>>{};
+    for (final it in items) {
+      final key = it.kategori.trim().isEmpty
+          ? 'Tanpa Kategori'
+          : it.kategori.trim();
+      (groups[key] ??= []).add(it);
+    }
+    // Kategori baku SELALU tampil (meski kosong), sesuai urutan _kKategoriOrder.
+    // Lalu kategori tak dikenal (alfabetis), dan "Tanpa Kategori" hanya bila ada.
+    final unknown =
+        groups.keys
+            .where((k) => k != 'Tanpa Kategori' && !_kKategoriOrder.contains(k))
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final keys = <String>[
+      ..._kKategoriOrder,
+      ...unknown,
+      if (groups.containsKey('Tanpa Kategori')) 'Tanpa Kategori',
+    ];
+
+    // Ratakan jadi satu daftar: header grup lalu barisnya.
+    final rows = <Widget>[];
+    for (final k in keys) {
+      final list = groups[k] ?? const [];
+      rows.add(_GroupHeader(kategori: k, count: list.length));
+      if (list.isEmpty) {
+        rows.add(const _EmptyGroupRow());
+        continue;
+      }
+      for (var i = 0; i < list.length; i++) {
+        final item = list[i];
+        rows.add(
+          _SupplierRow(
+            item: item,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 fullscreenDialog: true,
-                builder: (_) => SupplierEditStokPage(
-                  item: items[index],
-                  provider: provider,
-                ),
+                builder: (_) =>
+                    SupplierEditStokPage(item: item, provider: provider),
               ),
             ),
           ),
+        );
+        if (i < list.length - 1) {
+          rows.add(
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.outlineVariant,
+            ),
+          );
+        }
+      }
+    }
+
+    return ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (_, i) => rows[i],
+    );
+  }
+}
+
+class _EmptyGroupRow extends StatelessWidget {
+  const _EmptyGroupRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x3,
+        ),
+        child: Text(
+          'Belum ada item',
+          style: AppTypography.textTheme.bodySmall?.copyWith(
+            color: AppColors.onSurfaceVariant,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({required this.kategori, required this.count});
+
+  final String kategori;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x4,
+        vertical: AppSpacing.x2,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.folder_rounded,
+            size: 16,
+            color: AppColors.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          Text(
+            kategori,
+            style: AppTypography.textTheme.labelLarge?.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          Text(
+            '($count)',
+            style: AppTypography.textTheme.labelMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -252,62 +366,62 @@ class _SupplierRow extends StatelessWidget {
       child: ColoredBox(
         color: AppColors.surface,
         child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            _ProductAvatar(item: item),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              flex: 3,
-              child: Text(
-                item.nama,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w500,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          child: Row(
+            children: [
+              _ProductAvatar(item: item),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  item.nama,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                item.unitProduk,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                flex: 2,
+                child: Text(
+                  item.unitProduk,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${item.qtyStok}',
-                textAlign: TextAlign.right,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                child: Text(
+                  '${item.qtyStok}',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Text(
-                '${item.qtyTahan}',
-                textAlign: TextAlign.right,
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
+              Expanded(
+                child: Text(
+                  '${item.qtyTahan}',
+                  textAlign: TextAlign.right,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            SizedBox(
-              width: 64,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _StatusIndicator(status: item.status),
+              SizedBox(
+                width: 72,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _StatusChip(status: item.status),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -319,11 +433,9 @@ class _ProductAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.imageUrl != null) {
-      return CircleAvatar(
-        radius: 24,
-        backgroundImage: NetworkImage(item.imageUrl!),
-      );
+    final imageUrl = ApiConfig.resolveImageUrl(item.imageUrl);
+    if (imageUrl != null) {
+      return CircleAvatar(radius: 24, backgroundImage: NetworkImage(imageUrl));
     }
     return CircleAvatar(
       radius: 24,
@@ -339,27 +451,34 @@ class _ProductAvatar extends StatelessWidget {
   }
 }
 
-class _StatusIndicator extends StatelessWidget {
-  const _StatusIndicator({required this.status});
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
 
   final SupplierItemStatus status;
 
   @override
   Widget build(BuildContext context) {
-    if (status == SupplierItemStatus.aman) return const SizedBox.shrink();
-
-    final color = switch (status) {
-      SupplierItemStatus.rendah => AppColors.error,
-      SupplierItemStatus.habis => AppColors.onSurfaceVariant,
-      SupplierItemStatus.aman => Colors.transparent,
+    final (label, color) = switch (status) {
+      SupplierItemStatus.aman => ('Tersedia', Colors.green.shade700),
+      SupplierItemStatus.rendah => ('Rendah', Colors.orange.shade800),
+      SupplierItemStatus.habis => ('Habis', AppColors.error),
     };
 
     return Container(
-      width: 28,
-      height: 28,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x2,
+        vertical: 2,
+      ),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.full,
+      ),
+      child: Text(
+        label,
+        style: AppTypography.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -383,7 +502,11 @@ class _TambahProdukButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add_rounded, color: AppColors.onTertiary, size: 22),
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.onTertiary,
+                size: 22,
+              ),
               const SizedBox(width: AppSpacing.x2),
               Text(
                 'Tambah Produk',
