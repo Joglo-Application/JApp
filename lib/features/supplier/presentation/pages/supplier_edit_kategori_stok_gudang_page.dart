@@ -57,8 +57,13 @@ class _SupplierEditKategoriStokGudangPageState
             const Divider(height: 1, color: AppColors.outlineVariant),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.x6),
+                padding: const EdgeInsets.all(AppSpacing.x5),
                 children: [
+                  _IdentityCard(
+                    nama: widget.kategori.nama,
+                    produkCount: widget.kategori.produkCount,
+                  ),
+                  const SizedBox(height: AppSpacing.x5),
                   Text(
                     'Nama Kategori',
                     style: AppTypography.textTheme.labelLarge?.copyWith(
@@ -68,25 +73,27 @@ class _SupplierEditKategoriStokGudangPageState
                   const SizedBox(height: AppSpacing.x2),
                   TextFormField(
                     controller: _namaCtrl,
+                    autofocus: true,
                     style: AppTypography.textTheme.bodyMedium,
                     decoration: InputDecoration(
+                      hintText: 'Nama kategori',
                       filled: true,
-                      fillColor: AppColors.surface,
+                      fillColor: AppColors.background,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.x3,
                         vertical: AppSpacing.x3,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: AppRadius.xs,
+                        borderRadius: AppRadius.md,
                         borderSide: const BorderSide(color: AppColors.outline),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: AppRadius.xs,
+                        borderRadius: AppRadius.md,
                         borderSide: const BorderSide(color: AppColors.outline),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: AppRadius.xs,
+                        borderRadius: AppRadius.md,
                         borderSide:
                             const BorderSide(color: AppColors.primary, width: 2),
                       ),
@@ -133,38 +140,150 @@ class _SupplierEditKategoriStokGudangPageState
       ),
       child: Row(
         children: [
-          const Spacer(),
-          Text(
-            widget.kategori.nama,
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: const Icon(
+              Icons.category_rounded,
+              color: AppColors.primary,
+              size: 22,
             ),
           ),
-          const SizedBox(width: AppSpacing.x2),
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.close_rounded, size: 22),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Edit Kategori',
+                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Ubah nama atau hapus kategori',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close_rounded, size: 24),
+            color: AppColors.onSurface,
           ),
         ],
       ),
     );
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     final updated = widget.kategori..nama = _namaCtrl.text.trim();
-    widget.provider.updateKategori(updated);
-    Navigator.of(context).pop();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await widget.provider.updateKategori(updated);
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(widget.provider.error ?? 'Gagal menyimpan kategori'),
+        ),
+      );
+    }
   }
 
-  void _onHapus() {
-    showDialog<bool>(
+  Future<void> _onHapus() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => const _HapusConfirmDialog(),
-    ).then((confirmed) {
-      if (confirmed != true || !mounted) return;
-      widget.provider.removeKategori(widget.kategori.id);
-      Navigator.of(context).pop();
-    });
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await widget.provider.removeKategori(widget.kategori.id);
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(widget.provider.error ?? 'Gagal menghapus kategori'),
+        ),
+      );
+    }
+  }
+}
+
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({required this.nama, required this.produkCount});
+
+  final String nama;
+  final int produkCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final huruf = nama.isNotEmpty ? nama[0].toUpperCase() : '?';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.x3),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHighest,
+        borderRadius: AppRadius.md,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.14),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Text(
+              huruf,
+              style: AppTypography.textTheme.titleLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nama,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$produkCount produk pada kategori ini',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -177,7 +296,7 @@ class _HapusButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 48,
-      child: FilledButton(
+      child: FilledButton.icon(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.error,
@@ -185,7 +304,8 @@ class _HapusButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: AppRadius.sm),
           textStyle: AppTypography.textTheme.labelLarge,
         ),
-        child: const Text('Hapus Kategori'),
+        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+        label: const Text('Hapus Kategori'),
       ),
     );
   }
