@@ -89,6 +89,7 @@ class SupplierProvider extends ChangeNotifier {
     num? stok,
     num? stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) async {
     final nama = namaBahan ?? _namaOf(bahanId);
     final ok = await _runWrite(() => _repo.updateItem(
@@ -98,6 +99,7 @@ class SupplierProvider extends ChangeNotifier {
           stok: stok,
           stokMinimum: stokMinimum,
           kategori: kategori,
+          imageUrl: imageUrl,
         ));
     if (ok) _logAksi('UPDATE_ITEM', 'Update $nama');
     return ok;

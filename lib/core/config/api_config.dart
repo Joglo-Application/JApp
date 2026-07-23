@@ -14,4 +14,19 @@ class ApiConfig {
 
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 20);
+
+  /// Origin of the backend (scheme://host:port), tanpa path `/api/v1`.
+  /// Gambar unggahan disajikan dari sini (`/uploads/...`), bukan di bawah API.
+  static String get serverOrigin => Uri.parse(baseUrl).origin;
+
+  /// Ubah path gambar dari server jadi URL absolut yang bisa dimuat.
+  ///
+  /// Backend mengembalikan path relatif seperti `/uploads/foo.jpg`; di web
+  /// path relatif akan salah resolve ke origin halaman, jadi harus dijadikan
+  /// absolut. URL yang sudah absolut (http/https) dibiarkan apa adanya.
+  static String? resolveImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return '$serverOrigin${path.startsWith('/') ? '' : '/'}$path';
+  }
 }

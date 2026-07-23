@@ -40,18 +40,9 @@ class _ShiftKasView extends StatelessWidget {
         children: [
           const ShiftKasAppBar(),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ColoredBox(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const _EntriesList(),
-                  ),
-                ),
-                const _DetailPanel(),
-              ],
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: const _EntriesList(),
             ),
           ),
         ],
@@ -105,10 +96,13 @@ class _EntriesList extends StatelessWidget {
     final entries = context.watch<ShiftKasProvider>().entries;
     if (entries.isEmpty) return const _EmptyState();
 
-    return ListView.separated(
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.x4),
       itemCount: entries.length,
-      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
-      itemBuilder: (context, i) => _EntryTile(entry: entries[i]),
+      itemBuilder: (context, i) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.x2),
+        child: _EntryTile(entry: entries[i]),
+      ),
     );
   }
 }
@@ -173,223 +167,124 @@ class _EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMasuk = entry.jenis == ShiftKasJenis.setoran;
+    final color = isMasuk ? Colors.green.shade600 : Colors.red.shade600;
+    final adaLampiran =
+        entry.lampiranUrl != null && entry.lampiranUrl!.isNotEmpty;
 
-    return InkWell(
-      onTap: () {
-        final provider = context.read<ShiftKasProvider>();
-        showDialog<void>(
-          context: context,
-          builder: (_) => ChangeNotifierProvider.value(
-            value: provider,
-            child: _EntryDetailDialog(entry: entry),
-          ),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isMasuk ? Colors.green.shade500 : Colors.red.shade500,
-                borderRadius: AppRadius.md,
-              ),
-              child: Icon(
-                isMasuk ? Icons.add_rounded : Icons.remove_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
+    return Material(
+      color: AppColors.surface,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: () {
+          final provider = context.read<ShiftKasProvider>();
+          showDialog<void>(
+            context: context,
+            builder: (_) => ChangeNotifierProvider.value(
+              value: provider,
+              child: _EntryDetailDialog(entry: entry),
             ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _formatDate(entry.waktu),
-                    style: AppTypography.textTheme.bodySmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+          );
+        },
+        borderRadius: AppRadius.md,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.x3),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppColors.outlineVariant),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.md,
+                ),
+                child: Icon(
+                  isMasuk ? Icons.add_rounded : Icons.remove_rounded,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            entry.namaTransaksi,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.textTheme.bodyLarge?.copyWith(
+                              color: AppColors.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (adaLampiran) ...[
+                          const SizedBox(width: AppSpacing.x1),
+                          Icon(
+                            Icons.attach_file_rounded,
+                            size: 14,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                  Text(
-                    entry.namaTransaksi,
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (entry.catatan.isNotEmpty)
+                    const SizedBox(height: 2),
                     Text(
-                      entry.catatan,
+                      _formatDate(entry.waktu),
                       style: AppTypography.textTheme.bodySmall?.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Text(
-              _formatRp(entry.jumlah),
-              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: isMasuk ? AppColors.onSurface : Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Detail panel ──────────────────────────────────────────────────────────────
-
-class _DetailPanel extends StatelessWidget {
-  const _DetailPanel();
-
-  static String _formatRp(double amount) {
-    final s = amount.round().toString();
-    final buf = StringBuffer('Rp ');
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<ShiftKasProvider>();
-    final selected = provider.selected;
-
-    return Container(
-      width: 320,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(left: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: selected == null
-          ? const SizedBox.expand()
-          : _PanelDetail(entry: selected, formatRp: _formatRp),
-    );
-  }
-}
-
-class _PanelDetail extends StatelessWidget {
-  const _PanelDetail({required this.entry, required this.formatRp});
-
-  final ShiftKasEntry entry;
-  final String Function(double) formatRp;
-
-  static const _months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ];
-
-  String _formatDateTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '${dt.day} ${_months[dt.month - 1]} ${dt.year}, $h:$m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isSetoran = entry.jenis == ShiftKasJenis.setoran;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ColoredBox(
-          color: Colors.grey.shade700,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.x4,
-              vertical: AppSpacing.x3,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Detail',
-                    style: AppTypography.textTheme.titleMedium?.copyWith(
-                      color: AppColors.onSecondary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                    if (entry.catatan.isNotEmpty)
+                      Text(
+                        entry.catatan,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: () =>
-                      context.read<ShiftKasProvider>().clearSelection(),
-                  icon: const Icon(Icons.close, color: AppColors.onSecondary),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.x4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailField(
-                label: 'Jenis',
-                value: isSetoran ? 'Kas Masuk' : 'Kas Keluar',
-                valueColor: isSetoran ? Colors.green.shade700 : Colors.red.shade700,
               ),
-              const SizedBox(height: AppSpacing.x3),
-              _DetailField(label: 'Nama Transaksi', value: entry.namaTransaksi),
-              if (entry.catatan.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.x3),
-                _DetailField(label: 'Catatan', value: entry.catatan),
-              ],
-              const SizedBox(height: AppSpacing.x3),
-              _DetailField(
-                label: 'Jumlah',
-                value: formatRp(entry.jumlah),
-                valueColor: isSetoran ? Colors.green.shade700 : Colors.red.shade700,
-                bold: true,
-              ),
-              const SizedBox(height: AppSpacing.x3),
-              _DetailField(label: 'Waktu', value: _formatDateTime(entry.waktu)),
-              if (entry.lampiranUrl != null &&
-                  entry.lampiranUrl!.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.x3),
-                Text(
-                  'Lampiran',
-                  style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
+              const SizedBox(width: AppSpacing.x3),
+              Text(
+                '${isMasuk ? '+' : '−'} ${_formatRp(entry.jumlah)}',
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: AppSpacing.x2),
-                _LampiranThumbnail(url: _fullUrl(entry.lampiranUrl!)),
-              ],
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
+}
 
-  /// Ubah path relatif `/uploads/…` jadi URL absolut dari origin server.
-  static String _fullUrl(String path) {
+// ── Lampiran ─────────────────────────────────────────────────────────────────
+
+class _LampiranThumbnail extends StatelessWidget {
+  const _LampiranThumbnail({required this.path});
+
+  /// Path relatif dari server, mis. `/uploads/xxx.jpg`.
+  final String path;
+
+  String get _url {
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     final origin = Uri.parse(ApiConfig.baseUrl).origin;
     return '$origin${path.startsWith('/') ? '' : '/'}$path';
   }
-}
-
-class _LampiranThumbnail extends StatelessWidget {
-  const _LampiranThumbnail({required this.url});
-
-  final String url;
 
   void _viewFull(BuildContext context) {
     showDialog<void>(
@@ -400,9 +295,7 @@ class _LampiranThumbnail extends StatelessWidget {
         child: Stack(
           children: [
             InteractiveViewer(
-              child: Center(
-                child: Image.network(url, fit: BoxFit.contain),
-              ),
+              child: Center(child: Image.network(_url, fit: BoxFit.contain)),
             ),
             Positioned(
               top: 4,
@@ -425,7 +318,7 @@ class _LampiranThumbnail extends StatelessWidget {
       child: ClipRRect(
         borderRadius: AppRadius.md,
         child: Image.network(
-          url,
+          _url,
           height: 160,
           width: double.infinity,
           fit: BoxFit.cover,
@@ -438,43 +331,6 @@ class _LampiranThumbnail extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _DetailField extends StatelessWidget {
-  const _DetailField({
-    required this.label,
-    required this.value,
-    this.valueColor,
-    this.bold = false,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTypography.textTheme.bodySmall?.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: AppTypography.textTheme.bodyMedium?.copyWith(
-            color: valueColor ?? AppColors.onSurface,
-            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1253,31 +1109,18 @@ class _EntryDetailDialogState extends State<_EntryDetailDialog> {
                     style: AppTypography.textTheme.bodyLarge,
                     decoration: fieldDecoration,
                   ),
-                  const SizedBox(height: AppSpacing.x4),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: AppRadius.md,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x3,
-                        vertical: AppSpacing.x3,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'File Lampiran',
-                              style: AppTypography.textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w500),
-                            ),
-                          ),
-                          const Icon(Icons.add_rounded, size: 24),
-                        ],
+                  if (widget.entry.lampiranUrl != null &&
+                      widget.entry.lampiranUrl!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.x4),
+                    Text(
+                      'Lampiran',
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.x2),
+                    _LampiranThumbnail(path: widget.entry.lampiranUrl!),
+                  ],
                 ],
               ),
             ),

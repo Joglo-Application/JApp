@@ -25,6 +25,7 @@ abstract class SupplierRemoteDatasource {
     num? stok,
     num? stokMinimum,
     String? kategori,
+    String? imageUrl,
   });
   Future<void> tambahStok(int bahanId, num jumlah);
   Future<void> deleteItem(int bahanId);
@@ -116,6 +117,7 @@ class SupplierRemoteDatasourceImpl implements SupplierRemoteDatasource {
     num? stok,
     num? stokMinimum,
     String? kategori,
+    String? imageUrl,
   }) async {
     // PATCH /bahan-baku/:id — ubah bahan baku.
     try {
@@ -125,6 +127,7 @@ class SupplierRemoteDatasourceImpl implements SupplierRemoteDatasource {
         'stok': ?stok,
         'stokMinimum': ?stokMinimum,
         'kategori': ?kategori,
+        'imageUrl': ?imageUrl,
       });
     } catch (e) {
       throw _client.toApiException(e);

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +7,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../providers/supplier_provider.dart';
+import '../widgets/foto_source_picker.dart';
 
 // ── Stub data ─────────────────────────────────────────────────────────────────
 
@@ -44,13 +43,13 @@ class _SupplierTambahStokBaruPageState
   final _qtyStokCtrl = TextEditingController();
   final _qtyTahanCtrl = TextEditingController();
 
-  String? _fotoPath;
   XFile? _fotoFile;
+  Uint8List? _fotoBytes;
   String? _selectedKategori;
   String? _selectedSatuan;
 
   bool get _isValid =>
-      _fotoPath != null &&
+      _fotoBytes != null &&
       _namaCtrl.text.trim().isNotEmpty &&
       _selectedKategori != null &&
       _selectedSatuan != null &&
@@ -75,68 +74,74 @@ class _SupplierTambahStokBaruPageState
           children: [
             _buildHeader(),
             Expanded(
-              child: ListView(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Foto
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _FieldLabel(label: 'Foto', required: true),
-                        const SizedBox(height: AppSpacing.x2),
-                        _FotoInput(fotoPath: _fotoPath, onPick: _pickImage),
-                      ],
+                  // ── Kiri: blok unggah foto ──
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.x4),
+                    child: SizedBox(
+                      width: 480,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _FieldLabel(label: 'Foto', required: true),
+                          const SizedBox(height: AppSpacing.x3),
+                          _FotoInput(fotoBytes: _fotoBytes, onPick: _pickImage),
+                        ],
+                      ),
                     ),
                   ),
-                  const _SectionDivider(),
-
-                  // Nama
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // ── Kanan: form ──
+                  Expanded(
+                    child: ListView(
                       children: [
-                        const _FieldLabel(label: 'Nama', required: true),
-                        const SizedBox(height: AppSpacing.x2),
-                        _TextInput(
-                          controller: _namaCtrl,
-                          hint: 'Nama',
-                          onChanged: (_) => setState(() {}),
+                        // Nama
+                        _Section(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _FieldLabel(label: 'Nama', required: true),
+                              const SizedBox(height: AppSpacing.x2),
+                              _TextInput(
+                                controller: _namaCtrl,
+                                hint: 'Nama',
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const _SectionDivider(),
 
-                  // Kategori
-                  _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _FieldLabel(label: 'Kategori', required: true),
-                        const SizedBox(height: AppSpacing.x2),
-                        _DropdownInput(
-                          value: _selectedKategori,
-                          items: _kKategori,
-                          pickerStyle: _PickerStyle.gold,
-                          onChanged: (v) =>
-                              setState(() => _selectedKategori = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const _SectionDivider(),
-
-                  // Satuan + Konverter Satuan
-                  _Section(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
+                        // Kategori
+                        _Section(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const _FieldLabel(
-                                  label: 'Satuan', required: true),
+                                label: 'Kategori',
+                                required: true,
+                              ),
+                              const SizedBox(height: AppSpacing.x2),
+                              _DropdownInput(
+                                value: _selectedKategori,
+                                items: _kKategori,
+                                pickerStyle: _PickerStyle.gold,
+                                onChanged: (v) =>
+                                    setState(() => _selectedKategori = v),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Satuan
+                        _Section(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _FieldLabel(
+                                label: 'Satuan',
+                                required: true,
+                              ),
                               const SizedBox(height: AppSpacing.x2),
                               _DropdownInput(
                                 value: _selectedSatuan,
@@ -148,59 +153,67 @@ class _SupplierTambahStokBaruPageState
                             ],
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.x4),
-                        Expanded(
+
+                        // Konverter Satuan
+                        _Section(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const _FieldLabel(
-                                  label: 'Konverter Satuan', required: false),
+                                label: 'Konverter Satuan',
+                                required: false,
+                              ),
                               const SizedBox(height: AppSpacing.x2),
                               _NumberInput(controller: _konverterCtrl),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
 
-                  // Qty Stok + Qty Tahan (visible after Satuan selected)
-                  if (_selectedSatuan != null) ...[
-                    const _SectionDivider(),
-                    _Section(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
+                        // Qty Stok + Qty Tahan (visible after Satuan selected)
+                        if (_selectedSatuan != null) ...[
+                          _Section(
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const _FieldLabel(
-                                    label: 'Qty Stok', required: true),
-                                const SizedBox(height: AppSpacing.x2),
-                                _NumberInput(
-                                  controller: _qtyStokCtrl,
-                                  onChanged: (_) => setState(() {}),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const _FieldLabel(
+                                        label: 'Qty Stok',
+                                        required: true,
+                                      ),
+                                      const SizedBox(height: AppSpacing.x2),
+                                      _NumberInput(
+                                        controller: _qtyStokCtrl,
+                                        onChanged: (_) => setState(() {}),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.x4),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const _FieldLabel(
+                                        label: 'Qty Tahan',
+                                        required: false,
+                                      ),
+                                      const SizedBox(height: AppSpacing.x2),
+                                      _NumberInput(controller: _qtyTahanCtrl),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.x4),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const _FieldLabel(
-                                    label: 'Qty Tahan', required: false),
-                                const SizedBox(height: AppSpacing.x2),
-                                _NumberInput(controller: _qtyTahanCtrl),
-                              ],
-                            ),
-                          ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -217,7 +230,8 @@ class _SupplierTambahStokBaruPageState
   }
 
   Widget _buildHeader() {
-    return Padding(
+    return Container(
+      color: AppColors.primary,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
         vertical: AppSpacing.x3,
@@ -228,13 +242,18 @@ class _SupplierTambahStokBaruPageState
           Text(
             'Tambah Stok Baru',
             style: AppTypography.textTheme.titleMedium?.copyWith(
+              color: AppColors.onPrimary,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: AppSpacing.x2),
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.close_rounded, size: 22),
+            child: const Icon(
+              Icons.close_rounded,
+              size: 22,
+              color: AppColors.onPrimary,
+            ),
           ),
         ],
       ),
@@ -242,14 +261,17 @@ class _SupplierTambahStokBaruPageState
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (file != null && mounted) {
-      setState(() {
-        _fotoFile = file;
-        _fotoPath = file.path;
-      });
-    }
+    // Pilih sumber (kamera/galeri) + persetujuan kamera lewat helper bersama.
+    final file = await pickFotoFromSource(context);
+    if (file == null) return;
+    // Dibaca sebagai bytes supaya pratinjau bekerja di web (Image.file tidak
+    // didukung di Flutter Web); bytes yang sama dipakai ulang saat mengunggah.
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _fotoFile = file;
+      _fotoBytes = bytes;
+    });
   }
 
   Future<void> _simpan() async {
@@ -259,10 +281,9 @@ class _SupplierTambahStokBaruPageState
     // Foto diunggah lebih dulu; URL hasilnya yang disimpan bersama bahan.
     // Dibaca sebagai bytes, bukan path, supaya tetap bekerja di web.
     String? imageUrl;
-    if (_fotoFile != null) {
-      final bytes = await _fotoFile!.readAsBytes();
+    if (_fotoBytes != null && _fotoFile != null) {
       imageUrl = await widget.provider.uploadFoto(
-        bytes: bytes,
+        bytes: _fotoBytes!,
         namaFile: _fotoFile!.name,
       );
       if (imageUrl == null) {
@@ -311,21 +332,16 @@ class _Section extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.x4),
-        child: child,
-      );
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.all(AppSpacing.x4), child: child);
 }
 
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider();
 
   @override
-  Widget build(BuildContext context) => const Divider(
-        height: 1,
-        thickness: 1,
-        color: AppColors.outlineVariant,
-      );
+  Widget build(BuildContext context) =>
+      const Divider(height: 1, thickness: 1, color: AppColors.outlineVariant);
 }
 
 // ── Field label ───────────────────────────────────────────────────────────────
@@ -340,8 +356,9 @@ class _FieldLabel extends StatelessWidget {
     if (!required) {
       return Text(
         label,
-        style: AppTypography.textTheme.bodyMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+        style: AppTypography.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
       );
     }
     return RichText(
@@ -355,7 +372,9 @@ class _FieldLabel extends StatelessWidget {
           TextSpan(
             text: ' *',
             style: TextStyle(
-                color: AppColors.error, fontWeight: FontWeight.bold),
+              color: AppColors.error,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -366,46 +385,134 @@ class _FieldLabel extends StatelessWidget {
 // ── Input widgets ─────────────────────────────────────────────────────────────
 
 class _FotoInput extends StatelessWidget {
-  const _FotoInput({required this.fotoPath, required this.onPick});
-  final String? fotoPath;
+  const _FotoInput({required this.fotoBytes, required this.onPick});
+  final Uint8List? fotoBytes;
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onPick,
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          color: AppColors.outline,
-          borderRadius: AppRadius.sm,
+      child: _DashedBorder(
+        radius: 12,
+        color: AppColors.primary,
+        child: Container(
+          width: double.infinity,
+          height: 440,
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.25),
+            borderRadius: AppRadius.md,
+          ),
+          clipBehavior: Clip.antiAlias,
+          // Image.memory bekerja di web maupun mobile (Image.file tidak di web).
+          child: fotoBytes != null
+              ? Image.memory(fotoBytes!, fit: BoxFit.cover)
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 48,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(height: AppSpacing.x3),
+                    Text(
+                      'Upload Foto',
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    Text(
+                      'JPEG, PNG, atau WebP · maks 5 MB',
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: fotoPath != null
-            ? Image.file(File(fotoPath!), fit: BoxFit.cover)
-            : null,
       ),
     );
   }
 }
 
+// ── Dashed border ─────────────────────────────────────────────────────────────
+
+class _DashedBorder extends StatelessWidget {
+  const _DashedBorder({
+    required this.child,
+    required this.radius,
+    required this.color,
+  });
+  final Widget child;
+  final double radius;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedRRectPainter(radius: radius, color: color),
+      child: child,
+    );
+  }
+}
+
+class _DashedRRectPainter extends CustomPainter {
+  _DashedRRectPainter({required this.radius, required this.color});
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    const dash = 6.0;
+    const gap = 5.0;
+    final source = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+    final dashed = Path();
+    for (final metric in source.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        dashed.addPath(
+          metric.extractPath(distance, next.clamp(0.0, metric.length)),
+          Offset.zero,
+        );
+        distance = next + gap;
+      }
+    }
+    canvas.drawPath(dashed, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DashedRRectPainter oldDelegate) =>
+      oldDelegate.radius != radius || oldDelegate.color != color;
+}
+
 class _TextInput extends StatelessWidget {
-  const _TextInput(
-      {required this.controller,
-      required this.hint,
-      this.onChanged});
+  const _TextInput({
+    required this.controller,
+    required this.hint,
+    this.onChanged,
+  });
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) => TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: AppTypography.textTheme.bodyMedium,
-        decoration: _fieldDecoration(hint),
-      );
+    controller: controller,
+    onChanged: onChanged,
+    style: AppTypography.textTheme.bodyMedium,
+    decoration: _fieldDecoration(hint),
+  );
 }
 
 class _NumberInput extends StatelessWidget {
@@ -415,13 +522,13 @@ class _NumberInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: onChanged,
-        style: AppTypography.textTheme.bodyMedium,
-        decoration: _fieldDecoration('0'),
-      );
+    controller: controller,
+    keyboardType: TextInputType.number,
+    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+    onChanged: onChanged,
+    style: AppTypography.textTheme.bodyMedium,
+    decoration: _fieldDecoration('0'),
+  );
 }
 
 // ── Dropdown picker ───────────────────────────────────────────────────────────
@@ -536,8 +643,10 @@ class _GoldPickerDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppColors.onPrimary),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.onPrimary,
+                    ),
                     iconSize: 22,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -553,11 +662,13 @@ class _GoldPickerDialog extends StatelessWidget {
                 shrinkWrap: true,
                 padding: const EdgeInsets.only(bottom: AppSpacing.x4),
                 children: items
-                    .map((item) => _GoldPickerItem(
-                          label: item,
-                          isSelected: item == selectedValue,
-                          onTap: () => Navigator.of(context).pop(item),
-                        ))
+                    .map(
+                      (item) => _GoldPickerItem(
+                        label: item,
+                        isSelected: item == selectedValue,
+                        onTap: () => Navigator.of(context).pop(item),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -597,14 +708,16 @@ class _GoldPickerItem extends StatelessWidget {
                 label,
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onPrimary,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_rounded,
-                  size: 18, color: AppColors.onPrimary),
+              const Icon(
+                Icons.check_rounded,
+                size: 18,
+                color: AppColors.onPrimary,
+              ),
           ],
         ),
       ),
@@ -723,8 +836,7 @@ class _WhitePickerItem extends StatelessWidget {
                 label,
                 style: AppTypography.textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurface,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),

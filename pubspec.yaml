@@ -61,6 +61,8 @@ dependencies:
 
   # IMAGE
   image_picker: ^1.1.2
+  # Kamera langsung (dipakai untuk webcam di desktop web; getUserMedia).
+  camera: ^0.11.0
 
   # LAUNCHER ICONS
   flutter_launcher_icons: ^0.14.4
