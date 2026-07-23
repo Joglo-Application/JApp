@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/shift_kas_entry.dart';
 import '../models/shift_kas_model.dart';
@@ -12,7 +14,11 @@ abstract interface class ShiftKasRemoteDatasource {
     required String namaTransaksi,
     required int jumlah,
     String? catatan,
+    String? lampiranUrl,
   });
+
+  /// Unggah lampiran ke `POST /upload`; kembalikan URL relatif (`/uploads/…`).
+  Future<String> uploadLampiran(List<int> bytes, String filename);
   Future<ShiftKasModel> updateEntry(
     int entryId, {
     required String namaTransaksi,
@@ -78,6 +84,7 @@ class ShiftKasRemoteDatasourceImpl implements ShiftKasRemoteDatasource {
     required String namaTransaksi,
     required int jumlah,
     String? catatan,
+    String? lampiranUrl,
   }) async {
     try {
       final res = await _client.dio.post<Map<String, dynamic>>(
@@ -87,9 +94,25 @@ class ShiftKasRemoteDatasourceImpl implements ShiftKasRemoteDatasource {
           'namaTransaksi': namaTransaksi,
           'jumlah': jumlah,
           'catatan': ?catatan,
+          'lampiranUrl': ?lampiranUrl,
         },
       );
       return _one(res.data!['data']);
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<String> uploadLampiran(List<int> bytes, String filename) async {
+    try {
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final res =
+          await _client.dio.post<Map<String, dynamic>>('/upload', data: form);
+      final data = res.data!['data'] as Map<String, dynamic>;
+      return data['url'] as String;
     } catch (e) {
       throw _client.toApiException(e);
     }

@@ -82,6 +82,7 @@ class ShiftKasProvider extends ChangeNotifier {
     required String namaTransaksi,
     required double jumlah,
     String catatan = '',
+    String? lampiranUrl,
   }) {
     final id = _shift?.shiftId;
     if (id == null) return Future.value();
@@ -91,7 +92,24 @@ class ShiftKasProvider extends ChangeNotifier {
           namaTransaksi: namaTransaksi,
           jumlah: jumlah.round(),
           catatan: catatan.isEmpty ? null : catatan,
+          lampiranUrl: lampiranUrl,
         ));
+  }
+
+  /// Unggah lampiran; kembalikan URL relatif, atau null bila gagal ([error]
+  /// berisi pesannya).
+  Future<String?> uploadLampiran(List<int> bytes, String filename) async {
+    try {
+      return await _ds.uploadLampiran(bytes, filename);
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _error = 'Gagal mengunggah lampiran.';
+      notifyListeners();
+      return null;
+    }
   }
 
   Future<void> updateEntry(

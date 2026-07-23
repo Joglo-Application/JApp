@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/thousands_separator_input_formatter.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -357,10 +359,85 @@ class _PanelDetail extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.x3),
               _DetailField(label: 'Waktu', value: _formatDateTime(entry.waktu)),
+              if (entry.lampiranUrl != null &&
+                  entry.lampiranUrl!.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.x3),
+                Text(
+                  'Lampiran',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _LampiranThumbnail(url: _fullUrl(entry.lampiranUrl!)),
+              ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  /// Ubah path relatif `/uploads/…` jadi URL absolut dari origin server.
+  static String _fullUrl(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final origin = Uri.parse(ApiConfig.baseUrl).origin;
+    return '$origin${path.startsWith('/') ? '' : '/'}$path';
+  }
+}
+
+class _LampiranThumbnail extends StatelessWidget {
+  const _LampiranThumbnail({required this.url});
+
+  final String url;
+
+  void _viewFull(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(AppSpacing.x4),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Center(
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _viewFull(context),
+      child: ClipRRect(
+        borderRadius: AppRadius.md,
+        child: Image.network(
+          url,
+          height: 160,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Container(
+            height: 160,
+            color: Colors.grey.shade200,
+            alignment: Alignment.center,
+            child: Icon(Icons.broken_image_rounded,
+                color: AppColors.onSurfaceVariant),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -699,6 +776,8 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
   final _namaCtrl = TextEditingController();
   final _jumlahCtrl = TextEditingController();
   final _catatanCtrl = TextEditingController();
+  final _picker = ImagePicker();
+  XFile? _lampiran;
 
   @override
   void dispose() {
@@ -706,6 +785,11 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
     _jumlahCtrl.dispose();
     _catatanCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickLampiran() async {
+    final f = await _picker.pickImage(source: ImageSource.gallery);
+    if (f != null && mounted) setState(() => _lampiran = f);
   }
 
   Future<void> _submit() async {
@@ -718,11 +802,27 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
     final provider = context.read<ShiftKasProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    // Unggah lampiran dulu (bila ada); batalkan simpan jika gagal.
+    String? lampiranUrl;
+    if (_lampiran != null) {
+      final bytes = await _lampiran!.readAsBytes();
+      lampiranUrl = await provider.uploadLampiran(bytes, _lampiran!.name);
+      if (!mounted) return;
+      if (lampiranUrl == null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(provider.error ?? 'Gagal mengunggah lampiran')),
+        );
+        return;
+      }
+    }
+
     await provider.addEntry(
       jenis: _tab == _KasTab.masuk ? ShiftKasJenis.setoran : ShiftKasJenis.penarikan,
       namaTransaksi: nama,
       jumlah: jumlah,
       catatan: _catatanCtrl.text.trim(),
+      lampiranUrl: lampiranUrl,
     );
     if (!mounted) return;
     navigator.pop();
@@ -817,7 +917,7 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
                   ),
                   const SizedBox(height: AppSpacing.x4),
                   Text(
-                    'Tipe Transaksi',
+                    'Nominal',
                     style: AppTypography.textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -857,28 +957,52 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.x4),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: AppRadius.md,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x3,
-                        vertical: AppSpacing.x3,
+                  InkWell(
+                    onTap: _pickLampiran,
+                    borderRadius: AppRadius.md,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: AppRadius.md,
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'File Lampiran',
-                              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x3,
+                          vertical: AppSpacing.x3,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _lampiran == null
+                                  ? Icons.attach_file_rounded
+                                  : Icons.image_rounded,
+                              size: 20,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: AppSpacing.x2),
+                            Expanded(
+                              child: Text(
+                                _lampiran?.name ?? 'File Lampiran',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style:
+                                    AppTypography.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: _lampiran == null
+                                      ? AppColors.onSurfaceVariant
+                                      : AppColors.onSurface,
+                                ),
                               ),
                             ),
-                          ),
-                          const Icon(Icons.add_rounded, size: 24),
-                        ],
+                            if (_lampiran != null)
+                              GestureDetector(
+                                onTap: () => setState(() => _lampiran = null),
+                                child: const Icon(Icons.close_rounded, size: 20),
+                              )
+                            else
+                              const Icon(Icons.add_rounded, size: 24),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1103,7 +1227,7 @@ class _EntryDetailDialogState extends State<_EntryDetailDialog> {
                   ),
                   const SizedBox(height: AppSpacing.x4),
                   Text(
-                    'Tipe Transaksi',
+                    'Nominal',
                     style: AppTypography.textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),

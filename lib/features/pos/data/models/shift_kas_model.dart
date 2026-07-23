@@ -52,6 +52,7 @@ class ShiftKasModel {
           namaTransaksi: j['namaTransaksi'] as String,
           jumlah: (j['jumlah'] as num).toDouble(),
           catatan: (j['catatan'] as String?) ?? '',
+          lampiranUrl: j['lampiranUrl'] as String?,
           waktu: DateTime.parse(j['waktu'] as String).toLocal(),
         );
       }).toList(),

@@ -8,6 +8,7 @@ class ShiftKasEntry {
     required this.jumlah,
     required this.waktu,
     this.catatan = '',
+    this.lampiranUrl,
   });
 
   final String id;
@@ -16,4 +17,7 @@ class ShiftKasEntry {
   final String catatan;
   final double jumlah;
   final DateTime waktu;
+
+  /// URL lampiran (relatif, mis. `/uploads/xxx.jpg`) atau null.
+  final String? lampiranUrl;
 }
