@@ -15,6 +15,7 @@ import '../../domain/entities/inventori_item.dart';
 import '../../domain/entities/menu_resep_input.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/update_menu_params.dart';
+import '../providers/inventori_provider.dart';
 import '../widgets/inventori/inventori_form_widgets.dart';
 
 /// Navigation payload for [AppRoutes.inventoriEditItem] (passed via
@@ -64,10 +65,9 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   DateTimeRange? _tanggalKhusus;
   final List<ResepEntry> _resepEntries = [];
 
-  bool _editNama = false;
-  bool _editKategori = false;
-  bool _editHarga = false;
-  bool _editRoyalty = false;
+  /// Jadi `true` begitu ada perubahan apa pun di halaman ini; Simpan baru aktif
+  /// setelah ini menyala (mula-mula disabled).
+  bool _dirty = false;
 
   final _picker = ImagePicker();
 
@@ -80,15 +80,22 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   ];
 
   bool get _canSave =>
+      _dirty &&
       _namaCtrl.text.trim().isNotEmpty &&
       _kategori != null &&
       (int.tryParse(_hargaCtrl.text) ?? 0) > 0;
 
+  /// Tandai halaman berubah lalu bangun ulang (memperbarui status Simpan).
+  void _markDirty() => setState(() => _dirty = true);
+
   @override
   void initState() {
     super.initState();
-    _namaCtrl.addListener(() => setState(() {}));
-    _hargaCtrl.addListener(() => setState(() {}));
+    // Field teks di-set nilai awalnya sebelum listener dipasang, jadi listener
+    // hanya menyala pada perubahan dari pengguna.
+    _namaCtrl.addListener(_markDirty);
+    _hargaCtrl.addListener(_markDirty);
+    _royaltyCtrl.addListener(_markDirty);
   }
 
   @override
@@ -165,15 +172,42 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
       ),
       child: Row(
         children: [
-          SimpanButton(enabled: _canSave, onTap: _onSimpan),
-          const Spacer(),
-          Text(
-            'Edit Item',
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.onSurface,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: const Icon(
+              Icons.inventory_2_rounded,
+              color: AppColors.primary,
+              size: 22,
             ),
           ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Edit Item',
+                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                Text(
+                  'Ubah detail produk',
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SimpanButton(enabled: _canSave, onTap: _onSimpan),
           const SizedBox(width: AppSpacing.x2),
           InkWell(
             onTap: () => context.pop(),
@@ -195,19 +229,52 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
       children: [
         const SectionLabel('Foto'),
         const SizedBox(height: AppSpacing.x3),
-        GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHighest,
-              borderRadius: AppRadius.sm,
-              border: Border.all(color: AppColors.outline),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: _pickImage,
+              child: Stack(
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerHighest,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: AppColors.outline),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _buildFotoPreview(),
+                  ),
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.photo_camera_rounded,
+                        size: 14,
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildFotoPreview(),
-          ),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Text(
+                'Ketuk untuk mengunggah atau mengganti foto produk.',
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -220,9 +287,8 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     if (widget.item.localImagePath != null) {
       return Image.file(File(widget.item.localImagePath!), fit: BoxFit.cover);
     }
-    if (widget.item.imageUrl != null) {
-      return Image.network(widget.item.imageUrl!, fit: BoxFit.cover);
-    }
+    // `imageUrl` dari server dilewati: belum ada backend gambar dan sebagian
+    // menunjuk halaman HTML → Image.network melempar ImageCodecException.
     return const Icon(
       Icons.add_photo_alternate_rounded,
       color: AppColors.onSurfaceVariant,
@@ -232,21 +298,16 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
 
   Future<void> _pickImage() async {
     final image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _pickedImage = image);
+    if (image != null) setState(() { _pickedImage = image; _dirty = true; });
   }
 
   Widget _buildNamaSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _EditableFieldHeader(
-          label: 'Nama',
-          isRequired: true,
-          editing: _editNama,
-          onToggle: () => setState(() => _editNama = !_editNama),
-        ),
+        const SectionLabel('Nama', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
-        OutlinedInput(controller: _namaCtrl, enabled: _editNama),
+        OutlinedInput(controller: _namaCtrl),
       ],
     );
   }
@@ -255,28 +316,18 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _EditableFieldHeader(
-          label: 'Kategori',
-          isRequired: true,
-          editing: _editKategori,
-          onToggle: () => setState(() => _editKategori = !_editKategori),
-        ),
+        const SectionLabel('Kategori', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         GestureDetector(
-          onTap: _editKategori ? _pickKategori : null,
+          onTap: _pickKategori,
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.x4,
               vertical: AppSpacing.x3,
             ),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: _editKategori
-                    ? AppColors.outline
-                    : AppColors.outlineVariant,
-              ),
+              border: Border.all(color: AppColors.outline),
               borderRadius: AppRadius.sm,
-              color: _editKategori ? null : AppColors.surfaceContainerHighest,
             ),
             child: Row(
               children: [
@@ -303,19 +354,13 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _EditableFieldHeader(
-          label: 'Harga jual toko',
-          isRequired: true,
-          editing: _editHarga,
-          onToggle: () => setState(() => _editHarga = !_editHarga),
-        ),
+        const SectionLabel('Harga jual toko', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         OutlinedInput(
           controller: _hargaCtrl,
           keyboardType: TextInputType.number,
           prefix: 'IDR  ',
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          enabled: _editHarga,
         ),
       ],
     );
@@ -379,6 +424,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
               onRemove: () => setState(() {
                 _resepEntries[i].dispose();
                 _resepEntries.removeAt(i);
+                _dirty = true;
               }),
             ),
             if (i < _resepEntries.length - 1)
@@ -393,18 +439,12 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _EditableFieldHeader(
-          label: 'Royalty Point',
-          isRequired: true,
-          editing: _editRoyalty,
-          onToggle: () => setState(() => _editRoyalty = !_editRoyalty),
-        ),
+        const SectionLabel('Royalty Point', isRequired: true),
         const SizedBox(height: AppSpacing.x3),
         OutlinedInput(
           controller: _royaltyCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          enabled: _editRoyalty,
         ),
       ],
     );
@@ -428,6 +468,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
               onChanged: (v) => setState(() {
                 _produkKhusus = v;
                 if (!v) _tanggalKhusus = null;
+                _dirty = true;
               }),
               activeTrackColor: AppColors.primary,
               activeThumbColor: AppColors.onPrimary,
@@ -505,7 +546,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
         ),
         Switch(
           value: _tampilkanDiPos,
-          onChanged: (v) => setState(() => _tampilkanDiPos = v),
+          onChanged: (v) => setState(() { _tampilkanDiPos = v; _dirty = true; }),
           activeTrackColor: AppColors.primary,
           activeThumbColor: AppColors.onPrimary,
         ),
@@ -517,7 +558,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
     final item = await context.push<StokGudangItem>(
       AppRoutes.inventoriPilihBahan,
     );
-    if (item != null) setState(() => _resepEntries.add(ResepEntry(item)));
+    if (item != null) setState(() { _resepEntries.add(ResepEntry(item)); _dirty = true; });
   }
 
   void _pickKategori() {
@@ -526,7 +567,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
       builder: (_) => KategoriDialog(
         selected: _kategori,
         options: _kategoriList,
-        onSelect: (k) => setState(() => _kategori = k),
+        onSelect: (k) => setState(() { _kategori = k; _dirty = true; }),
       ),
     );
   }
@@ -538,7 +579,7 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked != null) setState(() => _tanggalKhusus = picked);
+    if (picked != null) setState(() { _tanggalKhusus = picked; _dirty = true; });
   }
 
   String _formatDate(DateTime dt) =>
@@ -558,7 +599,8 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
 
     context.pop(
       UpdateMenuParams(
-        id: widget.item.id,
+        // Inventori id "INV-###" → menuId untuk PATCH /menus/{id}.
+        id: InventoriProvider.menuIdOf(widget.item.id),
         namaMenu: _namaCtrl.text.trim(),
         kategori: _kategori!,
         harga: int.tryParse(_hargaCtrl.text) ?? 0,
@@ -575,33 +617,4 @@ class _InventoriEditItemPageState extends State<InventoriEditItemPage> {
   /// `YYYY-MM-DD` for the API (the display helper uses dd/MM/yyyy).
   String _apiDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-}
-
-/// Section label with a pencil (locked) / Simpan (editing) toggle on the
-/// right, matching the per-field inline-edit affordance in the design.
-class _EditableFieldHeader extends StatelessWidget {
-  const _EditableFieldHeader({
-    required this.label,
-    required this.editing,
-    required this.onToggle,
-    this.isRequired = false,
-  });
-
-  final String label;
-  final bool editing;
-  final bool isRequired;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SectionLabel(label, isRequired: isRequired),
-        const Spacer(),
-        editing
-            ? SmallSimpanButton(onTap: onToggle)
-            : EditPencilButton(onTap: onToggle),
-      ],
-    );
-  }
 }

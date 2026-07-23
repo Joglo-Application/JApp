@@ -62,11 +62,20 @@ class InventoriProvider extends ChangeNotifier {
   /// `GET /menus` has no royalty/resep/produk-khusus fields yet, so those
   /// stay blank on edit.
   Product? menuFor(String id) {
+    // Inventori memakai id "INV-###", sedangkan menu memakai menuId (mis. "1").
+    // Cocokkan berdasarkan angkanya, bukan string mentahnya.
+    final menuId = menuIdOf(id);
     for (final menu in _menus) {
-      if (menu.id == id) return menu;
+      if (menu.id == menuId) return menu;
     }
     return null;
   }
+
+  /// "INV-001" → "1" (menuId sebagai string), agar cocok dengan `Product.id`
+  /// dan dipakai sebagai path `PATCH /menus/{id}`.
+  static String menuIdOf(String inventoriId) =>
+      (int.tryParse(inventoriId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0)
+          .toString();
 
   /// Returns the image path (local file or network URL) of the first item
   /// in [kategori] that has an image, or null if none found.
