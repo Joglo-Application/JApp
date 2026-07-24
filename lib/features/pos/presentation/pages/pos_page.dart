@@ -27,11 +27,19 @@ class _PosPageState extends State<PosPage> {
   // Disimpan di didChangeDependencies agar bisa dipakai di dispose(), saat
   // context sudah tidak boleh dipakai untuk lookup provider.
   OrderProvider? _order;
+  bool _pajakLoaded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _order = context.read<OrderProvider>();
+    // Muat default Pajak & Biaya Layanan toko dari server sekali saat POS
+    // dibuka, supaya baris tarif mencerminkan nilai tersimpan (bukan default
+    // lokal) setelah reload.
+    if (!_pajakLoaded) {
+      _pajakLoaded = true;
+      _order!.loadTarifSetting();
+    }
   }
 
   @override

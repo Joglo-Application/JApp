@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../data/datasources/meja_remote_datasource.dart';
+import '../../data/datasources/pajak_setting_datasource.dart';
 import '../../data/models/loaded_pesanan_model.dart';
 import '../../data/repositories/checkout_repository_impl.dart';
 import '../../data/repositories/log_transaksi_repository_impl.dart';
@@ -19,10 +20,10 @@ import '../../domain/usecases/create_pesanan_usecase.dart';
 
 class OrderProvider extends ChangeNotifier {
   OrderProvider({
-    this.taxRate = 0.10,
     CheckoutRepository? checkoutRepository,
     MejaRemoteDatasource? mejaDatasource,
     LogTransaksiRepository? logRepository,
+    TarifSettingDatasource? tarifDatasource,
   }) {
     final repo = checkoutRepository ?? CheckoutRepositoryImpl();
     _createPesanan = CreatePesananUseCase(repo);
@@ -30,6 +31,7 @@ class OrderProvider extends ChangeNotifier {
     _cancelPesanan = CancelPesananUseCase(repo);
     _mejaDatasource = mejaDatasource ?? MejaRemoteDatasourceImpl();
     _logRepo = logRepository ?? LogTransaksiRepositoryImpl();
+    _tarifDatasource = tarifDatasource ?? TarifSettingDatasourceImpl();
   }
 
   late final CreatePesananUseCase _createPesanan;
@@ -37,11 +39,26 @@ class OrderProvider extends ChangeNotifier {
   late final CancelPesananUseCase _cancelPesanan;
   late final MejaRemoteDatasource _mejaDatasource;
   late final LogTransaksiRepository _logRepo;
+  late final TarifSettingDatasource _tarifDatasource;
 
   // Kode sesi audit-log untuk order berjalan (dibuat lazily, direset saat clear).
   String? _kodeTransaksi;
 
-  final double taxRate;
+  // Tarif toko (Pajak & Biaya Layanan) — default terpersist di server (grup
+  // pengaturan `pajak`). Dimuat via [loadTarifSetting] saat POS dibuka, diubah
+  // lewat [savePajakSetting] / [saveLayananSetting] (ketuk baris terkait → PIN
+  // supervisor). Nilai berlaku untuk semua pesanan.
+  DiscountType _pajakType = DiscountType.percent;
+
+  /// Angka persen (mis. 10) bila [_pajakType] percent, atau nominal Rupiah
+  /// (mis. 5000) bila amount.
+  double _pajakValue = 5;
+  bool _pajakAktif = true;
+
+  DiscountType _layananType = DiscountType.percent;
+  double _layananValue = 5;
+  bool _layananAktif = true;
+
   final List<OrderItem> _items = [];
   String _customerName = '';
   int? _memberPoints;
@@ -205,7 +222,125 @@ class OrderProvider extends ChangeNotifier {
   double get subtotal => _items
       .where((i) => i.productId != _redeemedItemId)
       .fold(0.0, (s, i) => s + i.subtotal);
-  double get taxAmount => subtotal * taxRate;
+  /// Tipe & nilai Pajak toko (untuk menampilkan label "Pajak").
+  DiscountType get pajakType => _pajakType;
+  double get pajakValue => _pajakValue;
+
+  /// Tipe & nilai Biaya Layanan toko (untuk menampilkan label "Biaya Layanan").
+  DiscountType get layananType => _layananType;
+  double get layananValue => _layananValue;
+
+  /// Nominal biaya layanan: persen dari subtotal, atau nominal Rupiah tetap.
+  double get serviceAmount => !_layananAktif
+      ? 0
+      : _layananType == DiscountType.percent
+          ? subtotal * (_layananValue / 100)
+          : _layananValue;
+
+  /// Nominal pajak: persen dari subtotal, atau nominal Rupiah tetap. Nol bila
+  /// pajak dinonaktifkan di pengaturan.
+  double get pajakAmount => !_pajakAktif
+      ? 0
+      : _pajakType == DiscountType.percent
+          ? subtotal * (_pajakValue / 100)
+          : _pajakValue;
+
+  // "Pajak" untuk perhitungan total = biaya layanan + pajak (keduanya server
+  // menghitung terpisah, tapi total-nya sama).
+  double get taxAmount => serviceAmount + pajakAmount;
+
+  /// Muat default Pajak & Biaya Layanan toko dari server (dipanggil saat POS
+  /// dibuka). Best-effort: bila gagal, tetap pakai nilai terakhir/awal.
+  Future<void> loadTarifSetting() async {
+    try {
+      final s = await _tarifDatasource.fetch();
+      _pajakType = s.pajak.tipe;
+      _pajakValue = s.pajak.nilai;
+      _pajakAktif = s.pajak.aktif;
+      _layananType = s.layanan.tipe;
+      _layananValue = s.layanan.nilai;
+      _layananAktif = s.layanan.aktif;
+      notifyListeners();
+    } catch (_) {
+      // Abaikan; POS tetap jalan dengan nilai default.
+    }
+  }
+
+  /// Ubah default Pajak toko (ketuk "Pajak" + PIN supervisor).
+  Future<bool> savePajakSetting(DiscountType type, double value, String pin) =>
+      _saveTarif(
+        target: 'pajak',
+        type: type,
+        value: value,
+        pin: pin,
+        oldDesc: _pajakDesc,
+        apply: (s) {
+          _pajakType = s.pajak.tipe;
+          _pajakValue = s.pajak.nilai;
+          _pajakAktif = s.pajak.aktif;
+        },
+      );
+
+  /// Ubah default Biaya Layanan toko (ketuk "Biaya Layanan" + PIN supervisor).
+  Future<bool> saveLayananSetting(DiscountType type, double value, String pin) =>
+      _saveTarif(
+        target: 'layanan',
+        type: type,
+        value: value,
+        pin: pin,
+        oldDesc: _layananDesc,
+        apply: (s) {
+          _layananType = s.layanan.tipe;
+          _layananValue = s.layanan.nilai;
+          _layananAktif = s.layanan.aktif;
+        },
+      );
+
+  /// Persist satu tarif ([target] = 'pajak' | 'layanan') ke server lalu berlaku
+  /// untuk semua pesanan berikutnya. [value] = angka persen (percent) atau
+  /// nominal Rupiah (amount).
+  Future<bool> _saveTarif({
+    required String target,
+    required DiscountType type,
+    required double value,
+    required String pin,
+    required String Function() oldDesc,
+    required void Function(TarifSetting) apply,
+  }) async {
+    if (_isSubmitting) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      final old = oldDesc();
+      final s = await _tarifDatasource.update(
+        target: target,
+        tipe: type,
+        nilai: value < 0 ? 0 : value,
+        pin: pin,
+      );
+      apply(s);
+      _log('UPDATE_TAX', '$old -> ${oldDesc()}');
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal memperbarui tarif.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  String _pajakDesc() => _pajakType == DiscountType.percent
+      ? '${_pajakValue.toStringAsFixed(0)}%'
+      : 'Rp ${_pajakValue.toStringAsFixed(0)}';
+
+  String _layananDesc() => _layananType == DiscountType.percent
+      ? '${_layananValue.toStringAsFixed(0)}%'
+      : 'Rp ${_layananValue.toStringAsFixed(0)}';
 
   double get orderDiscountAmount {
     if (_orderDiscount <= 0) return 0;
@@ -282,6 +417,7 @@ class OrderProvider extends ChangeNotifier {
         'DISC_AMT' || 'DISC_AMT_ITEM' => 'Update jumlah diskon',
         'DISC_PCT' || 'DISC_PCT_ITEM' => 'Update persen diskon',
         'UPDATE_PRICE' => 'Update harga',
+        'UPDATE_TAX' => 'Update pajak',
         'SEND_KITCHEN' => 'Kirim ke dapur',
         _ => '',
       };
