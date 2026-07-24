@@ -75,10 +75,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
   late String? _selectedKategori;
   late String? _selectedSatuan;
 
-  final _unlocked = <String>{};
-
-  bool _isUnlocked(String field) => _unlocked.contains(field);
-  void _unlock(String field) => setState(() => _unlocked.add(field));
+  // Pensil per-field dihapus: semua field langsung dapat diedit.
+  bool _isUnlocked(String field) => true;
 
   bool _hasAnyChange() {
     return _namaCtrl.text.trim() != widget.item.nama ||
@@ -135,7 +133,7 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel(label: 'Foto', required: true),
+                          const _FieldLabel(label: 'Foto', required: false),
                           const SizedBox(height: AppSpacing.x3),
                           _FotoInput(
                             remoteUrl: _fotoUrl,
@@ -155,12 +153,7 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _LabelRow(
-                                label: 'Nama',
-                                required: true,
-                                locked: !_isUnlocked(_kNama),
-                                onUnlock: () => _unlock(_kNama),
-                              ),
+                              const _FieldLabel(label: 'Nama', required: true),
                               const SizedBox(height: AppSpacing.x2),
                               _EditableTextInput(
                                 controller: _namaCtrl,
@@ -177,12 +170,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _LabelRow(
-                                label: 'Kategori',
-                                required: true,
-                                locked: !_isUnlocked(_kKategori_),
-                                onUnlock: () => _unlock(_kKategori_),
-                              ),
+                              const _FieldLabel(
+                                  label: 'Kategori', required: true),
                               const SizedBox(height: AppSpacing.x2),
                               _EditableDropdown(
                                 value: _selectedKategori,
@@ -201,12 +190,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _LabelRow(
-                                label: 'Satuan',
-                                required: true,
-                                locked: !_isUnlocked(_kSatuan_),
-                                onUnlock: () => _unlock(_kSatuan_),
-                              ),
+                              const _FieldLabel(
+                                  label: 'Satuan', required: true),
                               const SizedBox(height: AppSpacing.x2),
                               _EditableDropdown(
                                 value: _selectedSatuan,
@@ -225,12 +210,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _LabelRow(
-                                label: 'Konverter Satuan',
-                                required: false,
-                                locked: !_isUnlocked(_kKonverter),
-                                onUnlock: () => _unlock(_kKonverter),
-                              ),
+                              const _FieldLabel(
+                                  label: 'Konverter Satuan', required: false),
                               const SizedBox(height: AppSpacing.x2),
                               _EditableNumberInput(
                                 controller: _konverterCtrl,
@@ -250,12 +231,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _LabelRow(
-                                      label: 'Qty Stok',
-                                      required: true,
-                                      locked: !_isUnlocked(_kQtyStok),
-                                      onUnlock: () => _unlock(_kQtyStok),
-                                    ),
+                                    const _FieldLabel(
+                                        label: 'Qty Stok', required: true),
                                     const SizedBox(height: AppSpacing.x2),
                                     _EditableNumberInput(
                                       controller: _qtyStokCtrl,
@@ -270,12 +247,8 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _LabelRow(
-                                      label: 'Qty Tahan',
-                                      required: false,
-                                      locked: !_isUnlocked(_kQtyTahan),
-                                      onUnlock: () => _unlock(_kQtyTahan),
-                                    ),
+                                    const _FieldLabel(
+                                        label: 'Qty Tahan', required: false),
                                     const SizedBox(height: AppSpacing.x2),
                                     _EditableNumberInput(
                                       controller: _qtyTahanCtrl,
@@ -434,49 +407,6 @@ class _SupplierEditStokPageState extends State<SupplierEditStokPage> {
         ),
       );
     }
-  }
-}
-
-// ── Label row with pencil button ──────────────────────────────────────────────
-
-class _LabelRow extends StatelessWidget {
-  const _LabelRow({
-    required this.label,
-    required this.required,
-    required this.locked,
-    required this.onUnlock,
-  });
-
-  final String label;
-  final bool required;
-  final bool locked;
-  final VoidCallback onUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _FieldLabel(label: label, required: required),
-        const Spacer(),
-        if (locked)
-          GestureDetector(
-            onTap: onUnlock,
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: AppRadius.xs,
-              ),
-              child: const Icon(
-                Icons.edit_rounded,
-                color: AppColors.onPrimary,
-                size: 18,
-              ),
-            ),
-          ),
-      ],
-    );
   }
 }
 
