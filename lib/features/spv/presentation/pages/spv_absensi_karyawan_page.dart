@@ -8,12 +8,36 @@ import '../../data/datasources/absensi_remote_datasource.dart';
 import '../../domain/entities/absensi_record.dart';
 import '../widgets/navigation/spv_drawer.dart';
 
+const _kAvatarColors = [
+  AppColors.primary,
+  AppColors.tertiary,
+  Color(0xFF2196F3),
+  AppColors.warning,
+  Color(0xFF7E57C2),
+];
+
+Color _avatarColor(String name) =>
+    _kAvatarColors[name.hashCode.abs() % _kAvatarColors.length];
+
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    final p = parts.first;
+    return p.substring(0, p.length >= 2 ? 2 : 1).toUpperCase();
+  }
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
+/// "04:59:35" → "04:59"; melewatkan placeholder "-".
+String _shortTime(String t) =>
+    t.length >= 5 && t.contains(':') ? t.substring(0, 5) : t;
+
 class SpvAbsensiKaryawanPage extends StatefulWidget {
   const SpvAbsensiKaryawanPage({super.key});
 
   @override
-  State<SpvAbsensiKaryawanPage> createState() =>
-      _SpvAbsensiKaryawanPageState();
+  State<SpvAbsensiKaryawanPage> createState() => _SpvAbsensiKaryawanPageState();
 }
 
 class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
@@ -35,8 +59,10 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
     try {
       final data = await _datasource.fetchAbsensi(date: _selectedDate);
       if (!mounted) return;
+      // Terbaru di paling atas.
+      final sorted = [...data]..sort((a, b) => b.tanggal.compareTo(a.tanggal));
       setState(() {
-        _records = data;
+        _records = sorted;
         _loading = false;
       });
     } catch (_) {
@@ -50,10 +76,8 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
 
   List<AbsensiRecord> get _filtered {
     if (_searchQuery.isEmpty) return _records;
-    return _records
-        .where((r) =>
-            r.nama.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+    final q = _searchQuery.toLowerCase();
+    return _records.where((r) => r.nama.toLowerCase().contains(q)).toList();
   }
 
   @override
@@ -73,6 +97,11 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
       setState(() => _selectedDate = picked);
       await _load();
     }
+  }
+
+  Future<void> _clearDate() async {
+    setState(() => _selectedDate = null);
+    await _load();
   }
 
   void _exportExcel() {
@@ -100,14 +129,14 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const _AbsensiKaryawanAppBar(),
+            _AppBar(count: _loading ? null : records.length),
             _buildFilterBar(),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : records.isEmpty
-                      ? const _EmptyState()
-                      : _AbsensiList(records: records),
+                  ? const _EmptyState()
+                  : _AbsensiList(records: records),
             ),
           ],
         ),
@@ -116,117 +145,188 @@ class _SpvAbsensiKaryawanPageState extends State<SpvAbsensiKaryawanPage> {
   }
 
   Widget _buildFilterBar() {
-    return ColoredBox(
+    final dateLabel = _selectedDate == null
+        ? 'Semua Tanggal'
+        : _formatDate(_selectedDate!);
+
+    return Container(
       color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.search_rounded,
-              color: AppColors.onSurfaceVariant,
-              size: 24,
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (q) => setState(() => _searchQuery = q),
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Cari',
-                  hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x4,
+        vertical: AppSpacing.x3,
+      ),
+      child: Row(
+        children: [
+          // Search
+          Expanded(
+            child: Container(
+              height: 45,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: AppRadius.md,
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search_rounded,
                     color: AppColors.onSurfaceVariant,
+                    size: 20,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x3,
-                    vertical: AppSpacing.x2,
-                  ),
-                  isDense: true,
-                  filled: false,
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.sm,
-                    borderSide: const BorderSide(color: AppColors.outline),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.sm,
-                    borderSide: const BorderSide(color: AppColors.outline),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: AppRadius.sm,
-                    borderSide:
-                        const BorderSide(color: AppColors.onSurfaceVariant),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            const Icon(
-              Icons.sort_rounded,
-              color: AppColors.onSurfaceVariant,
-              size: 24,
-            ),
-            const SizedBox(width: AppSpacing.x4),
-            Material(
-              color: AppColors.primary,
-              borderRadius: AppRadius.md,
-              child: InkWell(
-                onTap: _pickDate,
-                borderRadius: AppRadius.md,
-                child: const SizedBox(
-                  width: 45,
-                  height: 45,
-                  child: Icon(
-                    Icons.calendar_today_rounded,
-                    color: AppColors.onPrimary,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Material(
-              color: AppColors.primary,
-              borderRadius: AppRadius.md,
-              child: InkWell(
-                onTap: _exportExcel,
-                borderRadius: AppRadius.md,
-                child: Container(
-                  height: 45,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x4,
-                  ),
-                  child: Text(
-                    'Export Excel',
-                    style: AppTypography.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onPrimary,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(width: AppSpacing.x2),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (q) => setState(() => _searchQuery = q),
+                      textAlignVertical: TextAlignVertical.center,
+                      style: AppTypography.textTheme.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama karyawan',
+                        hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                      ),
                     ),
                   ),
+                  if (_searchQuery.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          // Date filter pill
+          Material(
+            color: _selectedDate == null
+                ? AppColors.background
+                : AppColors.primaryContainer,
+            borderRadius: AppRadius.md,
+            child: InkWell(
+              onTap: _pickDate,
+              borderRadius: AppRadius.md,
+              child: Container(
+                height: 45,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+                decoration: BoxDecoration(
+                  borderRadius: AppRadius.md,
+                  border: Border.all(
+                    color: _selectedDate == null
+                        ? AppColors.outlineVariant
+                        : AppColors.primary,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 18,
+                      color: AppColors.onSurface,
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Text(
+                      dateLabel,
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (_selectedDate != null) ...[
+                      const SizedBox(width: AppSpacing.x2),
+                      InkWell(
+                        onTap: _clearDate,
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          // Export
+          Material(
+            color: AppColors.tertiary,
+            borderRadius: AppRadius.md,
+            child: InkWell(
+              onTap: _exportExcel,
+              borderRadius: AppRadius.md,
+              child: Container(
+                height: 45,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.file_download_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Text(
+                      'Export Excel',
+                      style: AppTypography.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _AbsensiKaryawanAppBar extends StatelessWidget {
-  const _AbsensiKaryawanAppBar();
+String _formatDate(DateTime d) {
+  const bulan = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+  ];
+  return '${d.day} ${bulan[d.month - 1]} ${d.year}';
+}
+
+class _AppBar extends StatelessWidget {
+  const _AppBar({this.count});
+
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade700,
+      decoration: const BoxDecoration(
+        color: AppColors.secondary,
         border: Border(bottom: BorderSide(color: AppColors.secondaryContainer)),
       ),
       child: Padding(
@@ -261,6 +361,26 @@ class _AbsensiKaryawanAppBar extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (count != null) ...[
+              const SizedBox(width: AppSpacing.x3),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: AppRadius.full,
+                ),
+                child: Text(
+                  '$count karyawan',
+                  style: AppTypography.textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -277,104 +397,160 @@ class _AbsensiList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        ColoredBox(
-          color: AppColors.surface,
-          child: Column(
-            children: [
-              for (var i = 0; i < records.length; i++) ...[
-                if (i > 0)
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: AppColors.outlineVariant,
-                  ),
-                _AbsensiRow(record: records[i]),
-              ],
-            ],
-          ),
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.x4),
+      itemCount: records.length,
+      itemBuilder: (context, i) => Padding(
+        padding: EdgeInsets.only(
+          bottom: i == records.length - 1 ? 0 : AppSpacing.x3,
         ),
-      ],
+        child: _AbsensiCard(record: records[i]),
+      ),
     );
   }
 }
 
-class _AbsensiRow extends StatelessWidget {
-  const _AbsensiRow({required this.record});
+class _AbsensiCard extends StatelessWidget {
+  const _AbsensiCard({required this.record});
 
   final AbsensiRecord record;
 
-  static String _formatTanggal(DateTime d) {
-    const bulan = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    return '${d.day} ${bulan[d.month - 1]} ${d.year}';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x4,
+    final color = _avatarColor(record.nama);
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
       ),
+      padding: const EdgeInsets.all(AppSpacing.x3),
       child: Row(
         children: [
-          Expanded(
-            flex: 2,
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
             child: Text(
-              record.nama,
-              style: AppTypography.textTheme.bodyLarge?.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w500,
+              _initials(record.nama),
+              style: AppTypography.textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
+          const SizedBox(width: AppSpacing.x3),
+          // Name + date
           Expanded(
-            flex: 2,
-            child: Text(
-              _formatTanggal(record.tanggal),
-              style: AppTypography.textTheme.bodyLarge?.copyWith(
-                color: AppColors.onSurface,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.nama,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.event_rounded,
+                      size: 13,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(record.tanggal),
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          _TimeChip(label: record.jamMasuk),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.x3),
-            child: Text('-'),
+          const SizedBox(width: AppSpacing.x3),
+          // Masuk / Keluar
+          _TimeBlock(
+            label: 'Masuk',
+            time: _shortTime(record.jamMasuk),
+            color: AppColors.tertiary,
+            icon: Icons.login_rounded,
           ),
-          _TimeChip(label: record.jamKeluar),
+          const SizedBox(width: AppSpacing.x2),
+          _TimeBlock(
+            label: 'Keluar',
+            time: _shortTime(record.jamKeluar),
+            color: record.jamKeluar == '-'
+                ? AppColors.onSurfaceVariant
+                : AppColors.error,
+            icon: Icons.logout_rounded,
+          ),
         ],
       ),
     );
   }
 }
 
-class _TimeChip extends StatelessWidget {
-  const _TimeChip({required this.label});
+class _TimeBlock extends StatelessWidget {
+  const _TimeBlock({
+    required this.label,
+    required this.time,
+    required this.color,
+    required this.icon,
+  });
 
   final String label;
+  final String time;
+  final Color color;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: 84,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
+        horizontal: AppSpacing.x2,
         vertical: AppSpacing.x2,
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.shade400,
-        borderRadius: AppRadius.md,
+        color: color.withValues(alpha: 0.10),
+        borderRadius: AppRadius.sm,
       ),
-      child: Text(
-        label,
-        style: AppTypography.textTheme.bodyMedium?.copyWith(
-          color: AppColors.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: AppTypography.textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            time,
+            style: AppTypography.textTheme.titleSmall?.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -390,8 +566,8 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.account_circle_rounded,
-            size: 64,
+            Icons.groups_2_outlined,
+            size: 56,
             color: AppColors.onSurfaceVariant.withValues(alpha: 0.4),
           ),
           const SizedBox(height: AppSpacing.x3),
