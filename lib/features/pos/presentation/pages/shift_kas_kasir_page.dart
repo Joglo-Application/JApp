@@ -557,10 +557,17 @@ class _MulaiShiftConfirmDialog extends StatelessWidget {
                         final provider = context.read<ShiftKasProvider>();
                         final messenger = ScaffoldMessenger.of(context);
                         final navigator = Navigator.of(context);
-                        await provider.mulaiShift(kasAwal);
+                        final conflict = await provider.mulaiShift(kasAwal);
                         if (!context.mounted) return;
                         navigator.pop();
-                        if (provider.error != null) {
+                        final rootContext = navigator.context;
+                        if (conflict != null && rootContext.mounted) {
+                          showDialog<void>(
+                            context: rootContext,
+                            builder: (_) =>
+                                _ShiftAktifDialog(conflict: conflict),
+                          );
+                        } else if (provider.error != null) {
                           messenger.showSnackBar(
                             SnackBar(content: Text(provider.error!)),
                           );
@@ -589,6 +596,144 @@ class _MulaiShiftConfirmDialog extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog peringatan: masih ada shift aktif di tanggal lain saat mencoba
+/// memulai shift baru. Menyebut tanggal shift yang masih aktif.
+class _ShiftAktifDialog extends StatelessWidget {
+  const _ShiftAktifDialog({required this.conflict});
+
+  final ActiveShiftConflict conflict;
+
+  static const _months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  String _formatDate(DateTime dt) =>
+      '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final tanggal = conflict.tanggal;
+    const amber = Color(0xFFB45309);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+      child: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x6,
+                AppSpacing.x6,
+                AppSpacing.x6,
+                AppSpacing.x5,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: amber.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: amber,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x3),
+                  Text(
+                    'Shift Masih Aktif',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  Text(
+                    'Tidak dapat memulai shift baru',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x5),
+                  if (tanggal != null)
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.x4),
+                      decoration: BoxDecoration(
+                        color: amber.withValues(alpha: 0.08),
+                        borderRadius: AppRadius.md,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Shift aktif sejak',
+                            style: AppTypography.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.x1),
+                          Text(
+                            _formatDate(tanggal),
+                            style:
+                                AppTypography.textTheme.titleMedium?.copyWith(
+                              color: amber,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.x4),
+                  Text(
+                    tanggal != null
+                        ? 'Tutup dulu shift tanggal ${_formatDate(tanggal)} '
+                            'sebelum memulai shift baru.'
+                        : conflict.message,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+              child: Container(
+                height: 56,
+                alignment: Alignment.center,
+                child: Text(
+                  'Mengerti',
+                  style: AppTypography.textTheme.labelLarge?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],

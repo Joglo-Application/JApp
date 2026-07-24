@@ -11,6 +11,8 @@ class ShiftKasModel {
     required this.totalKeluar,
     required this.totalKas,
     required this.entries,
+    this.namaKasir = '',
+    this.tanggal,
     this.kasAkhir,
     this.waktuSelesai,
   });
@@ -18,6 +20,10 @@ class ShiftKasModel {
   final int shiftId;
   final int kasAwal;
   final String status; // 'open' | 'closed'
+  final String namaKasir;
+
+  /// Tanggal shift (`yyyy-MM-dd`) dari BE; dipakai layar Riwayat.
+  final DateTime? tanggal;
   final DateTime waktuMulai;
   final DateTime? waktuSelesai;
   final int? kasAkhir;
@@ -30,10 +36,13 @@ class ShiftKasModel {
 
   factory ShiftKasModel.fromJson(Map<String, dynamic> json) {
     final rawEntries = json['entries'] as List<dynamic>? ?? const [];
+    final rawTanggal = json['tanggal'] as String?;
     return ShiftKasModel(
       shiftId: (json['shiftId'] as num).toInt(),
       kasAwal: (json['kasAwal'] as num).toInt(),
       status: json['status'] as String,
+      namaKasir: (json['namaKasir'] as String?) ?? '',
+      tanggal: rawTanggal == null ? null : DateTime.tryParse(rawTanggal),
       waktuMulai: DateTime.parse(json['waktuMulai'] as String).toLocal(),
       waktuSelesai: json['waktuSelesai'] == null
           ? null
