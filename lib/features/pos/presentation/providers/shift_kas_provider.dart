@@ -8,6 +8,24 @@ import '../../domain/entities/shift_kas_entry.dart';
 // Re-export agar halaman yang meng-import provider tetap mendapat tipe ini.
 export '../../domain/entities/shift_kas_entry.dart';
 
+/// Info shift yang masih aktif ketika mulai shift baru ditolak BE (CONFLICT).
+class ActiveShiftConflict {
+  const ActiveShiftConflict({required this.message, this.tanggal});
+
+  final String message;
+
+  /// Tanggal shift yang masih aktif (`yyyy-MM-dd`), bila BE menyertakannya.
+  final DateTime? tanggal;
+
+  factory ActiveShiftConflict.fromApi(ApiException e) {
+    final raw = e.details?['tanggal'];
+    return ActiveShiftConflict(
+      message: e.message,
+      tanggal: raw is String ? DateTime.tryParse(raw) : null,
+    );
+  }
+}
+
 class ShiftKasProvider extends ChangeNotifier {
   ShiftKasProvider({ShiftKasRemoteDatasource? datasource})
       : _ds = datasource ?? ShiftKasRemoteDatasourceImpl();
@@ -30,6 +48,7 @@ class ShiftKasProvider extends ChangeNotifier {
   bool get hasShift => _shift != null;
   double get kasAwal => (_shift?.kasAwal ?? 0).toDouble();
   DateTime? get shiftStartTime => _shift?.waktuMulai;
+  double get totalMasuk => (_shift?.totalMasuk ?? 0).toDouble();
   double get totalKeluar => (_shift?.totalKeluar ?? 0).toDouble();
   double get totalKas => (_shift?.totalKas ?? 0).toDouble();
   List<ShiftKasEntry> get entries =>
@@ -59,6 +78,9 @@ class ShiftKasProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ambil riwayat shift (untuk dialog Riwayat). Tidak mengubah state halaman.
+  Future<List<ShiftKasModel>> fetchHistory() => _ds.fetchHistory();
+
   Future<void> changeDate(DateTime date) async {
     _selectedDate = date;
     _selected = null;
@@ -74,8 +96,43 @@ class ShiftKasProvider extends ChangeNotifier {
   }
 
   // ── Aksi (mutasi via API, lalu refresh dari respons) ────────────────────────
-  Future<void> mulaiShift(double kasAwal) =>
-      _run(() => _ds.startShift(kasAwal.round()));
+  /// Mulai shift baru. Mengembalikan `null` bila sukses, atau info shift yang
+  /// masih aktif (dari respons CONFLICT BE) bila ditolak — agar UI dapat
+  /// menampilkan dialog "shift masih aktif" beserta tanggalnya.
+  Future<ActiveShiftConflict?> mulaiShift(double kasAwal) async {
+    if (_isSubmitting) return null;
+    _isSubmitting = true;
+    _error = null;
+    notifyListeners();
+    ActiveShiftConflict? conflict;
+    try {
+      _setShift(await _ds.startShift(kasAwal.round()));
+    } on ApiException catch (e) {
+      if (e.code == 'CONFLICT') {
+        conflict = ActiveShiftConflict.fromApi(e);
+        // Bila BE belum menyertakan tanggal di respons, ambil dari shift aktif
+        // agar dialog tetap dapat menyebut tanggal yang masih aktif.
+        if (conflict.tanggal == null) {
+          try {
+            final active = await _ds.fetchActive();
+            if (active?.tanggal != null) {
+              conflict = ActiveShiftConflict(
+                message: e.message,
+                tanggal: active!.tanggal,
+              );
+            }
+          } catch (_) {/* biarkan pakai pesan apa adanya */}
+        }
+      } else {
+        _error = e.message;
+      }
+    } catch (_) {
+      _error = 'Operasi shift kas gagal.';
+    }
+    _isSubmitting = false;
+    notifyListeners();
+    return conflict;
+  }
 
   Future<void> addEntry({
     required ShiftKasJenis jenis,

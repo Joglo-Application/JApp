@@ -7,6 +7,9 @@ import '../models/shift_kas_model.dart';
 abstract interface class ShiftKasRemoteDatasource {
   Future<ShiftKasModel?> fetchActive();
   Future<ShiftKasModel?> fetchByDate(DateTime date);
+
+  /// Daftar shift lampau (terbaru dulu) untuk layar Riwayat.
+  Future<List<ShiftKasModel>> fetchHistory();
   Future<ShiftKasModel> startShift(int kasAwal);
   Future<ShiftKasModel> addEntry(
     int shiftId, {
@@ -59,6 +62,21 @@ class ShiftKasRemoteDatasourceImpl implements ShiftKasRemoteDatasource {
       );
       final rows = res.data?['data'] as List<dynamic>? ?? const [];
       return rows.isEmpty ? null : _one(rows.first);
+    } catch (e) {
+      throw _client.toApiException(e);
+    }
+  }
+
+  @override
+  Future<List<ShiftKasModel>> fetchHistory() async {
+    try {
+      final res = await _client.dio.get<Map<String, dynamic>>('/shift-kas');
+      final rows = res.data?['data'] as List<dynamic>? ?? const [];
+      final list = rows.map(_one).toList();
+      // Terbaru dulu: berdasarkan tanggal (fallback waktu mulai).
+      list.sort((a, b) => (b.tanggal ?? b.waktuMulai)
+          .compareTo(a.tanggal ?? a.waktuMulai));
+      return list;
     } catch (e) {
       throw _client.toApiException(e);
     }

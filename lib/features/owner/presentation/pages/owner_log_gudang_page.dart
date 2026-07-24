@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/datasources/log_gudang_remote_datasource.dart';
 import '../../domain/entities/log_gudang_entry.dart';
+
+/// Visual style (label, warna, ikon) untuk sebuah jenis log gudang.
+typedef _JenisStyle = ({String label, Color color, IconData icon});
+
+_JenisStyle _styleFor(String jenis) {
+  switch (jenis.toUpperCase()) {
+    case 'ADD_STOK':
+      return (label: 'Tambah Stok', color: AppColors.tertiary, icon: Icons.add_box_rounded);
+    case 'ADD_QTY_STOK':
+      return (label: 'Tambah Qty', color: AppColors.tertiary, icon: Icons.exposure_plus_1_rounded);
+    case 'UPDATE_ITEM':
+      return (label: 'Ubah Item', color: Color(0xFF2196F3), icon: Icons.edit_rounded);
+    case 'DELETE_ITEM':
+      return (label: 'Hapus Item', color: AppColors.error, icon: Icons.delete_rounded);
+    default:
+      return (label: _humanize(jenis), color: AppColors.onSurfaceVariant, icon: Icons.inventory_2_rounded);
+  }
+}
+
+String _humanize(String raw) => raw
+    .split(RegExp(r'[_\s]+'))
+    .where((w) => w.isNotEmpty)
+    .map((w) => '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+    .join(' ');
 
 class OwnerLogGudangPage extends StatefulWidget {
   const OwnerLogGudangPage({super.key});
@@ -33,8 +58,10 @@ class _OwnerLogGudangPageState extends State<OwnerLogGudangPage> {
     try {
       final data = await _datasource.fetchLogs();
       if (!mounted) return;
+      // Terbaru di paling atas.
+      final sorted = [...data]..sort((a, b) => b.tanggal.compareTo(a.tanggal));
       setState(() {
-        _entries = data;
+        _entries = sorted;
         _loading = false;
       });
     } catch (_) {
@@ -49,80 +76,48 @@ class _OwnerLogGudangPageState extends State<OwnerLogGudangPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildTitleRow(context),
-            const _TableHeader(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(
-                          child: Text(
-                            _error!,
-                            style: AppTypography.textTheme.bodyMedium
-                                ?.copyWith(color: AppColors.onSurfaceVariant),
-                          ),
-                        )
-                      : _entries.isEmpty
-                          ? Center(
-                              child: Text(
-                                'Belum ada log gudang.',
-                                style: AppTypography.textTheme.bodyMedium
-                                    ?.copyWith(
-                                        color: AppColors.onSurfaceVariant),
-                              ),
-                            )
-                          : ListView.separated(
-                              itemCount: _entries.length,
-                              separatorBuilder: (_, _) => const Divider(
-                                height: 1,
-                                thickness: 1,
-                                color: AppColors.outlineVariant,
-                              ),
-                              itemBuilder: (context, index) =>
-                                  _LogGudangRow(entry: _entries[index]),
-                            ),
+            _Header(
+              count: _entries.length,
+              loading: _loading,
+              onRefresh: _loading ? null : _load,
+              onClose: () => Navigator.of(context).pop(),
             ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTitleRow(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-            iconSize: 22,
-            tooltip: 'Muat ulang',
-          ),
-          const Spacer(),
-          Text(
-            'Log Gudang',
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.x2),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-            iconSize: 22,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return _EmptyState(
+        icon: Icons.cloud_off_rounded,
+        message: _error!,
+      );
+    }
+    if (_entries.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.inventory_2_outlined,
+        message: 'Belum ada log gudang.',
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.x4),
+      itemCount: _entries.length,
+      itemBuilder: (context, index) => Padding(
+        padding: EdgeInsets.only(
+          bottom: index == _entries.length - 1 ? 0 : AppSpacing.x3,
+        ),
+        child: _LogGudangCard(entry: _entries[index]),
       ),
     );
   }
@@ -130,115 +125,237 @@ class _OwnerLogGudangPageState extends State<OwnerLogGudangPage> {
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 
-class _TableHeader extends StatelessWidget {
-  const _TableHeader();
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.count,
+    required this.loading,
+    required this.onRefresh,
+    required this.onClose,
+  });
+
+  final int count;
+  final bool loading;
+  final VoidCallback? onRefresh;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.outline,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x3,
-        ),
-        child: Row(
-          children: const [
-            Expanded(
-              flex: 3,
-              child: _HeaderCell(label: 'Tanggal'),
+    return Container(
+      color: AppColors.tertiary,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x4,
+        vertical: AppSpacing.x3,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 22),
+          const SizedBox(width: AppSpacing.x3),
+          Text(
+            'Log Gudang',
+            style: AppTypography.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
-            Expanded(
-              flex: 2,
-              child: _HeaderCell(label: 'Jenis'),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          if (!loading)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: AppRadius.full,
+              ),
+              child: Text(
+                '$count',
+                style: AppTypography.textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            Expanded(
-              flex: 2,
-              child: _HeaderCell(label: 'Author/Nama'),
-            ),
-            Expanded(
-              flex: 3,
-              child: _HeaderCell(label: 'Logs'),
-            ),
-          ],
+          const Spacer(),
+          _HeaderIcon(
+            icon: Icons.refresh_rounded,
+            tooltip: 'Muat ulang',
+            onTap: onRefresh,
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          _HeaderIcon(
+            icon: Icons.close_rounded,
+            tooltip: 'Tutup',
+            onTap: onClose,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderIcon extends StatelessWidget {
+  const _HeaderIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.15),
+      borderRadius: AppRadius.sm,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.sm,
+        child: Tooltip(
+          message: tooltip,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
         ),
       ),
     );
   }
 }
 
-class _HeaderCell extends StatelessWidget {
-  const _HeaderCell({required this.label});
+// ── Card ─────────────────────────────────────────────────────────────────────
 
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: AppTypography.textTheme.labelLarge?.copyWith(
-        color: AppColors.onSurface,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-}
-
-// ── Row ────────────────────────────────────────────────────────────────────────
-
-class _LogGudangRow extends StatelessWidget {
-  const _LogGudangRow({required this.entry});
+class _LogGudangCard extends StatelessWidget {
+  const _LogGudangCard({required this.entry});
 
   final LogGudangEntry entry;
 
-  static String _formatTanggal(DateTime d) {
-    const hari = [
-      'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
-    ];
-    const bulan = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des',
-    ];
-    final jam = d.hour.toString().padLeft(2, '0');
-    final menit = d.minute.toString().padLeft(2, '0');
-    return '${hari[d.weekday - 1]}, ${d.day} ${bulan[d.month - 1]} '
-        '${d.year}, $jam:$menit';
-  }
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+
+  String _time(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   @override
   Widget build(BuildContext context) {
-    final cellStyle = AppTypography.textTheme.bodyMedium?.copyWith(
-      color: AppColors.onSurface,
-      fontWeight: FontWeight.w500,
-    );
+    final style = _styleFor(entry.jenis);
+    final dt = entry.tanggal;
 
-    return ColoredBox(
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x4,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(_formatTanggal(entry.tanggal), style: cellStyle),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.x3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: style.color.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
             ),
-            Expanded(
-              flex: 2,
-              child: Text(entry.jenis, style: cellStyle),
+            child: Icon(style.icon, size: 20, color: style.color),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: style.color.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.full,
+                  ),
+                  child: Text(
+                    style.label,
+                    style: AppTypography.textTheme.labelSmall?.copyWith(
+                      color: style.color,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                Text(
+                  entry.logs,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Row(
+                  children: [
+                    Icon(Icons.person_outline_rounded,
+                        size: 13, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text(
+                      entry.author,
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            Expanded(
-              flex: 2,
-              child: Text(entry.author, style: cellStyle),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _time(dt),
+                style: AppTypography.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                _date(dt),
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Empty / error state ────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: AppSpacing.x3),
+          Text(
+            message,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
             ),
-            Expanded(
-              flex: 3,
-              child: Text(entry.logs, style: cellStyle),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
