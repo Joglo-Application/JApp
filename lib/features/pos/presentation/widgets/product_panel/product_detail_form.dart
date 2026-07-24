@@ -31,6 +31,7 @@ class ProductDetailForm extends StatefulWidget {
 
 class _ProductDetailFormState extends State<ProductDetailForm> {
   late final TextEditingController _priceCtrl;
+  late final TextEditingController _qtyCtrl;
   late final TextEditingController _discountCtrl;
   late final TextEditingController _noteCtrl;
 
@@ -47,6 +48,7 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
     _priceCtrl = TextEditingController(
       text: (existing?.unitPrice ?? widget.product.price).toStringAsFixed(0),
     );
+    _qtyCtrl = TextEditingController(text: '$_qty');
     _discountCtrl = TextEditingController(
       text: (existing?.discount ?? 0).toStringAsFixed(0),
     );
@@ -56,9 +58,28 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
   @override
   void dispose() {
     _priceCtrl.dispose();
+    _qtyCtrl.dispose();
     _discountCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  /// Ketik langsung di field Qty — perbarui [_qty] saat angkanya valid (≥1).
+  void _onQtyText(String v) {
+    final n = int.tryParse(v);
+    setState(() {
+      if (n != null && n >= 1) _qty = n;
+    });
+  }
+
+  /// Tombol +/- — ubah [_qty] lalu sinkronkan teks field (kursor di akhir).
+  void _changeQty(int delta) {
+    final n = (_qty + delta).clamp(1, 9999);
+    setState(() => _qty = n);
+    _qtyCtrl.value = TextEditingValue(
+      text: '$n',
+      selection: TextSelection.collapsed(offset: '$n'.length),
+    );
   }
 
   /// Harga × qty item ini — dasar validasi promo di server.
@@ -84,12 +105,14 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
             widget.product.price;
     final discount = double.tryParse(_discountCtrl.text) ?? 0.0;
     final note = _noteCtrl.text.trim();
+    // Field kosong/invalid → minimal 1.
+    final qty = (int.tryParse(_qtyCtrl.text) ?? _qty).clamp(1, 9999);
 
     final newItem = OrderItem(
       productId: widget.product.id,
       name: widget.product.name,
       unitPrice: price,
-      quantity: _qty,
+      quantity: qty,
       imageUrl: widget.product.imageUrl,
       discount: discount,
       discountType: _discountType,
@@ -127,11 +150,10 @@ class _ProductDetailFormState extends State<ProductDetailForm> {
                 _HargaSection(controller: _priceCtrl, product: widget.product),
                 const SizedBox(height: AppSpacing.x4),
                 _QtySection(
-                  qty: _qty,
-                  onDecrement: () {
-                    if (_qty > 1) setState(() => _qty--);
-                  },
-                  onIncrement: () => setState(() => _qty++),
+                  controller: _qtyCtrl,
+                  onChanged: _onQtyText,
+                  onDecrement: () => _changeQty(-1),
+                  onIncrement: () => _changeQty(1),
                 ),
                 const SizedBox(height: AppSpacing.x4),
                 _DiskonSection(
@@ -233,8 +255,8 @@ class _HargaSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.x2),
         TextField(
           controller: controller,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          // Harga produk katalog dikunci — tidak boleh diubah kasir dari sini.
+          readOnly: true,
           style: _valueStyle,
           decoration: _fieldDecoration(
             hintText: CurrencyFormatter.format(product.price),
@@ -247,12 +269,14 @@ class _HargaSection extends StatelessWidget {
 
 class _QtySection extends StatelessWidget {
   const _QtySection({
-    required this.qty,
+    required this.controller,
+    required this.onChanged,
     required this.onDecrement,
     required this.onIncrement,
   });
 
-  final int qty;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
 
@@ -266,18 +290,13 @@ class _QtySection extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: AppColors.onPrimary.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
-                  child: Text('$qty', style: _valueStyle),
-                ),
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: _valueStyle,
+                decoration: _fieldDecoration(),
               ),
             ),
             const SizedBox(width: AppSpacing.x3),

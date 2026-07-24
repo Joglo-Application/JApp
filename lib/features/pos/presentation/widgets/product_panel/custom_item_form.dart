@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -21,12 +22,14 @@ class CustomItemForm extends StatefulWidget {
 class _CustomItemFormState extends State<CustomItemForm> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
+  final _qtyController = TextEditingController(text: '1');
   int _quantity = 1;
 
   @override
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _qtyController.dispose();
     super.dispose();
   }
 
@@ -35,14 +38,28 @@ class _CustomItemFormState extends State<CustomItemForm> {
     return text.isEmpty ? 'A' : text[0].toUpperCase();
   }
 
-  void _increment() => setState(() => _quantity++);
-  void _decrement() {
-    if (_quantity > 1) setState(() => _quantity--);
+  /// Ketik langsung di field qty — perbarui [_quantity] saat angkanya valid (≥1).
+  void _onQtyText(String v) {
+    final n = int.tryParse(v);
+    setState(() {
+      if (n != null && n >= 1) _quantity = n;
+    });
+  }
+
+  /// Tombol +/- — ubah [_quantity] lalu sinkronkan teks field (kursor di akhir).
+  void _changeQty(int delta) {
+    final n = (_quantity + delta).clamp(1, 9999);
+    setState(() => _quantity = n);
+    _qtyController.value = TextEditingValue(
+      text: '$n',
+      selection: TextSelection.collapsed(offset: '$n'.length),
+    );
   }
 
   void _submit() {
     final name = _nameController.text.trim();
     final price = double.tryParse(_priceController.text.replaceAll(',', ''));
+    final qty = (int.tryParse(_qtyController.text) ?? _quantity).clamp(1, 9999);
     if (name.isEmpty || price == null || price <= 0) return;
 
     context.read<OrderProvider>().addOrIncrement(
@@ -50,12 +67,13 @@ class _CustomItemFormState extends State<CustomItemForm> {
             productId: IdGenerator.generate(),
             name: name,
             unitPrice: price,
-            quantity: _quantity,
+            quantity: qty,
           ),
         );
 
     _nameController.clear();
     _priceController.clear();
+    _qtyController.text = '1';
     setState(() => _quantity = 1);
   }
 
@@ -83,9 +101,10 @@ class _CustomItemFormState extends State<CustomItemForm> {
               FormPriceField(controller: _priceController),
               const SizedBox(height: AppSpacing.x6),
               _QuantityRow(
-                quantity: _quantity,
-                onDecrement: _decrement,
-                onIncrement: _increment,
+                controller: _qtyController,
+                onChanged: _onQtyText,
+                onDecrement: () => _changeQty(-1),
+                onIncrement: () => _changeQty(1),
               ),
               const SizedBox(height: AppSpacing.x6),
               AppButton(
@@ -291,12 +310,14 @@ class _CustomItemTile extends StatelessWidget {
 
 class _QuantityRow extends StatelessWidget {
   const _QuantityRow({
-    required this.quantity,
+    required this.controller,
+    required this.onChanged,
     required this.onDecrement,
     required this.onIncrement,
   });
 
-  final int quantity;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
 
@@ -306,19 +327,22 @@ class _QuantityRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.outline),
-              ),
+          child: TextField(
+            controller: controller,
+            onChanged: onChanged,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurface,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.x2),
-              child: Text(
-                '$quantity',
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: AppSpacing.x2),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.outline),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.primary, width: 2),
               ),
             ),
           ),
