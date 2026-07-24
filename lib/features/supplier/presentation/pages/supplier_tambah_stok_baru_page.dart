@@ -48,8 +48,8 @@ class _SupplierTambahStokBaruPageState
   String? _selectedKategori;
   String? _selectedSatuan;
 
+  // Foto opsional — tidak diwajibkan agar user tak selalu harus mengunggah.
   bool get _isValid =>
-      _fotoBytes != null &&
       _namaCtrl.text.trim().isNotEmpty &&
       _selectedKategori != null &&
       _selectedSatuan != null &&
@@ -85,7 +85,7 @@ class _SupplierTambahStokBaruPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel(label: 'Foto', required: true),
+                          const _FieldLabel(label: 'Foto', required: false),
                           const SizedBox(height: AppSpacing.x3),
                           _FotoInput(fotoBytes: _fotoBytes, onPick: _pickImage),
                         ],
