@@ -14,10 +14,16 @@ import 'diskon_input.dart';
 class OrderSummaryTotals extends StatelessWidget {
   const OrderSummaryTotals({super.key});
 
-  /// Ketuk baris "Pajak" → minta PIN Supervisor, lalu buka form Pajak (persen
-  /// atau nominal Rupiah). Nilainya disimpan sebagai default toko di server
-  /// (berlaku untuk semua pesanan & bertahan setelah reload).
-  Future<void> _editPajakWithApproval(BuildContext context) async {
+  /// Ketuk baris tarif (Pajak / Biaya Layanan) → minta PIN Supervisor, lalu buka
+  /// form (persen atau nominal Rupiah). Nilainya disimpan sebagai default toko
+  /// di server (berlaku untuk semua pesanan & bertahan setelah reload).
+  Future<void> _editTarif(
+    BuildContext context, {
+    required String title,
+    required DiscountType initialType,
+    required Future<bool> Function(DiscountType, double, String) save,
+    required String labelSukses,
+  }) async {
     final order = context.read<OrderProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
@@ -35,8 +41,8 @@ class OrderSummaryTotals extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (_) => DiskonInputPage(
-        title: 'Tipe Pajak',
-        initialType: order.pajakType,
+        title: title,
+        initialType: initialType,
         onSave: (v, t) {
           nilai = v;
           tipe = t;
@@ -45,30 +51,34 @@ class OrderSummaryTotals extends StatelessWidget {
     );
     if (nilai == null || tipe == null) return; // dibatalkan
 
-    final ok = await order.savePajakSetting(tipe!, nilai!, pin);
+    final ok = await save(tipe!, nilai!, pin);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          ok ? 'Pajak diperbarui' : (order.submitError ?? 'Gagal memperbarui pajak'),
+          ok ? labelSukses : (order.submitError ?? 'Gagal memperbarui tarif'),
         ),
       ),
     );
   }
 
+  // Label tarif: tampilkan nilainya inline — '%' untuk persen, nominal Rupiah
+  // untuk amount — supaya konsisten (mis. "Pajak : 15%" / "Pajak : Rp 12.000").
+  String _tarifLabel(String nama, DiscountType tipe, double value) =>
+      tipe == DiscountType.percent
+          ? '$nama : ${value.toStringAsFixed(0)}%'
+          : '$nama : ${CurrencyFormatter.format(value)}';
+
   @override
   Widget build(BuildContext context) {
     final order = context.watch<OrderProvider>();
-    final serviceRate = order.serviceRate;
 
     final namaKasir = context.select<AuthProvider, String>(
       (auth) => auth.user?.namaUser ?? '-',
     );
 
-    // Label Pajak: tampilkan '%' untuk tipe persen; untuk nominal Rupiah beri
-    // penanda "(Rp)" agar tidak terlihat kosong (nominalnya tampil di kanan).
-    final pajakLabel = order.pajakType == DiscountType.percent
-        ? 'Pajak : ${order.pajakValue.toStringAsFixed(0)}%'
-        : 'Pajak (Rp) :';
+    final pajakLabel = _tarifLabel('Pajak', order.pajakType, order.pajakValue);
+    final layananLabel =
+        _tarifLabel('Biaya Layanan', order.layananType, order.layananValue);
 
     final rows = <({String label, String value, VoidCallback? onTap})>[
       if (order.orderDiscountAmount > 0)
@@ -85,14 +95,26 @@ class OrderSummaryTotals extends StatelessWidget {
         onTap: null,
       ),
       (
-        label: 'Biaya Layanan : ${(serviceRate * 100).toStringAsFixed(0)}%',
-        value: CurrencyFormatter.format(order.subtotal * serviceRate),
-        onTap: null,
+        label: layananLabel,
+        value: CurrencyFormatter.format(order.serviceAmount),
+        onTap: () => _editTarif(
+          context,
+          title: 'Tipe Biaya Layanan',
+          initialType: order.layananType,
+          save: order.saveLayananSetting,
+          labelSukses: 'Biaya layanan diperbarui',
+        ),
       ),
       (
         label: pajakLabel,
         value: CurrencyFormatter.format(order.pajakAmount),
-        onTap: () => _editPajakWithApproval(context),
+        onTap: () => _editTarif(
+          context,
+          title: 'Tipe Pajak',
+          initialType: order.pajakType,
+          save: order.savePajakSetting,
+          labelSukses: 'Pajak diperbarui',
+        ),
       ),
       if (order.redeemedPointCost != null)
         (
