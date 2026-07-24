@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../data/datasources/meja_remote_datasource.dart';
+import '../../data/datasources/pajak_setting_datasource.dart';
 import '../../data/models/loaded_pesanan_model.dart';
 import '../../data/repositories/checkout_repository_impl.dart';
 import '../../data/repositories/log_transaksi_repository_impl.dart';
@@ -19,10 +20,11 @@ import '../../domain/usecases/create_pesanan_usecase.dart';
 
 class OrderProvider extends ChangeNotifier {
   OrderProvider({
-    this.taxRate = 0.10,
+    this.serviceRate = 0.05,
     CheckoutRepository? checkoutRepository,
     MejaRemoteDatasource? mejaDatasource,
     LogTransaksiRepository? logRepository,
+    PajakSettingDatasource? pajakDatasource,
   }) {
     final repo = checkoutRepository ?? CheckoutRepositoryImpl();
     _createPesanan = CreatePesananUseCase(repo);
@@ -30,6 +32,7 @@ class OrderProvider extends ChangeNotifier {
     _cancelPesanan = CancelPesananUseCase(repo);
     _mejaDatasource = mejaDatasource ?? MejaRemoteDatasourceImpl();
     _logRepo = logRepository ?? LogTransaksiRepositoryImpl();
+    _pajakDatasource = pajakDatasource ?? PajakSettingDatasourceImpl();
   }
 
   late final CreatePesananUseCase _createPesanan;
@@ -37,11 +40,24 @@ class OrderProvider extends ChangeNotifier {
   late final CancelPesananUseCase _cancelPesanan;
   late final MejaRemoteDatasource _mejaDatasource;
   late final LogTransaksiRepository _logRepo;
+  late final PajakSettingDatasource _pajakDatasource;
 
   // Kode sesi audit-log untuk order berjalan (dibuat lazily, direset saat clear).
   String? _kodeTransaksi;
 
-  final double taxRate;
+  /// Tarif biaya layanan (tetap, mis. 0.05 = 5%).
+  final double serviceRate;
+
+  // Pajak toko (default terpersist di server, grup pengaturan `pajak`). Dimuat
+  // via [loadPajakSetting] saat POS dibuka, dan diubah lewat [savePajakSetting]
+  // (ketuk baris "Pajak" → PIN supervisor). Nilai berlaku untuk semua pesanan.
+  DiscountType _pajakType = DiscountType.percent;
+
+  /// Angka persen (mis. 10) bila [_pajakType] percent, atau nominal Rupiah
+  /// (mis. 5000) bila amount.
+  double _pajakValue = 5;
+  bool _pajakAktif = true;
+
   final List<OrderItem> _items = [];
   String _customerName = '';
   int? _memberPoints;
@@ -205,7 +221,73 @@ class OrderProvider extends ChangeNotifier {
   double get subtotal => _items
       .where((i) => i.productId != _redeemedItemId)
       .fold(0.0, (s, i) => s + i.subtotal);
-  double get taxAmount => subtotal * taxRate;
+  /// Tipe & nilai Pajak toko (untuk menampilkan label "Pajak").
+  DiscountType get pajakType => _pajakType;
+  double get pajakValue => _pajakValue;
+
+  double get serviceAmount => subtotal * serviceRate;
+
+  /// Nominal pajak: persen dari subtotal, atau nominal Rupiah tetap. Nol bila
+  /// pajak dinonaktifkan di pengaturan.
+  double get pajakAmount => !_pajakAktif
+      ? 0
+      : _pajakType == DiscountType.percent
+          ? subtotal * (_pajakValue / 100)
+          : _pajakValue;
+
+  // "Pajak" untuk perhitungan total = biaya layanan + pajak (keduanya server
+  // menghitung terpisah, tapi total-nya sama).
+  double get taxAmount => serviceAmount + pajakAmount;
+
+  /// Muat default Pajak toko dari server (dipanggil saat POS dibuka).
+  /// Best-effort: bila gagal, tetap pakai nilai terakhir/awal.
+  Future<void> loadPajakSetting() async {
+    try {
+      final s = await _pajakDatasource.fetch();
+      _pajakType = s.tipe;
+      _pajakValue = s.nilai;
+      _pajakAktif = s.aktif;
+      notifyListeners();
+    } catch (_) {
+      // Abaikan; POS tetap jalan dengan nilai default.
+    }
+  }
+
+  /// Ubah default Pajak toko (ketuk "Pajak" + PIN supervisor). Persist ke
+  /// server lalu berlaku untuk semua pesanan berikutnya. [value] = angka persen
+  /// (mis. 10) untuk percent, atau nominal Rupiah untuk amount.
+  Future<bool> savePajakSetting(DiscountType type, double value, String pin) async {
+    if (_isSubmitting) return false;
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+    try {
+      final old = _pajakDesc();
+      final s = await _pajakDatasource.update(
+        tipe: type,
+        nilai: value < 0 ? 0 : value,
+        pin: pin,
+      );
+      _pajakType = s.tipe;
+      _pajakValue = s.nilai;
+      _pajakAktif = s.aktif;
+      _log('UPDATE_TAX', '$old -> ${_pajakDesc()}');
+      return true;
+    } on ApiException catch (e) {
+      _submitError = e.message;
+      return false;
+    } catch (_) {
+      _submitError = 'Gagal memperbarui pajak.';
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  String _pajakDesc() => _pajakType == DiscountType.percent
+      ? '${_pajakValue.toStringAsFixed(0)}%'
+      : 'Rp ${_pajakValue.toStringAsFixed(0)}';
 
   double get orderDiscountAmount {
     if (_orderDiscount <= 0) return 0;
@@ -282,6 +364,7 @@ class OrderProvider extends ChangeNotifier {
         'DISC_AMT' || 'DISC_AMT_ITEM' => 'Update jumlah diskon',
         'DISC_PCT' || 'DISC_PCT_ITEM' => 'Update persen diskon',
         'UPDATE_PRICE' => 'Update harga',
+        'UPDATE_TAX' => 'Update pajak',
         'SEND_KITCHEN' => 'Kirim ke dapur',
         _ => '',
       };

@@ -5,13 +5,32 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/order_item.dart';
 import '../../providers/order_provider.dart';
 
-// ── Full-screen discount input page ──────────────────────────────────────────
+// ── Full-screen % / Rp input page ────────────────────────────────────────────
+//
+// Dipakai untuk diskon pesanan (default) maupun override Pajak. Ketika [onSave]
+// null, nilainya di-set sebagai diskon pesanan; selain itu callback yang
+// menentukan apa yang dilakukan dengan nilai + tipe yang dipilih.
 
 class DiskonInputPage extends StatefulWidget {
-  const DiskonInputPage({super.key});
+  const DiskonInputPage({
+    super.key,
+    this.title = 'Tipe Diskon',
+    this.onSave,
+    this.initialType = DiscountType.amount,
+  });
+
+  /// Judul kolom kiri (mis. 'Tipe Diskon' / 'Tipe Pajak').
+  final String title;
+
+  /// Dipanggil saat SIMPAN dengan (nilai, tipe). Bila null → set diskon pesanan.
+  final void Function(double value, DiscountType type)? onSave;
+
+  /// Tipe awal yang terpilih.
+  final DiscountType initialType;
 
   @override
   State<DiskonInputPage> createState() => _DiskonInputPageState();
@@ -19,25 +38,60 @@ class DiskonInputPage extends StatefulWidget {
 
 class _DiskonInputPageState extends State<DiskonInputPage> {
   String _value = '';
-  DiscountType _type = DiscountType.amount;
+  late DiscountType _type = widget.initialType;
+
+  /// Persen dibatasi maksimal 100 (%).
+  static const _maxPersen = 100.0;
+
+  /// Teks yang ditampilkan: format Rupiah untuk tipe amount, angka + '%' untuk
+  /// persen.
+  String get _display {
+    if (_type == DiscountType.amount) {
+      return CurrencyFormatter.format(double.tryParse(_value) ?? 0);
+    }
+    return '${_value.isEmpty ? '0' : _value}%';
+  }
 
   void _onKey(String key) {
     setState(() {
       if (key == 'C') {
         _value = '';
-      } else if (key == '.' && _value.contains('.')) {
+        return;
+      }
+      String next;
+      if (key == '.' && _value.contains('.')) {
         return;
       } else if (_value.isEmpty && key == '.') {
-        _value = '0.';
+        next = '0.';
       } else {
-        _value += key;
+        next = _value + key;
+      }
+      // Batasi persen maksimal 100 — tolak ketikan yang melewatinya.
+      if (_type == DiscountType.percent && (double.tryParse(next) ?? 0) > _maxPersen) {
+        return;
+      }
+      _value = next;
+    });
+  }
+
+  /// Pindah tipe; saat ke Persen, jepit nilai lama agar tidak melewati 100.
+  void _setType(DiscountType type) {
+    setState(() {
+      _type = type;
+      if (type == DiscountType.percent && (double.tryParse(_value) ?? 0) > _maxPersen) {
+        _value = _maxPersen.toStringAsFixed(0);
       }
     });
   }
 
   void _save() {
-    final val = double.tryParse(_value) ?? 0;
-    context.read<OrderProvider>().setOrderDiscount(val, _type);
+    var val = double.tryParse(_value) ?? 0;
+    if (_type == DiscountType.percent && val > _maxPersen) val = _maxPersen;
+    if (widget.onSave != null) {
+      widget.onSave!(val, _type);
+    } else {
+      context.read<OrderProvider>().setOrderDiscount(val, _type);
+    }
     Navigator.of(context).pop();
   }
 
@@ -74,7 +128,7 @@ class _DiskonInputPageState extends State<DiskonInputPage> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Tipe Diskon',
+                            widget.title,
                             textAlign: TextAlign.center,
                             style: AppTypography.textTheme.headlineMedium?.copyWith(
                               color: AppColors.onSurfaceVariant,
@@ -86,14 +140,14 @@ class _DiskonInputPageState extends State<DiskonInputPage> {
                             label: 'Persen',
                             icon: Icons.percent_rounded,
                             selected: _type == DiscountType.percent,
-                            onTap: () => setState(() => _type = DiscountType.percent),
+                            onTap: () => _setType(DiscountType.percent),
                           ),
                           const SizedBox(height: AppSpacing.x3),
                           _TypeButton(
                             label: 'Rp',
                             icon: Icons.attach_money_rounded,
                             selected: _type == DiscountType.amount,
-                            onTap: () => setState(() => _type = DiscountType.amount),
+                            onTap: () => _setType(DiscountType.amount),
                           ),
                         ],
                       ),
@@ -107,14 +161,20 @@ class _DiskonInputPageState extends State<DiskonInputPage> {
                         Container(
                           color: AppColors.surface,
                           padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.x4, AppSpacing.x4, AppSpacing.x4, AppSpacing.x2,
+                            AppSpacing.x6, AppSpacing.x6, AppSpacing.x6, AppSpacing.x4,
                           ),
                           alignment: Alignment.centerRight,
-                          child: Text(
-                            _value.isEmpty ? '0' : _value,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                            _display,
+                            maxLines: 1,
                             style: AppTypography.textTheme.headlineMedium?.copyWith(
                               color: AppColors.onSurface,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 56,
+                              ),
                             ),
                           ),
                         ),
