@@ -36,8 +36,8 @@ class LaporanAppBar extends StatelessWidget {
       listenable: tabController,
       builder: (context, _) {
         return DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade700,
+          decoration: const BoxDecoration(
+            color: AppColors.secondary,
             border: Border(
               bottom: BorderSide(color: AppColors.secondaryContainer),
             ),
@@ -50,40 +50,30 @@ class LaporanAppBar extends StatelessWidget {
                 vertical: AppSpacing.x3,
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HamburgerButton(),
-                  const SizedBox(width: AppSpacing.x3),
-                  for (var i = 0; i < _tabLabels.length; i++) ...[
-                    if (i > 0) const SizedBox(width: AppSpacing.x2),
-                    _TabButton(
-                      label: _tabLabels[i],
-                      active: tabController.index == i,
-                      onTap: () => tabController.animateTo(i),
+                  _IconButtonSquare(
+                    icon: Icons.menu_rounded,
+                    iconSize: 28,
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                  ),
+                  const SizedBox(width: AppSpacing.x4),
+                  Expanded(
+                    child: _SegmentedTabs(
+                      labels: _tabLabels,
+                      activeIndex: tabController.index,
+                      onTap: tabController.animateTo,
                     ),
-                  ],
-                  const Spacer(),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatDate(date),
-                            style: AppTypography.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.onSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.x2),
-                          _DatePickerButton(currentDate: date),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.x2),
-                      const _RefreshButton(),
-                    ],
+                  ),
+                  const SizedBox(width: AppSpacing.x4),
+                  _DatePill(
+                    label: _formatDate(date),
+                    onTap: () => _pickDate(context, date),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  _IconButtonSquare(
+                    icon: Icons.refresh_rounded,
+                    iconSize: 24,
+                    onTap: () => _refresh(context),
                   ),
                 ],
               ),
@@ -93,29 +83,72 @@ class LaporanAppBar extends StatelessWidget {
       },
     );
   }
+
+  Future<void> _pickDate(BuildContext context, DateTime current) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && context.mounted) {
+      context.read<TransaksiProvider>().changeDate(picked);
+    }
+  }
+
+  void _refresh(BuildContext context) {
+    final tab = DefaultTabController.of(context).index;
+    if (tab == 2) {
+      context.read<LogTransaksiProvider>().load();
+    } else {
+      context.read<TransaksiProvider>()
+        ..load()
+        ..loadWeeklyData();
+    }
+  }
 }
 
-class _HamburgerButton extends StatelessWidget {
+/// Segmented control: satu track dengan tab aktif terisi emas.
+class _SegmentedTabs extends StatelessWidget {
+  const _SegmentedTabs({
+    required this.labels,
+    required this.activeIndex,
+    required this.onTap,
+  });
+
+  final List<String> labels;
+  final int activeIndex;
+  final ValueChanged<int> onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.primary,
-      borderRadius: AppRadius.md,
-      child: InkWell(
-        onTap: () => Scaffold.of(context).openDrawer(),
-        borderRadius: AppRadius.md,
-        child: const SizedBox(
-          width: 45,
-          height: 45,
-          child: Icon(Icons.menu_rounded, color: AppColors.onPrimary, size: 28),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: AppRadius.md,
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              _Segment(
+                label: labels[i],
+                active: activeIndex == i,
+                onTap: () => onTap(i),
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
+class _Segment extends StatelessWidget {
+  const _Segment({
     required this.label,
     required this.active,
     required this.onTap,
@@ -129,8 +162,10 @@ class _TabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x4,
           vertical: AppSpacing.x2,
@@ -138,15 +173,12 @@ class _TabButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? AppColors.primary : Colors.transparent,
           borderRadius: AppRadius.sm,
-          border: Border.all(
-            color: active ? AppColors.primary : Colors.white54,
-          ),
         ),
         child: Text(
           label,
           style: AppTypography.textTheme.labelLarge?.copyWith(
-            color: active ? AppColors.onPrimary : Colors.white,
-            fontWeight: active ? FontWeight.bold : FontWeight.w400,
+            color: active ? AppColors.onPrimary : Colors.white70,
+            fontWeight: active ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
@@ -154,8 +186,12 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _RefreshButton extends StatelessWidget {
-  const _RefreshButton();
+/// Pill tanggal + ikon kalender; menekan membuka date picker.
+class _DatePill extends StatelessWidget {
+  const _DatePill({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -163,25 +199,26 @@ class _RefreshButton extends StatelessWidget {
       color: AppColors.primary,
       borderRadius: AppRadius.md,
       child: InkWell(
-        onTap: () {
-          // Refetch data sesuai tab aktif.
-          final tab = DefaultTabController.of(context).index;
-          if (tab == 2) {
-            context.read<LogTransaksiProvider>().load();
-          } else {
-            context.read<TransaksiProvider>()
-              ..load()
-              ..loadWeeklyData();
-          }
-        },
+        onTap: onTap,
         borderRadius: AppRadius.md,
-        child: const SizedBox(
-          width: 45,
+        child: Container(
           height: 45,
-          child: Icon(
-            Icons.refresh_rounded,
-            color: AppColors.onPrimary,
-            size: 24,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_month_rounded,
+                  color: AppColors.onPrimary, size: 20),
+              const SizedBox(width: AppSpacing.x2),
+              Text(
+                label,
+                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -189,10 +226,16 @@ class _RefreshButton extends StatelessWidget {
   }
 }
 
-class _DatePickerButton extends StatelessWidget {
-  const _DatePickerButton({required this.currentDate});
+class _IconButtonSquare extends StatelessWidget {
+  const _IconButtonSquare({
+    required this.icon,
+    required this.onTap,
+    this.iconSize = 24,
+  });
 
-  final DateTime currentDate;
+  final IconData icon;
+  final VoidCallback onTap;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -200,26 +243,12 @@ class _DatePickerButton extends StatelessWidget {
       color: AppColors.primary,
       borderRadius: AppRadius.md,
       child: InkWell(
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: currentDate,
-            firstDate: DateTime(2020),
-            lastDate: DateTime.now(),
-          );
-          if (picked != null && context.mounted) {
-            context.read<TransaksiProvider>().changeDate(picked);
-          }
-        },
+        onTap: onTap,
         borderRadius: AppRadius.md,
-        child: const SizedBox(
+        child: SizedBox(
           width: 45,
           height: 45,
-          child: Icon(
-            Icons.calendar_month_rounded,
-            color: AppColors.onPrimary,
-            size: 24,
-          ),
+          child: Icon(icon, color: AppColors.onPrimary, size: iconSize),
         ),
       ),
     );

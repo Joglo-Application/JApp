@@ -12,12 +12,15 @@ import '../../../domain/entities/transaksi.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/transaksi_provider.dart';
 
+const _kBlue = Color(0xFF2196F3);
 const _kChartColors = [
   AppColors.primary,
   AppColors.tertiary,
-  Color(0xFF2196F3),
+  _kBlue,
   AppColors.warning,
 ];
+
+String _rp(num v) => 'Rp ${NumberFormat('#,###', 'id_ID').format(v)}';
 
 class TransaksiPenutupanTab extends StatelessWidget {
   const TransaksiPenutupanTab({super.key});
@@ -35,7 +38,6 @@ class TransaksiPenutupanTab extends StatelessWidget {
             _WeeklyChartsRow(),
             SizedBox(height: AppSpacing.x4),
             _DonutsRow(),
-            SizedBox(height: AppSpacing.x4),
           ],
         ),
       ),
@@ -43,7 +45,7 @@ class TransaksiPenutupanTab extends StatelessWidget {
   }
 }
 
-// ── Summary stat cards ────────────────────────────────────────────────────────
+// ── Summary KPI cards ─────────────────────────────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
   const _StatsRow();
@@ -51,28 +53,34 @@ class _StatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TransaksiProvider>();
-    final isLoading = provider.isLoading;
-
-    final penjualan = isLoading
-        ? '-'
-        : NumberFormat('#,###', 'id_ID').format(provider.totalPenjualan);
-    final guest = isLoading ? '-' : '${provider.totalGuest}';
+    final loading = provider.isLoading;
 
     return Row(
       children: [
         Expanded(
-          child: _StatCard(
-            title: 'Total Penjualan',
-            value: penjualan,
-            color: AppColors.error,
+          child: _KpiCard(
+            icon: Icons.payments_rounded,
+            accent: AppColors.tertiary,
+            label: 'Total Penjualan',
+            value: loading ? '—' : _rp(provider.totalPenjualan),
           ),
         ),
         const SizedBox(width: AppSpacing.x4),
         Expanded(
-          child: _StatCard(
-            title: 'Total Guest',
-            value: guest,
-            color: AppColors.warning,
+          child: _KpiCard(
+            icon: Icons.groups_rounded,
+            accent: _kBlue,
+            label: 'Total Guest',
+            value: loading ? '—' : '${provider.totalGuest}',
+          ),
+        ),
+        const SizedBox(width: AppSpacing.x4),
+        Expanded(
+          child: _KpiCard(
+            icon: Icons.shopping_bag_rounded,
+            accent: AppColors.primary,
+            label: 'Item Terjual',
+            value: loading ? '—' : '${provider.totalItemQty}',
           ),
         ),
       ],
@@ -80,45 +88,113 @@ class _StatsRow extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.title,
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.icon,
+    required this.accent,
+    required this.label,
     required this.value,
-    required this.color,
   });
 
-  final String title;
+  final IconData icon;
+  final Color accent;
+  final String label;
   final String value;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x5,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.x4),
       decoration: BoxDecoration(
-        color: color,
+        color: AppColors.surface,
         borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Icon(icon, color: accent, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            value,
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Section wrapper card ──────────────────────────────────────────────────────
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.x2),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: AppSpacing.x4),
+          child,
         ],
       ),
     );
@@ -149,24 +225,29 @@ class _WeeklyChartsRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _LineChartCard(
+          child: _SectionCard(
+            icon: Icons.show_chart_rounded,
             title: 'Penjualan berdasarkan Tanggal',
-            spots: penjualanSpots,
-            xLabels: xLabels,
-            isLoading: isLoading,
-            formatY: (v) => v == 0
-                ? '0'
-                : NumberFormat('#,###', 'id_ID').format(v),
+            child: _LineChart(
+              spots: penjualanSpots,
+              xLabels: xLabels,
+              isLoading: isLoading,
+              formatY: (v) =>
+                  v == 0 ? '0' : NumberFormat('#,###', 'id_ID').format(v),
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.x4),
         Expanded(
-          child: _LineChartCard(
+          child: _SectionCard(
+            icon: Icons.stacked_line_chart_rounded,
             title: 'Tamu berdasarkan Tanggal',
-            spots: guestSpots,
-            xLabels: xLabels,
-            isLoading: isLoading,
-            formatY: (v) => v.toInt().toString(),
+            child: _LineChart(
+              spots: guestSpots,
+              xLabels: xLabels,
+              isLoading: isLoading,
+              formatY: (v) => v.toInt().toString(),
+            ),
           ),
         ),
       ],
@@ -174,16 +255,14 @@ class _WeeklyChartsRow extends StatelessWidget {
   }
 }
 
-class _LineChartCard extends StatelessWidget {
-  const _LineChartCard({
-    required this.title,
+class _LineChart extends StatelessWidget {
+  const _LineChart({
     required this.spots,
     required this.xLabels,
     required this.isLoading,
     required this.formatY,
   });
 
-  final String title;
   final List<FlSpot> spots;
   final List<String> xLabels;
   final bool isLoading;
@@ -191,47 +270,24 @@ class _LineChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: AppRadius.toShape(AppRadius.md),
-      color: AppColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.x4,
-          AppSpacing.x4,
-          AppSpacing.x3,
-          AppSpacing.x3,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: AppTypography.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.x4),
-            SizedBox(
-              height: 220,
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : spots.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Tidak ada data',
-                            style: AppTypography.textTheme.bodySmall?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      : _buildChart(),
-            ),
-          ],
-        ),
-      ),
+    return SizedBox(
+      height: 220,
+      child: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : spots.isEmpty
+              ? _emptyChart()
+              : _buildChart(),
     );
   }
+
+  Widget _emptyChart() => Center(
+        child: Text(
+          'Tidak ada data',
+          style: AppTypography.textTheme.bodySmall?.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      );
 
   Widget _buildChart() {
     final barData = LineChartBarData(
@@ -283,10 +339,7 @@ class _LineChartCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     xLabels[idx],
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                 );
               },
@@ -351,20 +404,26 @@ class _DonutsRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _DonutCard(
-            title: 'Top Penjualan Produk',
-            chartTitle: 'Top 3 Penjualan Produk',
-            items: produkItems,
-            isLoading: provider.isLoading,
+          child: _SectionCard(
+            icon: Icons.donut_large_rounded,
+            title: 'Top 3 Penjualan Produk',
+            child: _Donut(
+              items: produkItems,
+              isLoading: provider.isLoading,
+              formatValue: (v) => '${v.toInt()} pcs',
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.x4),
         Expanded(
-          child: _DonutCard(
-            title: 'Top Penjualan Kategori Produk',
-            chartTitle: 'Top 3 Penjualan Kategori',
-            items: topKategori,
-            isLoading: provider.isLoading,
+          child: _SectionCard(
+            icon: Icons.pie_chart_rounded,
+            title: 'Top 3 Penjualan Kategori',
+            child: _Donut(
+              items: topKategori,
+              isLoading: provider.isLoading,
+              formatValue: _rp,
+            ),
           ),
         ),
       ],
@@ -406,132 +465,84 @@ class _DonutsRow extends StatelessWidget {
       .join(' ');
 }
 
-class _DonutCard extends StatelessWidget {
-  const _DonutCard({
-    required this.title,
-    required this.chartTitle,
+class _Donut extends StatelessWidget {
+  const _Donut({
     required this.items,
     required this.isLoading,
+    required this.formatValue,
   });
 
-  final String title;
-  final String chartTitle;
   final List<(String, double, Color)> items;
   final bool isLoading;
+  final String Function(double) formatValue;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: AppRadius.toShape(AppRadius.md),
-      clipBehavior: Clip.antiAlias,
-      color: AppColors.surface,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (isLoading) {
+      return const SizedBox(
+        height: 176,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (items.isEmpty) {
+      return SizedBox(
+        height: 176,
+        child: Center(
+          child: Text(
+            'Tidak ada data',
+            style: AppTypography.textTheme.bodySmall?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final total = items.fold<double>(0, (s, e) => s + e.$2);
+
+    return SizedBox(
+      height: 176,
+      child: Row(
         children: [
-          ColoredBox(
-            color: AppColors.primary,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.x4,
-                vertical: AppSpacing.x4,
-              ),
-              child: Text(
-                title,
-                style: AppTypography.textTheme.titleMedium?.copyWith(
-                  color: AppColors.onPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
+          Expanded(
+            flex: 4,
+            child: PieChart(
+              PieChartData(
+                centerSpaceRadius: 42,
+                sectionsSpace: 3,
+                sections: items
+                    .map(
+                      (item) => PieChartSectionData(
+                        value: item.$2,
+                        color: item.$3,
+                        title: '',
+                        radius: 26,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.x4),
+          const SizedBox(width: AppSpacing.x4),
+          Expanded(
+            flex: 6,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  chartTitle,
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                for (var i = 0; i < items.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: i == items.length - 1 ? 0 : AppSpacing.x3,
+                    ),
+                    child: _LegendRow(
+                      rank: i + 1,
+                      label: items[i].$1,
+                      valueText: formatValue(items[i].$2),
+                      pct: total == 0 ? 0 : items[i].$2 / total,
+                      color: items[i].$3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.x4),
-                SizedBox(
-                  height: 160,
-                  child: isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : items.isEmpty
-                          ? Center(
-                              child: Text(
-                                'Tidak ada data',
-                                style:
-                                    AppTypography.textTheme.bodySmall?.copyWith(
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                            )
-                          : Row(
-                              children: [
-                                Expanded(
-                                  flex: 5,
-                                  child: PieChart(
-                                    PieChartData(
-                                      centerSpaceRadius: 40,
-                                      sectionsSpace: 3,
-                                      sections: items
-                                          .map(
-                                            (item) => PieChartSectionData(
-                                              value: item.$2,
-                                              color: item.$3,
-                                              title: '',
-                                              radius: 55,
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.x3),
-                                Expanded(
-                                  flex: 4,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: items
-                                        .map(
-                                          (item) => Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: AppSpacing.x2,
-                                            ),
-                                            child: _SideLegendItem(
-                                              label: item.$1,
-                                              value: item.$2,
-                                              color: item.$3,
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                ),
-                if (items.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.x2),
-                  Wrap(
-                    spacing: AppSpacing.x4,
-                    runSpacing: AppSpacing.x1,
-                    children: items
-                        .map((item) => _BottomLegendItem(
-                              label: item.$1,
-                              color: item.$3,
-                            ))
-                        .toList(),
-                  ),
-                ],
               ],
             ),
           ),
@@ -541,62 +552,53 @@ class _DonutCard extends StatelessWidget {
   }
 }
 
-class _SideLegendItem extends StatelessWidget {
-  const _SideLegendItem({
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.rank,
     required this.label,
-    required this.value,
+    required this.valueText,
+    required this.pct,
     required this.color,
   });
 
+  final int rank;
   final String label;
-  final double value;
+  final String valueText;
+  final double pct;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          width: 10,
+          height: 10,
+          margin: const EdgeInsets.only(top: 4),
+          decoration: BoxDecoration(color: color, borderRadius: AppRadius.xs),
+        ),
+        const SizedBox(width: AppSpacing.x2),
         Expanded(
-          child: Text(
-            '${value.toStringAsFixed(1)} - $label',
-            style: AppTypography.textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.x1),
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, borderRadius: AppRadius.xs),
-        ),
-      ],
-    );
-  }
-}
-
-class _BottomLegendItem extends StatelessWidget {
-  const _BottomLegendItem({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, borderRadius: AppRadius.xs),
-        ),
-        const SizedBox(width: AppSpacing.x1),
-        Text(
-          label,
-          style: AppTypography.textTheme.labelSmall?.copyWith(
-            color: AppColors.onSurfaceVariant,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$rank. $label',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              Text(
+                '$valueText · ${(pct * 100).toStringAsFixed(0)}%',
+                style: AppTypography.textTheme.labelSmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
       ],

@@ -3,11 +3,44 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../../core/theme/app_colors.dart';
+import '../../../../../../core/theme/app_radius.dart';
 import '../../../../../../core/theme/app_spacing.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../domain/entities/log_transaksi_entry.dart';
 import '../../providers/log_transaksi_provider.dart';
 import 'laporan_date_panel.dart';
+
+/// Visual style (label, warna, ikon) untuk sebuah tipe log.
+typedef _TipeStyle = ({String label, Color color, IconData icon});
+
+_TipeStyle _styleFor(String tipe) {
+  switch (tipe.toUpperCase()) {
+    case 'ADD_QTY':
+    case 'ADD_ITEM':
+      return (label: 'Tambah Item', color: AppColors.tertiary, icon: Icons.add_rounded);
+    case 'VOID_ITEM':
+    case 'REMOVE_ITEM':
+      return (label: 'Void Item', color: AppColors.error, icon: Icons.remove_rounded);
+    case 'PAYMENT':
+    case 'BAYAR':
+      return (label: 'Pembayaran', color: AppColors.primary, icon: Icons.payments_rounded);
+    case 'RETURN':
+    case 'RETUR':
+    case 'REFUND':
+      return (label: 'Retur', color: AppColors.warning, icon: Icons.undo_rounded);
+    case 'DISCOUNT':
+    case 'DISKON':
+      return (label: 'Diskon', color: AppColors.primary, icon: Icons.local_offer_rounded);
+    default:
+      return (label: _humanize(tipe), color: AppColors.onSurfaceVariant, icon: Icons.receipt_long_rounded);
+  }
+}
+
+String _humanize(String raw) => raw
+    .split(RegExp(r'[_\s]+'))
+    .where((w) => w.isNotEmpty)
+    .map((w) => '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+    .join(' ');
 
 class LaporanLogPanel extends StatelessWidget {
   const LaporanLogPanel({super.key});
@@ -15,36 +48,60 @@ class LaporanLogPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LogTransaksiProvider>();
+    // Terbaru di paling atas.
+    final items = [...provider.filtered]
+      ..sort((a, b) => b.waktu.compareTo(a.waktu));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _LogHeader(
-          tipeFilter: provider.tipeFilter,
-          availableTipes: provider.availableTipes,
-        ),
-        Expanded(
-          child: provider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : provider.filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Tidak ada log transaksi',
-                        style: AppTypography.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+    return ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _LogHeader(
+            tipeFilter: provider.tipeFilter,
+            count: items.length,
+          ),
+          Expanded(
+            child: provider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : items.isEmpty
+                    ? _EmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(AppSpacing.x4),
+                        itemCount: items.length,
+                        itemBuilder: (context, i) => Padding(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                i == items.length - 1 ? 0 : AppSpacing.x3,
+                          ),
+                          child: _LogEntryTile(entry: items[i]),
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.x2,
-                      ),
-                      itemCount: provider.filtered.length,
-                      itemBuilder: (context, i) =>
-                          _LogEntryTile(entry: provider.filtered[i]),
-                    ),
-        ),
-      ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.history_toggle_off_rounded,
+              size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: AppSpacing.x3),
+          Text(
+            'Tidak ada log transaksi',
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -52,16 +109,14 @@ class LaporanLogPanel extends StatelessWidget {
 // ── Header with filter ────────────────────────────────────────────────────────
 
 class _LogHeader extends StatelessWidget {
-  const _LogHeader({
-    required this.tipeFilter,
-    required this.availableTipes,
-  });
+  const _LogHeader({required this.tipeFilter, required this.count});
 
   final String? tipeFilter;
-  final Set<String> availableTipes;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
+    final label = tipeFilter == null ? 'Semua Tipe' : _styleFor(tipeFilter!).label;
     return SizedBox(
       height: LaporanDatePanel.headerHeight,
       child: ColoredBox(
@@ -70,31 +125,60 @@ class _LogHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
           child: Row(
             children: [
-              Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => _showTipeFilter(context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(AppSpacing.x2),
-                    child: Icon(
-                      Icons.sort_rounded,
-                      color: AppColors.onSurface,
-                      size: 22,
-                    ),
+              const Icon(Icons.receipt_long_rounded,
+                  color: Colors.white, size: 18),
+              const SizedBox(width: AppSpacing.x2),
+              Text(
+                'Log Transaksi',
+                style: AppTypography.textTheme.titleSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.x2),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: AppRadius.full,
+                ),
+                child: Text(
+                  '$count',
+                  style: AppTypography.textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.x3),
-              Expanded(
-                child: GestureDetector(
+              const Spacer(),
+              // Filter pill
+              Material(
+                color: Colors.white,
+                borderRadius: AppRadius.sm,
+                child: InkWell(
                   onTap: () => _showTipeFilter(context),
-                  child: Text(
-                    tipeFilter ?? 'Tipe Log Transaksi',
-                    style: AppTypography.textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  borderRadius: AppRadius.sm,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x3, vertical: AppSpacing.x2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.filter_list_rounded,
+                            color: AppColors.onSurface, size: 18),
+                        const SizedBox(width: AppSpacing.x2),
+                        Text(
+                          label,
+                          style:
+                              AppTypography.textTheme.labelMedium?.copyWith(
+                            color: AppColors.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down_rounded,
+                            color: AppColors.onSurfaceVariant, size: 20),
+                      ],
                     ),
                   ),
                 ),
@@ -132,90 +216,94 @@ class _TipeFilterDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = [('', 'Semua Tipe'), ...types.map((t) => (t, t))];
+    final options = [('', 'Semua Tipe'), ...types.map((t) => (t, _styleFor(t).label))];
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.lg),
+      clipBehavior: Clip.antiAlias,
       insetPadding: EdgeInsets.symmetric(
         horizontal: MediaQuery.sizeOf(context).width * 0.3,
         vertical: AppSpacing.x8,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ColoredBox(
-              color: AppColors.tertiary,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.x4,
-                  vertical: AppSpacing.x3,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.filter_list_rounded,
-                        color: Colors.white, size: 20),
-                    const SizedBox(width: AppSpacing.x3),
-                    Expanded(
-                      child: Text(
-                        'Tipe Log',
-                        style: AppTypography.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ColoredBox(
+            color: AppColors.tertiary,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.x4,
+                vertical: AppSpacing.x3,
               ),
-            ),
-            ColoredBox(
-              color: AppColors.surface,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
                 children: [
-                  for (var i = 0; i < options.length; i++) ...[
-                    if (i > 0)
-                      const Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: AppColors.outlineVariant),
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(options[i].$1),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.x4,
-                          vertical: AppSpacing.x4,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                options[i].$2,
-                                style: AppTypography.textTheme.bodyMedium,
-                              ),
-                            ),
-                            if ((options[i].$1 == '') == (selected == null) ||
-                                options[i].$1 == selected)
-                              const Icon(Icons.check_rounded,
-                                  size: 18, color: AppColors.tertiary),
-                          ],
-                        ),
+                  const Icon(Icons.filter_list_rounded,
+                      color: Colors.white, size: 20),
+                  const SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: Text(
+                      'Filter Tipe Log',
+                      style: AppTypography.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Flexible(
+            child: ColoredBox(
+              color: AppColors.surface,
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: options.length,
+                separatorBuilder: (_, _) => const Divider(
+                    height: 1, thickness: 1, color: AppColors.outlineVariant),
+                itemBuilder: (context, i) {
+                  final opt = options[i];
+                  final isSelected = (opt.$1 == '') == (selected == null) ||
+                      opt.$1 == selected;
+                  return InkWell(
+                    onTap: () => Navigator.of(context).pop(opt.$1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                        vertical: AppSpacing.x4,
+                      ),
+                      child: Row(
+                        children: [
+                          if (opt.$1.isNotEmpty) ...[
+                            Icon(_styleFor(opt.$1).icon,
+                                size: 18, color: _styleFor(opt.$1).color),
+                            const SizedBox(width: AppSpacing.x3),
+                          ],
+                          Expanded(
+                            child: Text(
+                              opt.$2,
+                              style: AppTypography.textTheme.bodyMedium,
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_rounded,
+                                size: 18, color: AppColors.tertiary),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -228,58 +316,112 @@ class _LogEntryTile extends StatelessWidget {
 
   final LogTransaksiEntry entry;
 
-  static const _days = [
-    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
-  ];
   static const _months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
-
-  String _formatWaktu(DateTime dt) {
-    final day = _days[dt.weekday - 1];
-    final month = _months[dt.month - 1];
-    final time = DateFormat('HH:mm').format(dt);
-    return '$day, ${dt.day} $month ${dt.year} $time';
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x4,
-        vertical: AppSpacing.x3,
+    final style = _styleFor(entry.tipe);
+    final dt = entry.waktu;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.outlineVariant),
       ),
+      padding: const EdgeInsets.all(AppSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Type avatar
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: style.color.withValues(alpha: 0.12),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Icon(style.icon, size: 20, color: style.color),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  entry.tipe,
-                  style: AppTypography.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: style.color.withValues(alpha: 0.12),
+                        borderRadius: AppRadius.full,
+                      ),
+                      child: Text(
+                        style.label,
+                        style: AppTypography.textTheme.labelSmall?.copyWith(
+                          color: style.color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Flexible(
+                      child: Text(
+                        entry.kodeTransaksi,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.x1),
-                Text(
-                  '${entry.kodeTransaksi} - ${entry.namaKasir}',
-                  style: AppTypography.textTheme.bodySmall,
-                ),
-                const SizedBox(height: AppSpacing.x1),
+                const SizedBox(height: AppSpacing.x2),
                 Text(
                   entry.deskripsi,
-                  style: AppTypography.textTheme.bodySmall,
+                  style: AppTypography.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Row(
+                  children: [
+                    Icon(Icons.person_outline_rounded,
+                        size: 13, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text(
+                      entry.namaKasir,
+                      style: AppTypography.textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.x3),
-          Text(
-            _formatWaktu(entry.waktu),
-            style: AppTypography.textTheme.titleSmall,
+          // Time
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                DateFormat('HH:mm').format(dt),
+                style: AppTypography.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${dt.day} ${_months[dt.month - 1]} ${dt.year}',
+                style: AppTypography.textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
